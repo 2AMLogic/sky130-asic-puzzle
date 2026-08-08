@@ -56,3 +56,7 @@ it is not embargoed, and it should stay green independently of the puzzle.
 Same standard as the design canaries: a claim about what the circuit does is backed by a
 simulation that a reader can re-run, not by inference from the layout. State what was
 actually executed.
+
+<!-- BEGIN LOOM ORCHESTRATION -->
+This repository uses [Loom](https://github.com/rjwalters/loom) for AI-powered development orchestration — see the Loom repository for the full guide (roles, labels, worktrees, configuration). When installed, Loom also writes a locally-substituted copy of that guide to `.loom/CLAUDE.md`.
+<!-- END LOOM ORCHESTRATION -->
