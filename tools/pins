@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""Per-cell pin abstracts for a GDS stream's `sky130_fd_sc_hd__*` cells.
+
+    tools/pins <path.gds> [--library-prefix PREFIX]... [-o DIR]
+               [--keep-going] [--pdk-crosscheck]
+
+For every distinct library cell *definition* used by the stream, builds a
+pin abstract -- pin name -> (layer, polygons in cell-local coordinates) --
+by associating each pin-name label with the drawn shape it lands inside.
+See `tools/gds_pins.py` for the algorithm and `tools/README.md` for why no
+PDK is required.
+
+Resolution is total-or-loud: a cell whose pins cannot be fully resolved from
+the stream is a hard error naming the cell and the unresolved pin (exit 1),
+never a silent skip or an inferred pin. `--keep-going` collects every such
+error across all cells instead of stopping at the first, for triage; the
+run is still reported as failed if any cell was unresolved.
+
+`--pdk-crosscheck` is optional, off by default, and never required for a
+green run: when a sky130 PDK happens to be resolvable, it additionally
+compares the derived pin *names* per cell against the PDK's own behavioural
+Verilog and reports (but does not fail on) disagreement.
+
+Output is one JSON document per library (grouped by the `<library>__`
+prefix common to the cell names actually present), keyed by cell name. With
+a single library present (the common case), the document is printed to
+stdout; pass `-o DIR` to always write `<DIR>/pins-<library>.json` files
+instead (required if more than one library is present).
+
+Exit status: 0 fully resolved, 1 one or more cells unresolved, 2 usage/read
+error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from collections import defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import klayout_env  # noqa: E402
+
+EXIT_OK = 0
+EXIT_UNRESOLVED = 1
+EXIT_ERROR = 2
+
+
+def _library_of(cell_name: str) -> str:
+    prefix, sep, _rest = cell_name.partition("__")
+    return prefix if sep else cell_name
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="tools/pins",
+        description="Resolve per-cell pin abstracts (name -> layer + polygons) from a GDS stream.",
+    )
+    parser.add_argument("gds", help="path to a GDSII stream (e.g. puzzle/puzzle.gds)")
+    parser.add_argument(
+        "--library-prefix",
+        action="append",
+        default=None,
+        metavar="PREFIX",
+        help="only resolve cells whose name starts with PREFIX__ (default: every "
+        "library found in the stream)",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        metavar="DIR",
+        help="write one <DIR>/pins-<library>.json per library instead of stdout "
+        "(required if the stream uses more than one library)",
+    )
+    parser.add_argument(
+        "--keep-going",
+        action="store_true",
+        help="resolve every cell and report every unresolved pin, instead of stopping "
+        "at the first (exit status is unaffected: still 1 if anything is unresolved)",
+    )
+    parser.add_argument(
+        "--pdk-crosscheck",
+        action="store_true",
+        help="also compare derived pin names against a resolvable sky130 PDK's own "
+        "behavioural Verilog (off by default; never required for a green run)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        klayout_env.ensure_klayout()
+    except klayout_env.KlayoutResolutionError as exc:
+        print(f"tools/pins: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    import klayout.db as db
+
+    import gds_pins
+
+    if not os.path.isfile(args.gds):
+        print(f"tools/pins: no such file: {args.gds}", file=sys.stderr)
+        return EXIT_ERROR
+
+    layout = db.Layout()
+    try:
+        layout.read(args.gds)
+    except Exception as exc:
+        print(f"tools/pins: could not read {args.gds!r}: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    cell_names = gds_pins.library_cell_names(layout)
+    if args.library_prefix:
+        wanted = set(args.library_prefix)
+        cell_names = [c for c in cell_names if _library_of(c) in wanted]
+        missing = wanted - {_library_of(c) for c in cell_names}
+        if missing:
+            print(
+                f"tools/pins: no cells found for library prefix(es): {', '.join(sorted(missing))}",
+                file=sys.stderr,
+            )
+            return EXIT_ERROR
+
+    if not cell_names:
+        print(f"tools/pins: no library cells found in {args.gds!r}", file=sys.stderr)
+        return EXIT_ERROR
+
+    by_library: dict[str, dict[str, gds_pins.CellPins]] = defaultdict(dict)
+    errors: list[str] = []
+    for name in cell_names:
+        cell = layout.cell(layout.cell_by_name(name))
+        try:
+            resolved = gds_pins.resolve_cell_pins(layout, cell)
+        except gds_pins.PinResolutionError as exc:
+            errors.append(str(exc))
+            if not args.keep_going:
+                break
+            continue
+        by_library[_library_of(name)][name] = resolved
+
+    if errors:
+        for err in errors:
+            print(f"tools/pins: UNRESOLVED: {err}", file=sys.stderr)
+        print(
+            f"tools/pins: {len(errors)} pin(s) could not be resolved from the stream "
+            "-- refusing to emit a partial abstract for the affected cell(s)",
+            file=sys.stderr,
+        )
+        return EXIT_UNRESOLVED
+
+    crosscheck_by_library: dict[str, dict] = {}
+    if args.pdk_crosscheck:
+        import pdk_crosscheck
+
+        for library, cells in by_library.items():
+            pin_name_sets = {cell: set(cp.pins) for cell, cp in cells.items()}
+            try:
+                result = pdk_crosscheck.crosscheck(pin_name_sets)
+            except pdk_crosscheck.PdkResolutionError as exc:
+                print(f"tools/pins: --pdk-crosscheck skipped for {library}: {exc}", file=sys.stderr)
+                continue
+            crosscheck_by_library[library] = result.to_json()
+            if not result.to_json()["agreement"]:
+                print(
+                    f"tools/pins: --pdk-crosscheck found disagreement for {library} "
+                    "(see JSON output's pdk_crosscheck section) -- not fatal",
+                    file=sys.stderr,
+                )
+
+    documents: dict[str, dict] = {}
+    for library, cells in sorted(by_library.items()):
+        doc = {
+            "schema": "sky130-asic-puzzle/pins@1",
+            "source": args.gds,
+            "library": library,
+            "cells": {name: cp.to_json() for name, cp in sorted(cells.items())},
+        }
+        if library in crosscheck_by_library:
+            doc["pdk_crosscheck"] = crosscheck_by_library[library]
+        documents[library] = doc
+
+    if args.output:
+        os.makedirs(args.output, exist_ok=True)
+        for library, doc in documents.items():
+            path = os.path.join(args.output, f"pins-{library}.json")
+            with open(path, "w", encoding="utf-8") as fh:
+                json.dump(doc, fh, indent=2)
+                fh.write("\n")
+            print(f"tools/pins: wrote {path}", file=sys.stderr)
+    elif len(documents) == 1:
+        (doc,) = documents.values()
+        print(json.dumps(doc, indent=2))
+    else:
+        print(
+            "tools/pins: more than one library present "
+            f"({', '.join(sorted(documents))}) -- pass -o DIR to write one file each",
+            file=sys.stderr,
+        )
+        return EXIT_ERROR
+
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())

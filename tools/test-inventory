@@ -1,0 +1,244 @@
+#!/usr/bin/env python3
+"""Self-test for `tools/gds_inventory.py` (classification + census).
+
+Run with no arguments:  `tools/test-inventory`
+
+Two families of check:
+
+* **Synthetic** -- a tiny in-memory GDS layout built with KLayout's own API
+  (no file on disk), covering the classification boundary cases: a `VIA_*`
+  cell, a fill cell, a sequential cell, an ordinary logic cell, and a name
+  that matches neither pattern (must land in `other`, never silently folded
+  into `logic`). These need no external files and no PDK.
+* **Real-file smoke test** -- `tools/inventory` against
+  `puzzle/warmup/04_final.gds` and `puzzle/puzzle.gds`, checked against the
+  exact counts recorded in `README.md` / `spec/puzzle.md` (issue #1's
+  acceptance criteria). `puzzle/` is gitignored, so these are SKIPPED with a
+  pointer to `scripts/fetch-puzzle.sh` when the files are not present --
+  reported as SKIP, never silently passed.
+
+Both families are also SKIPPED, loudly, if no interpreter with an importable
+`klayout` module can be found (`tools/klayout_env.py`) -- this test needs
+`klayout.db` to build/read a layout at all.
+
+Exit status: 0 if every check that ran passed, 1 otherwise.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+
+INVENTORY = os.path.join(HERE, "inventory")
+WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
+PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
+
+PASS, FAIL, SKIP = "pass", "FAIL", "skip"
+results: list[tuple[str, str, str]] = []
+
+
+def record(name: str, status: str, detail: str = "") -> None:
+    results.append((name, status, detail))
+    marker = {"pass": "ok", "FAIL": "FAIL", "skip": "skip"}[status]
+    print(f"  {marker:6s} {name}" + (f" -- {detail}" if detail else ""))
+
+
+def check(name: str, condition: bool, detail: str = "") -> None:
+    record(name, PASS if condition else FAIL, detail)
+
+
+try:
+    import klayout_env
+
+    klayout_env.ensure_klayout()
+    import klayout.db as db
+
+    KLAYOUT_OK = True
+except Exception as exc:  # klayout_env.KlayoutResolutionError, or import failure
+    KLAYOUT_OK = False
+    KLAYOUT_SKIP_REASON = str(exc)
+
+
+# ---------------------------------------------------------------------------
+# synthetic
+# ---------------------------------------------------------------------------
+
+
+def _make_synthetic_top():
+    """A top cell with one instance each of: via, fill, sequential, logic, other."""
+    layout = db.Layout()
+    layout.dbu = 0.001
+    top = layout.create_cell("synthetic_top")
+
+    def leaf(name: str) -> "db.Cell":
+        cell = layout.create_cell(name)
+        li = layout.layer(235, 4)  # arbitrary drawing layer, just needs one shape
+        cell.shapes(li).insert(db.Box(0, 0, 1000, 1000))
+        return cell
+
+    names = [
+        "VIA_L1M1_PR_MR",
+        "sky130_fd_sc_hd__decap_3",
+        "sky130_fd_sc_hd__dfrtp_2",
+        "sky130_fd_sc_hd__nand2_2",
+        "INTERNAL_3",
+    ]
+    for i, name in enumerate(names):
+        cell = leaf(name)
+        top.insert(db.CellInstArray(cell.cell_index(), db.Trans(db.Vector(i * 2000, 0))))
+    return layout, top
+
+
+def test_synthetic_classification() -> None:
+    import gds_inventory
+    from gds_layers import InstanceClass, classify
+
+    check("classify: VIA_* -> via", classify("VIA_L1M1_PR_MR") == InstanceClass.VIA)
+    check(
+        "classify: tapvpwrvgnd/decap -> fill",
+        classify("sky130_fd_sc_hd__decap_3") == InstanceClass.FILL
+        and classify("sky130_fd_sc_hd__tapvpwrvgnd_1") == InstanceClass.FILL,
+    )
+    check(
+        "classify: dfrtp/dfstp/dfxtp -> sequential",
+        classify("sky130_fd_sc_hd__dfrtp_2") == InstanceClass.SEQUENTIAL
+        and classify("sky130_fd_sc_hd__dfstp_2") == InstanceClass.SEQUENTIAL
+        and classify("sky130_fd_sc_hd__dfxtp_2") == InstanceClass.SEQUENTIAL,
+    )
+    check(
+        "classify: ordinary gate -> logic",
+        classify("sky130_fd_sc_hd__nand2_2") == InstanceClass.LOGIC,
+    )
+    check(
+        "classify: unrecognised name -> other, not logic",
+        classify("INTERNAL_3") == InstanceClass.OTHER,
+    )
+
+    layout, _top = _make_synthetic_top()
+    result = gds_inventory.census(layout, source="<synthetic>")
+    check("census: total instances", result.total_instances == 5, f"got {result.total_instances}")
+    check(
+        "census: one instance per class (synthetic fixture)",
+        result.by_class
+        == {
+            InstanceClass.VIA: 1,
+            InstanceClass.FILL: 1,
+            InstanceClass.SEQUENTIAL: 1,
+            InstanceClass.LOGIC: 1,
+            InstanceClass.OTHER: 1,
+        },
+        f"got {result.by_class}",
+    )
+    check(
+        "census: unrecognised cell surfaced by name, not swallowed",
+        result.other_cells == ("INTERNAL_3",),
+        f"got {result.other_cells}",
+    )
+    check(
+        "census: distinct_library_cells counts only sky130_fd_sc_hd__* (not via/other)",
+        result.distinct_library_cells == 3,
+        f"got {result.distinct_library_cells}",
+    )
+
+
+# ---------------------------------------------------------------------------
+# real-file smoke test
+# ---------------------------------------------------------------------------
+
+
+def _run_inventory(gds_path: str) -> dict:
+    import json
+
+    proc = subprocess.run(
+        [sys.executable, INVENTORY, gds_path, "--format", "json"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError(f"tools/inventory exited {proc.returncode}: {proc.stderr}")
+    return json.loads(proc.stdout)
+
+
+def test_warmup_counts() -> None:
+    if not os.path.isfile(WARMUP_GDS):
+        record("warmup counts", SKIP, "puzzle/warmup/04_final.gds missing -- run scripts/fetch-puzzle.sh")
+        return
+    result = _run_inventory(WARMUP_GDS)
+    check("warmup: total instances == 1099", result["total_instances"] == 1099, str(result["total_instances"]))
+    check(
+        "warmup: logic + sequential == 79",
+        result["by_class"].get("logic", 0) + result["by_class"].get("sequential", 0) == 79,
+    )
+    check(
+        "warmup: tapvpwrvgnd_1 count == 93",
+        result["by_cell"].get("sky130_fd_sc_hd__tapvpwrvgnd_1") == 93,
+    )
+    check("warmup: decap_3 count == 58", result["by_cell"].get("sky130_fd_sc_hd__decap_3") == 58)
+    check(
+        "warmup: top ports == A B S clk en rst_n",
+        result["top_ports"]["signal (met3.label, 70/5)"] == ["A", "B", "S", "clk", "en", "rst_n"],
+    )
+
+
+def test_puzzle_counts() -> None:
+    if not os.path.isfile(PUZZLE_GDS):
+        record("puzzle counts", SKIP, "puzzle/puzzle.gds missing -- run scripts/fetch-puzzle.sh")
+        return
+    result = _run_inventory(PUZZLE_GDS)
+    check("puzzle: total instances == 9875", result["total_instances"] == 9875, str(result["total_instances"]))
+    check("puzzle: fill (tap+decap) == 880", result["by_class"].get("fill", 0) == 880)
+    check(
+        "puzzle: distinct library cells == 69",
+        result["distinct_library_cells"] == 69,
+        str(result["distinct_library_cells"]),
+    )
+    check(
+        "puzzle: 92 flip-flops split 84/4/4 across dfrtp/dfstp/dfxtp",
+        (
+            result["by_cell"].get("sky130_fd_sc_hd__dfrtp_2") == 84
+            and result["by_cell"].get("sky130_fd_sc_hd__dfstp_2") == 4
+            and result["by_cell"].get("sky130_fd_sc_hd__dfxtp_2") == 4
+        ),
+    )
+    check(
+        "puzzle: top ports include I, O[0..7], clk, enable, rst_n, success",
+        result["top_ports"]["signal (met3.label, 70/5)"]
+        == ["I", "O[0]", "O[1]", "O[2]", "O[3]", "O[4]", "O[5]", "O[6]", "O[7]", "clk", "enable", "rst_n", "success"],
+    )
+
+
+def main() -> int:
+    print("tools/test-inventory")
+    print("=" * 60)
+
+    if not KLAYOUT_OK:
+        print(f"  {SKIP:6s} all checks -- klayout not importable: {KLAYOUT_SKIP_REASON}")
+        print("=" * 60)
+        print("SKIPPED (no klayout)")
+        return 0
+
+    print("\n1. Synthetic classification + census")
+    test_synthetic_classification()
+
+    print("\n2. Real-file smoke test (warm-up)")
+    test_warmup_counts()
+
+    print("\n3. Real-file smoke test (puzzle)")
+    test_puzzle_counts()
+
+    print("=" * 60)
+    failed = [r for r in results if r[1] == FAIL]
+    skipped = [r for r in results if r[1] == SKIP]
+    passed = [r for r in results if r[1] == PASS]
+    print(f"{len(passed)} passed, {len(failed)} failed, {len(skipped)} skipped")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
