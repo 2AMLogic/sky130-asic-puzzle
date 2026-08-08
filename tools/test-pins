@@ -1,0 +1,253 @@
+#!/usr/bin/env python3
+"""Self-test for `tools/gds_pins.py` (label-to-shape pin association).
+
+Run with no arguments:  `tools/test-pins`
+
+Three families of check:
+
+* **Synthetic, well-formed** -- a tiny in-memory cell built with KLayout's
+  own API (no file on disk) carrying one pin on each of the four label
+  sources (`gds_layers.LABEL_SOURCES`), including the VNB case whose pin
+  shape lives on a *different* GDS layer number (122) than its label (64) --
+  the one case the association logic cannot get right by assuming "same
+  layer number".
+* **Synthetic, redundant label** -- a second label occurrence for the same
+  pin name that does *not* land inside any `.pin` shape (observed for real
+  on `sky130_fd_sc_hd__and2b_2`). Must still resolve from the occurrence
+  that does, not raise and not silently drop the shape it did find.
+* **Synthetic, deliberately corrupted** -- a label with *no* containing
+  `.pin` shape at all on any occurrence. Must raise `PinResolutionError`
+  naming both the cell and the specific pin -- this is what proves the
+  total-or-loud contract (issue #1) is enforced, not just documented.
+* **Real-file smoke test** -- `tools/pins` against every `sky130_fd_sc_hd`
+  cell used by `puzzle/warmup/04_final.gds` and `puzzle/puzzle.gds`, asserting
+  zero unresolved pins (issue #1's acceptance criterion). SKIPPED, loudly,
+  when `puzzle/` is absent.
+
+All of the above are SKIPPED, loudly, if no interpreter with an importable
+`klayout` module can be found.
+
+Exit status: 0 if every check that ran passed, 1 otherwise.
+"""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+
+PINS = os.path.join(HERE, "pins")
+WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
+PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
+
+PASS, FAIL, SKIP = "pass", "FAIL", "skip"
+results: list[tuple[str, str, str]] = []
+
+
+def record(name: str, status: str, detail: str = "") -> None:
+    results.append((name, status, detail))
+    marker = {"pass": "ok", "FAIL": "FAIL", "skip": "skip"}[status]
+    print(f"  {marker:6s} {name}" + (f" -- {detail}" if detail else ""))
+
+
+def check(name: str, condition: bool, detail: str = "") -> None:
+    record(name, PASS if condition else FAIL, detail)
+
+
+try:
+    import klayout_env
+
+    klayout_env.ensure_klayout()
+    import klayout.db as db
+
+    KLAYOUT_OK = True
+except Exception as exc:
+    KLAYOUT_OK = False
+    KLAYOUT_SKIP_REASON = str(exc)
+
+
+# ---------------------------------------------------------------------------
+# synthetic cell construction
+# ---------------------------------------------------------------------------
+
+
+def _box(cell, layout, layer_num, datatype, x0, y0, x1, y1):
+    li = layout.layer(layer_num, datatype)
+    cell.shapes(li).insert(db.Box(x0, y0, x1, y1))
+
+
+def _label(cell, layout, layer_num, datatype, text, x, y):
+    li = layout.layer(layer_num, datatype)
+    cell.shapes(li).insert(db.Text(text, x, y))
+
+
+def _well_formed_cell(name: str = "sky130_fd_sc_hd__synth_2"):
+    layout = db.Layout()
+    layout.dbu = 0.001
+    cell = layout.create_cell(name)
+
+    # signal pin A: li1.pin (67/16) + li1.label (67/5), point inside the box
+    _box(cell, layout, 67, 16, 0, 0, 100, 100)
+    _label(cell, layout, 67, 5, "A", 50, 50)
+
+    # VPWR / VGND: met1.pin (68/16) + met1.label (68/5)
+    _box(cell, layout, 68, 16, 0, 900, 100, 1000)
+    _label(cell, layout, 68, 5, "VPWR", 50, 950)
+    _box(cell, layout, 68, 16, 0, -100, 100, 0)
+    _label(cell, layout, 68, 5, "VGND", 50, -50)
+
+    # VPB: nwell.pin (64/16) + nwell.label (64/5)
+    _box(cell, layout, 64, 16, 0, 900, 100, 1000)
+    _label(cell, layout, 64, 5, "VPB", 50, 950)
+
+    # VNB: label sits at layer 64 (datatype 59), pin shape at layer 122 --
+    # the case that would break a "same layer number" shortcut.
+    _box(cell, layout, 122, 16, 0, -100, 100, 0)
+    _label(cell, layout, 64, 59, "VNB", 50, -50)
+
+    return layout, cell
+
+
+def test_well_formed() -> None:
+    import gds_pins
+
+    layout, cell = _well_formed_cell()
+    result = gds_pins.resolve_cell_pins(layout, cell)
+    check(
+        "well-formed: all five pins resolved",
+        set(result.pins) == {"A", "VPWR", "VGND", "VPB", "VNB"},
+        str(sorted(result.pins)),
+    )
+    check("well-formed: A on layer 67/16", result.pins["A"].layer == (67, 16))
+    check(
+        "well-formed: VNB resolves to layer 122 (not its label's layer 64)",
+        result.pins["VNB"].layer == (122, 16),
+        str(result.pins.get("VNB")),
+    )
+    a_poly = result.pins["A"].polygons
+    check(
+        "well-formed: A's polygon matches the drawn pin box (in microns)",
+        a_poly == (((0.0, 0.0), (0.0, 0.1), (0.1, 0.1), (0.1, 0.0)),),
+        str(a_poly),
+    )
+
+
+def test_redundant_label_occurrence() -> None:
+    """A second label for the same pin, off in empty space (no containing
+    shape) -- must not prevent resolution from the occurrence that does
+    land inside a .pin shape (mirrors sky130_fd_sc_hd__and2b_2)."""
+    import gds_pins
+
+    layout, cell = _well_formed_cell()
+    # A second "A" label far away from any shape.
+    _label(cell, layout, 67, 5, "A", 5000, 5000)
+    result = gds_pins.resolve_cell_pins(layout, cell)
+    check(
+        "redundant label: pin A still resolves to exactly one polygon",
+        "A" in result.pins and len(result.pins["A"].polygons) == 1,
+        str(result.pins.get("A")),
+    )
+
+
+def test_total_or_loud() -> None:
+    """A label with *no* containing .pin shape anywhere must be a hard,
+    localised error -- never a silently empty/skipped pin."""
+    import gds_pins
+
+    layout = db.Layout()
+    layout.dbu = 0.001
+    cell = layout.create_cell("sky130_fd_sc_hd__broken_2")
+    # Label "A" exists, but no li1.pin (67/16) shape anywhere in the cell.
+    _label(cell, layout, 67, 5, "A", 50, 50)
+
+    try:
+        gds_pins.resolve_cell_pins(layout, cell)
+    except gds_pins.PinResolutionError as exc:
+        message = str(exc)
+        check(
+            "total-or-loud: unresolved pin raises PinResolutionError",
+            True,
+        )
+        check(
+            "total-or-loud: error names the cell",
+            "sky130_fd_sc_hd__broken_2" in message,
+            message,
+        )
+        check("total-or-loud: error names the pin", "'A'" in message, message)
+    else:
+        check("total-or-loud: unresolved pin raises PinResolutionError", False, "no exception raised")
+
+
+# ---------------------------------------------------------------------------
+# real-file smoke test
+# ---------------------------------------------------------------------------
+
+
+def _run_pins(gds_path: str) -> tuple[int, str, str]:
+    proc = subprocess.run(
+        [sys.executable, PINS, gds_path, "--keep-going"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+def _smoke_test(label: str, gds_path: str, expected_cells: int) -> None:
+    if not os.path.isfile(gds_path):
+        record(label, SKIP, f"{gds_path} missing -- run scripts/fetch-puzzle.sh")
+        return
+    code, stdout, stderr = _run_pins(gds_path)
+    check(f"{label}: exit 0 (zero unresolved pins)", code == 0, stderr.strip()[:300])
+    if code == 0:
+        import json
+
+        doc = json.loads(stdout)
+        check(
+            f"{label}: resolved {expected_cells} distinct library cells",
+            len(doc["cells"]) == expected_cells,
+            str(len(doc["cells"])),
+        )
+        total_pins = sum(len(c["pins"]) for c in doc["cells"].values())
+        check(f"{label}: at least one pin per cell", total_pins >= expected_cells)
+
+
+def main() -> int:
+    print("tools/test-pins")
+    print("=" * 60)
+
+    if not KLAYOUT_OK:
+        print(f"  {SKIP:6s} all checks -- klayout not importable: {KLAYOUT_SKIP_REASON}")
+        print("=" * 60)
+        print("SKIPPED (no klayout)")
+        return 0
+
+    print("\n1. Synthetic, well-formed cell (all four label sources)")
+    test_well_formed()
+
+    print("\n2. Synthetic, redundant label occurrence")
+    test_redundant_label_occurrence()
+
+    print("\n3. Synthetic, deliberately corrupted (total-or-loud contract)")
+    test_total_or_loud()
+
+    print("\n4. Real-file smoke test (warm-up, 18 cells)")
+    _smoke_test("warmup", WARMUP_GDS, 18)
+
+    print("\n5. Real-file smoke test (puzzle, 69 cells)")
+    _smoke_test("puzzle", PUZZLE_GDS, 69)
+
+    print("=" * 60)
+    failed = [r for r in results if r[1] == FAIL]
+    skipped = [r for r in results if r[1] == SKIP]
+    passed = [r for r in results if r[1] == PASS]
+    print(f"{len(passed)} passed, {len(failed)} failed, {len(skipped)} skipped")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

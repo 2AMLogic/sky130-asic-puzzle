@@ -39,23 +39,42 @@ See [`CLAUDE.md`](CLAUDE.md) for how this binds agents.
 
 ## Why this design is a good test subject
 
-Reconnaissance on `puzzle.gds` (1,421,700 bytes), before any solving:
+Reconnaissance on `puzzle.gds` (1,421,700 bytes), before any solving — reproduced from the
+stream itself by `tools/inventory` (`evidence/inventory-puzzle.json`; see `tools/README.md`
+for how, and CLAUDE.md §4 for why this is the priority):
 
 | Property | Value |
 |---|---|
 | Top cell | `puzzle`, 200.0 × 352.7 µm |
 | Total placed instances | 9,875 |
-| — of which routing vias | 8,214 |
+| — of which routing vias (`VIA_*`) | 8,221 |
 | — tap / decap fill | 880 |
-| **Logic + sequential cells** | **~781** |
+| — unclassified (`INTERNAL_3`/`INTERNAL_7`, see below) | 36 |
+| **Logic + sequential cells** | **738** |
 | Flip-flops | **92** (84 `dfrtp_2`, 4 `dfstp_2`, 4 `dfxtp_2`) |
 | Distinct library cells | 69, all `sky130_fd_sc_hd` |
 | Polygons / vertices | 14,638 / 65,898 |
+| Top-level ports | `I O[0..7] clk enable rst_n success` — matches `example_inputs.vcd`'s declared variables |
 
-**Cell identity is not the hard part.** All 69 standard cells retain their full
-`sky130_fd_sc_hd__*` names *including drive strength*. What was stripped is net and instance
-names. So the puzzle is a **connectivity** problem, not a pattern-recognition problem — and
-connectivity extraction from a placed-and-routed layout is exactly the capability under test.
+`INTERNAL_3`/`INTERNAL_7` (36 instances total) are single unlabelled shapes on a layer no
+other cell uses, sized to the standard-cell row height — neither a `VIA_*` routing cell nor a
+`sky130_fd_sc_hd__*` library cell, so `tools/inventory` reports them by name in an `other`
+bucket rather than guessing which bucket they belong in. (An earlier version of this table
+carried 8,214 vias and "~781" logic+sequential, derived by subtraction before these 36
+instances were accounted for; the numbers above are what the stream itself says and supersede
+it — see `tools/README.md`.)
+
+The warm-up (`warmup/04_final.gds`, 27 cells) reproduces the same way: 1,099 top-level
+instances, 79 logic+sequential cells, 93 `sky130_fd_sc_hd__tapvpwrvgnd_1`, 58
+`sky130_fd_sc_hd__decap_3`, top-level ports `A B S clk en rst_n`
+(`evidence/inventory-warmup.json`).
+
+**Pin geometry, not just cell identity, survives too.** All 69 standard cells retain their full
+`sky130_fd_sc_hd__*` names *including drive strength*, and (per `tools/README.md`) every
+cell's pins are directly readable from GDS text-label layers — no PDK needed. What was
+stripped is net and instance names. So the puzzle is a **connectivity** problem, not a
+pattern-recognition or pin-geometry problem — and connectivity extraction from a
+placed-and-routed layout is exactly the capability under test.
 
 ## The capability gap this exercises
 

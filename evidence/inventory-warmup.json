@@ -1,0 +1,60 @@
+{
+  "schema": "sky130-asic-puzzle/inventory@1",
+  "source": "puzzle/warmup/04_final.gds",
+  "top_cell": "adder_demo",
+  "total_instances": 1099,
+  "by_class": {
+    "fill": 151,
+    "logic": 63,
+    "via": 869,
+    "sequential": 16
+  },
+  "by_cell": {
+    "VIA_L1M1_PR_MR": 268,
+    "VIA_M1M2_PR": 313,
+    "VIA_M2M3_PR": 45,
+    "VIA_M3M4_PR": 5,
+    "VIA_via2_3_2000_480_1_6_320_320": 75,
+    "VIA_via3_4_2000_480_1_5_400_400": 75,
+    "VIA_via4_5_2000_480_1_5_400_400": 75,
+    "VIA_via5_6_2000_2000_1_1_1600_1600": 13,
+    "sky130_fd_sc_hd__a21bo_2": 1,
+    "sky130_fd_sc_hd__a21boi_2": 1,
+    "sky130_fd_sc_hd__a21o_2": 1,
+    "sky130_fd_sc_hd__a31o_2": 5,
+    "sky130_fd_sc_hd__and2_2": 7,
+    "sky130_fd_sc_hd__and3_2": 1,
+    "sky130_fd_sc_hd__and4bb_2": 2,
+    "sky130_fd_sc_hd__clkbuf_16": 3,
+    "sky130_fd_sc_hd__decap_3": 58,
+    "sky130_fd_sc_hd__dfrtp_2": 16,
+    "sky130_fd_sc_hd__mux2_1": 16,
+    "sky130_fd_sc_hd__nand2_2": 4,
+    "sky130_fd_sc_hd__nor2_2": 8,
+    "sky130_fd_sc_hd__o21bai_2": 1,
+    "sky130_fd_sc_hd__or2_2": 5,
+    "sky130_fd_sc_hd__tapvpwrvgnd_1": 93,
+    "sky130_fd_sc_hd__xnor2_2": 3,
+    "sky130_fd_sc_hd__xor2_2": 5
+  },
+  "other_cells": [],
+  "distinct_library_cells": 18,
+  "top_ports": {
+    "signal (met3.label, 70/5)": [
+      "A",
+      "B",
+      "S",
+      "clk",
+      "en",
+      "rst_n"
+    ],
+    "VPWR (met4.label, 71/5)": [
+      "VGND",
+      "VPWR"
+    ],
+    "VGND (met5.label, 72/5)": [
+      "VGND",
+      "VPWR"
+    ]
+  }
+}

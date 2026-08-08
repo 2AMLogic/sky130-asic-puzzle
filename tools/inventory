@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Top-cell instance census for a GDS stream -- no PDK required.
+
+    tools/inventory <path.gds> [--format json|markdown]
+
+Walks the top cell's placed instances and classifies each by cell name into
+`logic` / `sequential` / `fill` (tap, decap) / `via` (`VIA_*` routing cells),
+plus an `other` bucket for anything that matches neither pattern (reported,
+never silently folded into one of the four). Also reports the top-level
+signal/power port names, read directly off the top cell's label layers.
+
+See `tools/README.md` and `tools/gds_layers.py` for the reconnaissance this
+classification is built on. Nothing here reads a PDK; `--pdk-crosscheck`
+does not apply to this command (there is no PDK-derived instance census to
+cross-check against -- see `tools/pins --pdk-crosscheck` for the one command
+that does have a PDK-derived source of truth to compare to).
+
+Exit status: 0 on success, 2 on a usage/read error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import klayout_env  # noqa: E402
+
+EXIT_OK = 0
+EXIT_ERROR = 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="tools/inventory",
+        description="Census of a GDS top cell's placed instances, by class.",
+    )
+    parser.add_argument("gds", help="path to a GDSII stream (e.g. puzzle/puzzle.gds)")
+    parser.add_argument("--format", choices=("json", "markdown"), default="json")
+    args = parser.parse_args(argv)
+
+    try:
+        klayout_env.ensure_klayout()
+    except klayout_env.KlayoutResolutionError as exc:
+        print(f"tools/inventory: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    import klayout.db as db
+
+    import gds_inventory
+
+    if not os.path.isfile(args.gds):
+        print(f"tools/inventory: no such file: {args.gds}", file=sys.stderr)
+        return EXIT_ERROR
+
+    layout = db.Layout()
+    try:
+        layout.read(args.gds)
+    except Exception as exc:  # klayout raises its own RuntimeError subclasses
+        print(f"tools/inventory: could not read {args.gds!r}: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    result = gds_inventory.census(layout, source=args.gds)
+
+    if args.format == "json":
+        print(json.dumps(result.to_json(), indent=2))
+    else:
+        print(result.to_markdown(), end="")
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())

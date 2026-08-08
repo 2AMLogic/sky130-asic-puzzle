@@ -6,7 +6,7 @@
     "worktree:return": "./.loom/scripts/worktree-return.sh",
     "fetch": "./scripts/fetch-puzzle.sh",
     "lint": "./scripts/lint.sh",
-    "test": "./tools/test-compare",
+    "test": "./tools/test-compare && ./tools/test-inventory && ./tools/test-pins",
     "regression": "./scripts/warmup-regression.sh",
     "embargo": "./scripts/check-embargo.sh",
     "check:ci": "npm run lint && npm run regression && npm run embargo",
