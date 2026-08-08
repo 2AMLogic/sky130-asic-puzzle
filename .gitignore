@@ -9,6 +9,7 @@ puzzle/
 *.spice
 *.raw
 *.vcd.gz
+.sim-work/
 __pycache__/
 *.pyc
 .venv/
