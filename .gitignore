@@ -1,0 +1,14 @@
+# Upstream puzzle files — janestreet/asic-puzzle-2026 carries no license, so
+# they are fetched, never committed. See scripts/fetch-puzzle.sh.
+puzzle/
+*.gds
+*.oas
+*.vcd
+
+# Extraction and simulation output
+*.spice
+*.raw
+*.vcd.gz
+__pycache__/
+*.pyc
+.venv/
