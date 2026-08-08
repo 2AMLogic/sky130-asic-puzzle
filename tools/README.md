@@ -28,6 +28,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/directed.py` | the `A + B == 496` directed test (stage 5) |
 | `tools/sim/replay.py` | general VCD replay + trace diff (stage 6) |
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
+| `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 
@@ -63,6 +64,19 @@ one with volare: `pip install volare && volare enable
 $(volare ls-remote sky130 --limit 1 -f '{version}')`, or point $PDK_ROOT at
 an existing open_pdks sky130A install, then re-run.
 ```
+
+That failure path is covered by a committed self-test rather than a manual
+check — it pins `klt`/`$PDK_ROOT`/`~/.volare` at controlled temporary
+directories so the no-PDK-anywhere case is reachable even on a machine that
+*does* have a PDK installed, and includes positive controls for all three
+sources so the failure assertions cannot pass vacuously:
+
+```sh
+python3 -m tools.sim.selftest_pdk
+```
+
+It needs no PDK, no `klt` and no simulator; recorded output is in
+`evidence/warmup-sim.md`.
 
 Every evidence record this harness produces states which of the three
 sources resolved, plus the PDK version and the exact model file paths used
@@ -112,6 +126,13 @@ warm-up, with no dependency on an extractor):
 
 ```sh
 python3 -m tools.sim.selftest_replay
+```
+
+PDK-resolver self-test (resolution order + the no-PDK-anywhere failure
+path; no PDK, `klt` or simulator required):
+
+```sh
+python3 -m tools.sim.selftest_pdk
 ```
 
 See `evidence/warmup-sim.md` and `evidence/puzzle-replay.md` for recorded

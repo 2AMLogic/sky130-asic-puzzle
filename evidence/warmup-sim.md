@@ -166,6 +166,53 @@ reports exactly that `(time, signal)` as the first divergence — a
 self-test that couldn't detect an injected mismatch would be worse than no
 self-test at all.
 
+## PDK-resolver self-test (acceptance criterion 4: missing models fail loudly)
+
+Issue #5 requires that a missing model set produces one actionable install
+instruction and a non-zero exit, never a silent skip. That path cannot be
+exercised on this workstation as it stands — a sky130A install resolves here
+via `klt pdk find` (see "Model provenance" above) — so it is covered by a
+committed self-test that pins all three sources in the documented search
+order (`klt` on `PATH`, `$PDK_ROOT`, `~/.volare`) at controlled temporary
+directories. It needs no PDK, no `klt` and no simulator, so it runs
+identically on a machine with a PDK and on one without:
+
+```sh
+python3 -m tools.sim.selftest_pdk
+```
+
+```
+== tools/sim/pdk.py resolution-order self-test (all three sources mocked) ==
+[PASS] no PDK anywhere -> PdkResolutionError carrying the install hint
+         raised PdkResolutionError; message is INSTALL_HINT with install instructions: True
+[PASS] klt present but exits non-zero -> falls through, still fails loudly
+         klt failure fell through to PdkResolutionError
+[PASS] klt emits unparseable JSON -> falls through, no leaked JSONDecodeError
+         unparseable klt output fell through to PdkResolutionError
+[PASS] partial install (no sky130_fd_sc_hd.v) -> rejected, not half-resolved
+         partial install rejected; PdkResolutionError raised
+[PASS] [control] complete $PDK_ROOT install -> resolves via $PDK_ROOT
+         resolved via '$PDK_ROOT (<tmp>/pdk-root)'
+[PASS] [control] complete ~/.volare install -> resolves via ~/.volare
+         resolved via '~/.volare (<tmp>/volare-home/.volare)'
+[PASS] [control] klt-reported install -> resolves via klt, ahead of $PDK_ROOT
+         resolved via 'klt pdk find --pdk sky130A (root: <tmp>/klt-root)' (version 0.0.0-selftest)
+
+SELF-TEST PASS (7/7 checks passed)
+```
+
+(The three `[control]` lines' `<tmp>` paths are the per-check
+`tempfile.TemporaryDirectory()` roots; they differ run to run. Everything
+else is byte-for-byte reproducible.)
+
+The three positive controls are there so the failure checks cannot pass
+vacuously — a harness that never finds a PDK would make "raises when there
+is no PDK" true for the wrong reason. The suite was also checked against a
+deliberately broken resolver (one returning a fabricated `ResolvedModels`
+instead of raising): all 7 checks fail and the run exits 1, including the
+`no PDK anywhere` check reporting `NO exception raised — silently returned
+'fabricated'`. A test that cannot fail is not evidence (CLAUDE.md §5).
+
 ## What this does not cover yet
 
 Acceptance criterion 2 from issue #5 — the same directed-test harness run on
