@@ -70,6 +70,18 @@ a seam flagged as possibly unwired in
 gap here closes it there. Findings against the toolkit are filed **upstream on
 `klayout-tools`**, not here; this repo holds the harness and the evidence.
 
+Two gaps behind this are filed upstream, toolkit-first, with `klt`-only reproducers:
+
+- [`2AMLogic/klayout-tools#619`](https://github.com/2AMLogic/klayout-tools/issues/619) —
+  the sky130 extraction deck's connectivity stack (`metals`/`vias`) stops at met2 while
+  `klt place-and-route`'s own `_ROUTING_LAYER_RANGE` promises met1–met5, so nets joined
+  above met2 extract as separate nets, silently.
+- [`2AMLogic/klayout-tools#620`](https://github.com/2AMLogic/klayout-tools/issues/620) —
+  `klt extract` has no cell-level (black-box + resolved pins) extraction mode to emit a
+  hierarchical or gate-level netlist; it is flat and device-level only.
+
+See [`evidence/upstream.md`](evidence/upstream.md) for the full traceability record.
+
 ## Ground truth
 
 The puzzle ships a warm-up that is close to an ideal regression fixture — the same design at
