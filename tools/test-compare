@@ -1,0 +1,328 @@
+#!/usr/bin/env python3
+"""Self-test and mutation suite for `tools/compare`.
+
+Run with no arguments:  `tools/test-compare`  (or `npm test`).
+
+Two families of check:
+
+* **Synthetic** — small hand-built netlists covering the cases that are easy to
+  get wrong: an automorphic circuit that only a backtracking search can decide,
+  a crossed-output pair that has an identical cell histogram and degree sequence
+  but is a different circuit, pin-role swaps on a commutative gate, and fill-cell
+  count handling.  These need no external files, so they run anywhere.
+* **Warm-up regression fixtures** — `puzzle/warmup/01_netlist.v` renamed by
+  `tools/rename` must compare equivalent, and each of the three mutations must be
+  reported as *not* equivalent **and localised** (the failure text has to name
+  the damaged instance / pin / cell type; a comparator that says only "false" is
+  not a regression test).  `puzzle/` is gitignored — the upstream repo carries no
+  license — so these are skipped with a pointer to `scripts/fetch-puzzle.sh` when
+  the files are not present, and reported as SKIP rather than silently passing.
+
+Exit status: 0 if every check that ran passed, 1 otherwise.
+"""
+
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+COMPARE = os.path.join(HERE, "compare")
+RENAME = os.path.join(HERE, "rename")
+WARMUP = os.path.join(ROOT, "puzzle", "warmup", "01_netlist.v")
+WARMUP_POWER = os.path.join(ROOT, "puzzle", "warmup", "02_netlist_with_power_rails.v")
+
+PASS, FAIL, SKIP = "pass", "FAIL", "skip"
+results: list[tuple[str, str, str]] = []
+
+
+def record(name: str, status: str, note: str = "") -> None:
+    results.append((name, status, note))
+    mark = {PASS: "  ok  ", FAIL: " FAIL ", SKIP: " skip "}[status]
+    print(f"[{mark}] {name}" + (f" — {note}" if note else ""), flush=True)
+
+
+def run(cmd: list[str]) -> tuple[int, str, str]:
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+def compare(a: str, b: str, *extra: str) -> tuple[int, str]:
+    code, out, err = run([sys.executable, COMPARE, a, b, *extra])
+    if code == 2:
+        return code, out + err
+    return code, out
+
+
+def expect(name: str, condition: bool, detail: str = "") -> bool:
+    record(name, PASS if condition else FAIL, "" if condition else detail)
+    return condition
+
+
+# --------------------------------------------------------------------------
+# synthetic fixtures
+# --------------------------------------------------------------------------
+
+INV = "sky130_fd_sc_hd__inv_2"
+BUF = "sky130_fd_sc_hd__buf_2"
+NAND = "sky130_fd_sc_hd__nand2_2"
+NOR = "sky130_fd_sc_hd__nor2_2"
+DECAP = "sky130_fd_sc_hd__decap_3"
+
+
+def module(body: str, ports: str = "i0, i1, o0, o1", decls: str | None = None) -> str:
+    decls = decls if decls is not None else (
+        " input i0;\n input i1;\n output o0;\n output o1;\n"
+    )
+    return f"module t ({ports});\n{decls}\n{body}\nendmodule\n"
+
+
+CROSSED_A = module(
+    f" {BUF} p (.A(i0), .X(m0));\n"
+    f" {BUF} q (.A(m0), .X(o0));\n"
+    f" {BUF} r (.A(i1), .X(m1));\n"
+    f" {BUF} s (.A(m1), .X(o1));\n"
+)
+CROSSED_B = module(
+    f" {BUF} p (.A(i0), .X(m0));\n"
+    f" {BUF} q (.A(m0), .X(o1));\n"
+    f" {BUF} r (.A(i1), .X(m1));\n"
+    f" {BUF} s (.A(m1), .X(o0));\n"
+)
+
+# a genuine automorphism: two identical inverters on the same input, feeding the
+# two inputs of a symmetric-looking pair of gates.  Deterministic propagation
+# cannot decide this; the backtracking search must.
+SYMMETRIC_A = module(
+    f" {INV} a1 (.A(i0), .Y(x1));\n"
+    f" {INV} a2 (.A(i0), .Y(x2));\n"
+    f" {NAND} g1 (.A(x1), .B(x2), .Y(o0));\n"
+    f" {NAND} g2 (.A(x2), .B(x1), .Y(o1));\n"
+)
+
+COMMUTATIVE_A = module(
+    f" {INV} a1 (.A(i0), .Y(x1));\n"
+    f" {INV} a2 (.A(i1), .Y(x2));\n"
+    f" {NAND} g1 (.A(x1), .B(x2), .Y(o0));\n",
+    decls=" input i0;\n input i1;\n output o0;\n",
+    ports="i0, i1, o0",
+)
+COMMUTATIVE_SWAPPED = module(
+    f" {INV} a1 (.A(i0), .Y(x1));\n"
+    f" {INV} a2 (.A(i1), .Y(x2));\n"
+    f" {NAND} g1 (.A(x2), .B(x1), .Y(o0));\n",
+    decls=" input i0;\n input i1;\n output o0;\n",
+    ports="i0, i1, o0",
+)
+
+CELLSWAP_A = module(
+    f" {NAND} g1 (.A(i0), .B(i1), .Y(o0));\n"
+    f" {NOR} g2 (.A(i0), .B(i1), .Y(o1));\n"
+)
+CELLSWAP_B = module(
+    f" {NOR} g1 (.A(i0), .B(i1), .Y(o0));\n"
+    f" {NAND} g2 (.A(i0), .B(i1), .Y(o1));\n"
+)
+
+ASSIGN_ALIAS = module(
+    f" {BUF} p (.A(i0), .X(w));\n"
+    " assign m0 = w;\n"
+    f" {BUF} q (.A(m0), .X(o0));\n"
+    f" {BUF} r (.A(i1), .X(m1));\n"
+    f" {BUF} s (.A(m1), .X(o1));\n"
+)
+
+FILL_EXTRA = module(
+    f" {BUF} p (.A(i0), .X(m0));\n"
+    f" {BUF} q (.A(m0), .X(o0));\n"
+    f" {BUF} r (.A(i1), .X(m1));\n"
+    f" {BUF} s (.A(m1), .X(o1));\n"
+    f" {DECAP} filler_0 ();\n"
+    f" {DECAP} filler_1 ();\n"
+)
+
+
+def write(tmp: str, name: str, text: str) -> str:
+    path = os.path.join(tmp, name)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    return path
+
+
+# --------------------------------------------------------------------------
+# checks
+# --------------------------------------------------------------------------
+
+
+def synthetic_checks(tmp: str) -> None:
+    ca = write(tmp, "crossed_a.v", CROSSED_A)
+    cb = write(tmp, "crossed_b.v", CROSSED_B)
+    sa = write(tmp, "sym_a.v", SYMMETRIC_A)
+    comm = write(tmp, "comm.v", COMMUTATIVE_A)
+    comm_sw = write(tmp, "comm_swapped.v", COMMUTATIVE_SWAPPED)
+    swa = write(tmp, "cellswap_a.v", CELLSWAP_A)
+    swb = write(tmp, "cellswap_b.v", CELLSWAP_B)
+    alias = write(tmp, "alias.v", ASSIGN_ALIAS)
+    fill = write(tmp, "fill_extra.v", FILL_EXTRA)
+
+    code, out = compare(ca, ca)
+    expect("synthetic: a netlist is equivalent to itself", code == 0, out)
+
+    code, out = compare(ca, cb)
+    expect(
+        "synthetic: crossed outputs (same histogram, same degrees) are NOT equivalent",
+        code == 1,
+        out,
+    )
+
+    # renamed via tools/rename, which also shuffles instance and pin order
+    ren = os.path.join(tmp, "crossed_a_renamed.v")
+    run([sys.executable, RENAME, ca, "--seed", "11", "-o", ren])
+    code, out = compare(ca, ren)
+    expect("synthetic: renamed + reordered copy is equivalent", code == 0, out)
+
+    sym_ren = os.path.join(tmp, "sym_renamed.v")
+    run([sys.executable, RENAME, sa, "--seed", "5", "-o", sym_ren])
+    code, out = compare(sa, sym_ren)
+    expect(
+        "synthetic: automorphic circuit is decided by the backtracking search", code == 0, out
+    )
+
+    code, out = compare(comm, comm_sw)
+    expect(
+        "synthetic: swapping .A/.B on a commutative gate is reported (structural, not logical)",
+        code == 1,
+        out,
+    )
+
+    code, out = compare(swa, swb)
+    expect("synthetic: swapped cell types are NOT equivalent", code == 1, out)
+    expect(
+        "synthetic: cell-type swap failure names a cell type",
+        NAND in out and NOR in out,
+        out,
+    )
+
+    code, out = compare(ca, alias)
+    expect("synthetic: `assign` aliases are folded, not treated as extra nets", code == 0, out)
+
+    code, out = compare(ca, fill)
+    expect(
+        "synthetic: extra fill cells do not break signal equivalence (default)", code == 0, out
+    )
+    expect(
+        "synthetic: differing fill counts are reported as a separate class",
+        "fill cell counts differ" in out or "COUNTS DIFFER" in out,
+        out,
+    )
+    code, out = compare(ca, fill, "--strict-fill")
+    expect("synthetic: --strict-fill makes a fill count difference fatal", code == 1, out)
+
+    code, out = compare(ca, os.path.join(tmp, "does-not-exist.v"))
+    expect("synthetic: a missing input exits 2 (error), not 1 (not equivalent)", code == 2, out)
+
+    # JSON is the interchange form tools/extract is expected to emit
+    run([sys.executable, RENAME, ca, "--seed", "2", "--format", "json", "-o",
+         os.path.join(tmp, "crossed_a.json")])
+    code, out = compare(ca, os.path.join(tmp, "crossed_a.json"))
+    expect("synthetic: JSON netlist form compares against Verilog", code == 0, out)
+
+
+MUTATION_EXPECTATIONS = {
+    # mutation -> (regex over tools/rename's stderr, what must appear in the report)
+    "rewire-pin": r"rewired instance (\S+) pin \.(\S+)",
+    "drop-instance": r"deleted instance (\S+) \((\S+)\)",
+    "swap-cells": r"swapped cell types of (\S+) and (\S+)",
+}
+
+
+def warmup_checks(tmp: str) -> None:
+    if not os.path.exists(WARMUP):
+        record(
+            "warm-up: fixtures present",
+            SKIP,
+            f"{os.path.relpath(WARMUP, ROOT)} not found — run ./scripts/fetch-puzzle.sh",
+        )
+        return
+    record("warm-up: fixtures present", PASS, os.path.relpath(WARMUP, ROOT))
+
+    for seed in (1, 7, 4242):
+        renamed = os.path.join(tmp, f"warmup_renamed_{seed}.v")
+        code, _, err = run([sys.executable, RENAME, WARMUP, "--seed", str(seed), "-o", renamed])
+        if code != 0:
+            expect(f"warm-up: rename seed {seed}", False, err)
+            continue
+        code, out = compare(WARMUP, renamed)
+        expect(f"warm-up: renamed copy (seed {seed}) is equivalent", code == 0, out)
+
+    if os.path.exists(WARMUP_POWER):
+        code, out = compare(WARMUP, WARMUP_POWER)
+        expect(
+            "warm-up: 01_netlist.v vs 02_netlist_with_power_rails.v is equivalent "
+            "(power pins dropped)",
+            code == 0,
+            out,
+        )
+
+    for mutation, pattern in MUTATION_EXPECTATIONS.items():
+        for seed in (7, 99):
+            path = os.path.join(tmp, f"warmup_{mutation}_{seed}.v")
+            code, _, err = run(
+                [sys.executable, RENAME, WARMUP, "--seed", str(seed), "--mutate", mutation,
+                 "-o", path]
+            )
+            m = re.search(pattern, err)
+            if code != 0 or not m:
+                expect(f"warm-up: generate {mutation} (seed {seed})", False, err)
+                continue
+            code, out = compare(WARMUP, path)
+            label = f"warm-up: {mutation} (seed {seed})"
+            if not expect(f"{label} is detected", code == 1, out):
+                continue
+            if mutation == "rewire-pin":
+                inst, pin = m.group(1), m.group(2)
+                expect(
+                    f"{label} report names the damaged instance and pin",
+                    inst in out and f".{pin}" in out,
+                    f"expected {inst} and .{pin} in:\n{out}",
+                )
+            elif mutation == "drop-instance":
+                inst, cell = m.group(1), m.group(2)
+                expect(
+                    f"{label} report localises the deletion",
+                    cell in out,
+                    f"expected {cell} in:\n{out}",
+                )
+            else:
+                one, two = m.group(1), m.group(2)
+                expect(
+                    f"{label} report names one of the swapped instances",
+                    one in out or two in out,
+                    f"expected {one} or {two} in:\n{out}",
+                )
+
+
+def main() -> int:
+    print("tools/test-compare — self-test and mutation suite for tools/compare\n")
+    with tempfile.TemporaryDirectory(prefix="compare-selftest-") as tmp:
+        synthetic_checks(tmp)
+        print()
+        warmup_checks(tmp)
+    failures = [r for r in results if r[1] == FAIL]
+    skipped = [r for r in results if r[1] == SKIP]
+    print()
+    print(
+        f"{len(results) - len(failures) - len(skipped)} passed, "
+        f"{len(failures)} failed, {len(skipped)} skipped"
+    )
+    for name, _status, note in failures:
+        print(f"\nFAILED: {name}\n{note}")
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

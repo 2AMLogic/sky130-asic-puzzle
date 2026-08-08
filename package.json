@@ -1,12 +1,15 @@
 {
-  "name": "loom-workspace",
-  "description": "Loom-managed workspace with AI development orchestration",
+  "name": "sky130-asic-puzzle",
+  "description": "Reverse-engineering canary for klayout-tools — warm-up regression harness",
   "private": true,
   "scripts": {
     "worktree:return": "./.loom/scripts/worktree-return.sh",
-    "check:ci": "echo 'No CI checks configured. Customize this script for your project.' && exit 0",
-    "check:all": "echo 'No checks configured. Customize this script for your project.' && exit 0",
-    "test": "echo 'No tests configured. Customize this script for your project.' && exit 0",
-    "lint": "echo 'No linter configured. Customize this script for your project.' && exit 0"
+    "fetch": "./scripts/fetch-puzzle.sh",
+    "lint": "./scripts/lint.sh",
+    "test": "./tools/test-compare",
+    "regression": "./scripts/warmup-regression.sh",
+    "embargo": "./scripts/check-embargo.sh",
+    "check:ci": "npm run lint && npm run regression && npm run embargo",
+    "check:all": "npm run check:ci"
   }
 }

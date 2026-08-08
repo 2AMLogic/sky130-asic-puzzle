@@ -33,7 +33,7 @@ Each stage has a check that does not depend on the next stage being right.
 | 1 | **Fetch + verify** upstream files | `scripts/fetch-puzzle.sh` passes its size and GDSII-magic checks |
 | 2 | **Cell inventory** — instances, types, placement | counts reproduce the README table from the stream itself |
 | 3 | **Pin geometry** for the 69 `sky130_fd_sc_hd` cells used | every cell's pins resolved from the PDK, none guessed |
-| 4 | **Connectivity extraction** → gate-level Verilog | warm-up output matches `01_netlist.v` up to net renaming |
+| 4 | **Connectivity extraction** → gate-level Verilog | `tools/compare <extracted> puzzle/warmup/01_netlist.v` exits 0 — a 1:1 correspondence of every signal instance and net, seeded from the port names and independently re-verified (fill matched by count) |
 | 5 | **Simulation** of the recovered netlist | warm-up reproduces `A + B == 496` behaviour |
 | 6 | **Apply to `puzzle.gds`** | recovered netlist simulates against `example_inputs.vcd` and matches |
 | 7 | **Solve** for `success` | 92-bit state; bounded model checking / SAT |
@@ -41,6 +41,13 @@ Each stage has a check that does not depend on the next stage being right.
 
 Stage 4 is the real work and the real product gap. Stages 1–3 are reconnaissance that is
 already partly done (see `README.md`).
+
+Stage 4's *judge* is already in place even though stage 4 is not: `tools/compare` decides
+netlist equivalence up to instance and net renaming, seeded from the top-level port names,
+and `./scripts/warmup-regression.sh` is the CI entry point that runs it. It self-tests
+against a renamed copy of `01_netlist.v` and against three deliberate mutations, so it is
+known to reject as well as accept before any extractor is pointed at it — see
+[`evidence/warmup-regression.md`](../evidence/warmup-regression.md).
 
 ## What is known before solving
 

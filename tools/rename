@@ -1,0 +1,175 @@
+#!/usr/bin/env python3
+"""Test-only fixture generator: rename (and optionally damage) a netlist.
+
+    tools/rename IN.v -o OUT.v [--seed N] [--mutate KIND]
+
+`tools/compare` exists to decide netlist equivalence up to instance and net
+renaming.  Its self-test must therefore be able to produce a netlist that is the
+same circuit under a *different* set of names — and, for the mutation tests, one
+that is deliberately a different circuit — without depending on `tools/extract`
+existing.  That is all this script is for.  It is not part of the extraction
+flow and nothing in the solve depends on it.
+
+Renaming is deterministic given `--seed`: instances become `u_<n>` and internal
+nets become `n_<n>`, shuffled by a seeded PRNG, and the instance order in the
+output is shuffled too, so a passing comparison cannot be an artifact of
+declaration order.  Top-level ports keep their names — they are the seed of the
+correspondence, exactly as in the real puzzle, where port names survive and
+everything else does not.
+
+Mutations (`--mutate`), each reported on stderr so a test can assert on what was
+damaged:
+
+  rewire-pin    move one instance pin onto a different existing net
+  drop-instance delete one signal instance entirely
+  swap-cells    swap the cell types of two instances that have the same pin
+                names but different cell types (so the cell-type histogram is
+                unchanged and only the local labelling differs)
+
+Exit status: 0 on success, 2 on usage/parse error or if the requested mutation
+has no applicable site in the input.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import random
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import verilog_netlist as vn  # noqa: E402
+
+MUTATIONS = ("rewire-pin", "drop-instance", "swap-cells")
+
+
+def rename_netlist(nl: vn.Netlist, seed: int) -> vn.Netlist:
+    rng = random.Random(seed)
+    ports = set(nl.port_names())
+
+    internal = sorted(n for n in nl.nets if n not in ports and n not in vn.CONSTANT_NETS)
+    order = list(range(len(internal)))
+    rng.shuffle(order)
+    net_map = {name: f"n_{order[i]:05d}" for i, name in enumerate(internal)}
+    for p in ports:
+        net_map[p] = p
+    for c in vn.CONSTANT_NETS:
+        net_map[c] = c
+
+    inst_names = [i.name for i in nl.instances]
+    order = list(range(len(inst_names)))
+    rng.shuffle(order)
+    inst_map = {name: f"u_{order[i]:05d}" for i, name in enumerate(inst_names)}
+
+    out = vn.Netlist(top=nl.top, source=f"{nl.source} [renamed seed={seed}]")
+    out.ports = [vn.Port(p.name, p.direction) for p in nl.ports]
+    out.nets = sorted(net_map[n] for n in nl.nets)
+    instances = []
+    for inst in nl.instances:
+        conns = {}
+        pins = list(inst.connections.items())
+        rng.shuffle(pins)  # pin order in the source must not matter either
+        for pin, net in pins:
+            conns[pin] = net_map.get(net, net)
+        instances.append(vn.Instance(name=inst_map[inst.name], cell=inst.cell, connections=conns))
+    rng.shuffle(instances)
+    out.instances = instances
+    return out
+
+
+def _signal_instances(nl: vn.Netlist) -> list[vn.Instance]:
+    return [i for i in nl.instances if i.connections and not vn.is_fill(i.cell)]
+
+
+def mutate(nl: vn.Netlist, kind: str, seed: int) -> str:
+    """Damage `nl` in place. Returns a human-readable description of the damage."""
+    rng = random.Random(seed ^ 0x5EED)
+    signal = _signal_instances(nl)
+    if not signal:
+        raise SystemExit("tools/rename: netlist has no signal instances to mutate")
+
+    if kind == "rewire-pin":
+        ports = set(nl.port_names())
+        candidates = sorted(
+            n for n in nl.nets if n not in ports and n not in vn.CONSTANT_NETS
+        )
+        for _ in range(1000):
+            inst = rng.choice(signal)
+            pin = rng.choice(sorted(inst.connections))
+            old = inst.connections[pin]
+            new = rng.choice(candidates)
+            if new != old:
+                inst.connections[pin] = new
+                return f"rewired instance {inst.name} pin .{pin} from {old} to {new}"
+        raise SystemExit("tools/rename: could not find a rewire site")
+
+    if kind == "drop-instance":
+        inst = rng.choice(signal)
+        nl.instances = [i for i in nl.instances if i is not inst]
+        return f"deleted instance {inst.name} ({inst.cell})"
+
+    if kind == "swap-cells":
+        by_pins: dict[tuple[str, ...], list[vn.Instance]] = {}
+        for inst in signal:
+            by_pins.setdefault(tuple(sorted(inst.connections)), []).append(inst)
+        for pins in sorted(by_pins, key=lambda k: (-len(by_pins[k]), k)):
+            group = by_pins[pins]
+            cells = sorted({i.cell for i in group})
+            if len(cells) < 2:
+                continue
+            first = next(i for i in group if i.cell == cells[0])
+            second = next(i for i in group if i.cell == cells[1])
+            first.cell, second.cell = second.cell, first.cell
+            return (
+                f"swapped cell types of {first.name} and {second.name} "
+                f"({cells[0]} <-> {cells[1]}, both with pins {'/'.join(pins)})"
+            )
+        raise SystemExit(
+            "tools/rename: no two instances with equal pin sets and different cell types"
+        )
+
+    raise SystemExit(f"tools/rename: unknown mutation {kind!r}")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="tools/rename",
+        description="Rename (and optionally damage) a gate-level netlist. Test fixtures only.",
+    )
+    parser.add_argument("input", help="netlist to read (.v or .json)")
+    parser.add_argument("-o", "--output", help="file to write (default: stdout)")
+    parser.add_argument("--seed", type=int, default=1, help="PRNG seed (default: %(default)s)")
+    parser.add_argument(
+        "--mutate",
+        choices=MUTATIONS,
+        help="also introduce exactly one structural error, described on stderr",
+    )
+    parser.add_argument(
+        "--format", choices=("verilog", "json"), default="verilog", help="output form"
+    )
+    parser.add_argument("--no-rename", action="store_true", help="mutate without renaming")
+    args = parser.parse_args(argv)
+
+    try:
+        nl = vn.load(args.input)
+    except (vn.ParseError, OSError) as exc:
+        print(f"tools/rename: {exc}", file=sys.stderr)
+        return 2
+
+    out = nl if args.no_rename else rename_netlist(nl, args.seed)
+    if args.mutate:
+        description = mutate(out, args.mutate, args.seed)
+        print(f"tools/rename: mutation {args.mutate}: {description}", file=sys.stderr)
+
+    text = out.to_json_text() if args.format == "json" else vn.write_verilog(out)
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as fh:
+            fh.write(text)
+    else:
+        sys.stdout.write(text)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

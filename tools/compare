@@ -1,0 +1,801 @@
+#!/usr/bin/env python3
+"""Decide whether two gate-level netlists are the same circuit up to renaming.
+
+    tools/compare A.v B.v [--format text|json] [options]
+
+The warm-up regression (`CLAUDE.md` §4, `spec/puzzle.md` stage 4) cannot be a
+text diff: the puzzle strips instance and net names, so an extracted netlist's
+names are generated and will never match the published ground truth.  What is
+being asked is a labelled-graph correspondence: instances are nodes labelled by
+cell type, nets are nodes, edges are labelled by pin name, and the top-level
+ports — which *are* named identically on both sides — are the seed that makes
+this tractable rather than a general graph-isomorphism search.
+
+Algorithm
+---------
+1. **Seed.**  Every top-level port name present on both sides seeds a net
+   correspondence.  Constant nets (`1'b0`, `1'b1`) seed to themselves.
+2. **Propagate to a fixed point.**  From a corresponding net pair, group the
+   pins on each side by ``(cell type, pin name)``.  A group that holds exactly
+   one unmatched instance on each side forces those instances to correspond.
+   Matching two instances in turn forces every net on their pins to correspond.
+3. **Refine, then branch.**  Groups with several candidates are deferred; a
+   second pass separates them by their full pin/neighbour signature.  Genuinely
+   symmetric structures that survive both are resolved by a bounded backtracking
+   search, so a symmetric circuit is decided rather than reported as a failure.
+4. **Verify independently.**  Whatever produced the mapping, the final answer is
+   only ever "equivalent" after a separate full re-check of the witness: every
+   instance's cell type and pin set, every pin's net under the mapping, every
+   net's pin multiset, and the port seeding.  A bug in the search can therefore
+   lose a match, but cannot manufacture one.
+
+Failure is reported structurally and locally — the specific net or instance that
+could not be matched, its cell type, the pin roles involved, and the candidates
+that were rejected.  A bare `false` is not a useful regression test.
+
+Fill cells (`tapvpwrvgnd_*`, `decap_*`, …) carry no signal connectivity, so they
+are reported as a separate matched-by-count class rather than being required to
+correspond 1:1.
+
+Exit status: 0 equivalent, 1 not equivalent, 2 usage/parse error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from collections import Counter, defaultdict
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import verilog_netlist as vn  # noqa: E402
+
+EXIT_EQUIVALENT = 0
+EXIT_NOT_EQUIVALENT = 1
+EXIT_ERROR = 2
+
+DEFAULT_BRANCH_BUDGET = 20000
+
+
+# --------------------------------------------------------------------------
+# one side of the comparison
+# --------------------------------------------------------------------------
+
+
+class Side:
+    """A netlist indexed for correspondence search."""
+
+    def __init__(self, netlist: vn.Netlist, ignore_power: bool, fill_prefixes: tuple[str, ...]):
+        self.nl = netlist
+        self.label = netlist.source
+        self.fill: list[vn.Instance] = []
+        self.inst: dict[str, vn.Instance] = {}
+        self.pins_by_net: dict[str, list[tuple[str, str]]] = defaultdict(list)
+
+        for raw in netlist.instances:
+            conns = dict(raw.connections)
+            if ignore_power:
+                conns = {
+                    pin: net
+                    for pin, net in conns.items()
+                    if pin not in vn.POWER_PINS and net not in vn.POWER_NETS
+                }
+            inst = vn.Instance(name=raw.name, cell=raw.cell, connections=conns)
+            if vn.is_fill(raw.cell, fill_prefixes) or not conns:
+                self.fill.append(inst)
+                continue
+            if inst.name in self.inst:
+                raise ValueError(f"{self.label}: duplicate instance name {inst.name!r}")
+            self.inst[inst.name] = inst
+            for pin, net in conns.items():
+                self.pins_by_net[net].append((inst.name, pin))
+
+        self.ports = [
+            p.name
+            for p in netlist.ports
+            if not (ignore_power and p.name in vn.POWER_NETS)
+        ]
+        self.nets = sorted(self.pins_by_net)
+
+    def key_counts(self, net: str) -> Counter:
+        return Counter((self.inst[i].cell, pin) for i, pin in self.pins_by_net[net])
+
+    def fill_histogram(self) -> Counter:
+        return Counter(i.cell for i in self.fill)
+
+    def cell_histogram(self) -> Counter:
+        return Counter(i.cell for i in self.inst.values())
+
+
+# --------------------------------------------------------------------------
+# failure records
+# --------------------------------------------------------------------------
+
+
+class Mismatch(Exception):
+    """A definite, localised structural difference."""
+
+    def __init__(self, kind: str, summary: str, detail: dict):
+        super().__init__(summary)
+        self.kind = kind
+        self.summary = summary
+        self.detail = detail
+
+    def to_json(self) -> dict:
+        return {"kind": self.kind, "summary": self.summary, **self.detail}
+
+    def render(self) -> list[str]:
+        lines = [f"  reason: {self.kind}", f"  {self.summary}"]
+        for key, value in self.detail.items():
+            if isinstance(value, list):
+                lines.append(f"    {key}:")
+                lines.extend(f"      - {v}" for v in value)
+            else:
+                lines.append(f"    {key}: {value}")
+        return lines
+
+
+# --------------------------------------------------------------------------
+# correspondence search
+# --------------------------------------------------------------------------
+
+
+class State:
+    __slots__ = ("net_ab", "net_ba", "inst_ab", "inst_ba", "net_queue", "inst_queue")
+
+    def __init__(self):
+        self.net_ab: dict[str, str] = {}
+        self.net_ba: dict[str, str] = {}
+        self.inst_ab: dict[str, str] = {}
+        self.inst_ba: dict[str, str] = {}
+        self.net_queue: list[str] = []
+        self.inst_queue: list[str] = []
+
+    def copy(self) -> "State":
+        other = State()
+        other.net_ab = dict(self.net_ab)
+        other.net_ba = dict(self.net_ba)
+        other.inst_ab = dict(self.inst_ab)
+        other.inst_ba = dict(self.inst_ba)
+        other.net_queue = list(self.net_queue)
+        other.inst_queue = list(self.inst_queue)
+        return other
+
+
+class Matcher:
+    def __init__(self, a: Side, b: Side, branch_budget: int = DEFAULT_BRANCH_BUDGET):
+        self.a = a
+        self.b = b
+        self.branch_budget = branch_budget
+        self.deferred: set[str] = set()
+        self.first_failure: Mismatch | None = None
+
+    # -- primitive matching ----------------------------------------------
+    def match_net(self, st: State, na: str, nb: str, cause: str) -> None:
+        cur = st.net_ab.get(na)
+        if cur is not None:
+            if cur != nb:
+                raise Mismatch(
+                    "net-correspondence-conflict",
+                    f"net {na!r} in A must correspond to two different nets in B",
+                    {
+                        "net in A": na,
+                        "already corresponds to": cur,
+                        "now required to be": nb,
+                        "forced by": cause,
+                    },
+                )
+            return
+        back = st.net_ba.get(nb)
+        if back is not None:
+            raise Mismatch(
+                "net-correspondence-conflict",
+                f"net {nb!r} in B is claimed by two different nets in A",
+                {
+                    "net in B": nb,
+                    "already corresponds to": back,
+                    "now required to be": na,
+                    "forced by": cause,
+                },
+            )
+        st.net_ab[na] = nb
+        st.net_ba[nb] = na
+        st.net_queue.append(na)
+
+    def match_inst(self, st: State, ia: str, ib: str, cause: str) -> None:
+        ca, cb = self.a.inst[ia], self.b.inst[ib]
+        if ca.cell != cb.cell:
+            raise Mismatch(
+                "cell-type-mismatch",
+                f"instance {ia!r} (A) and {ib!r} (B) must correspond but have different cell types",
+                {
+                    "cell in A": ca.cell,
+                    "cell in B": cb.cell,
+                    "forced by": cause,
+                },
+            )
+        cur = st.inst_ab.get(ia)
+        if cur is not None:
+            if cur != ib:
+                raise Mismatch(
+                    "instance-correspondence-conflict",
+                    f"instance {ia!r} in A must correspond to two different instances in B",
+                    {"already corresponds to": cur, "now required to be": ib, "forced by": cause},
+                )
+            return
+        back = st.inst_ba.get(ib)
+        if back is not None:
+            raise Mismatch(
+                "instance-correspondence-conflict",
+                f"instance {ib!r} in B is claimed by two different instances in A",
+                {"already corresponds to": back, "now required to be": ia, "forced by": cause},
+            )
+        st.inst_ab[ia] = ib
+        st.inst_ba[ib] = ia
+        st.inst_queue.append(ia)
+
+    # -- propagation ------------------------------------------------------
+    def process_instance(self, st: State, ia: str) -> None:
+        ib = st.inst_ab[ia]
+        ca, cb = self.a.inst[ia], self.b.inst[ib]
+        pins_a, pins_b = set(ca.connections), set(cb.connections)
+        if pins_a != pins_b:
+            raise Mismatch(
+                "pin-set-mismatch",
+                f"corresponding instances {ia!r} (A) and {ib!r} (B) do not use the same pins",
+                {
+                    "cell": ca.cell,
+                    "only in A": sorted(pins_a - pins_b) or "(none)",
+                    "only in B": sorted(pins_b - pins_a) or "(none)",
+                },
+            )
+        for pin in sorted(pins_a):
+            self.match_net(
+                st,
+                ca.connections[pin],
+                cb.connections[pin],
+                f"pin .{pin} of {ca.cell} instance {ia} (A) / {ib} (B)",
+            )
+
+    def process_net(self, st: State, na: str) -> None:
+        nb = st.net_ab[na]
+        counts_a = self.a.key_counts(na)
+        counts_b = self.b.key_counts(nb)
+        if counts_a != counts_b:
+            only_a = counts_a - counts_b
+            only_b = counts_b - counts_a
+            raise Mismatch(
+                "net-degree-mismatch",
+                f"corresponding nets {na!r} (A) and {nb!r} (B) carry different pins",
+                {
+                    "net in A": na,
+                    "net in B": nb,
+                    "pins only on A's net": [
+                        f"{cell} .{pin} x{n}   [A instances: "
+                        f"{', '.join(self._insts_on(self.a, na, cell, pin))}]"
+                        for (cell, pin), n in sorted(only_a.items())
+                    ]
+                    or "(none)",
+                    "pins only on B's net": [
+                        f"{cell} .{pin} x{n}   [B instances: "
+                        f"{', '.join(self._insts_on(self.b, nb, cell, pin))}]"
+                        for (cell, pin), n in sorted(only_b.items())
+                    ]
+                    or "(none)",
+                },
+            )
+
+        groups_a = self._group(self.a, na)
+        groups_b = self._group(self.b, nb)
+        for key in sorted(groups_a):
+            cand_a = [i for i in groups_a[key] if i not in st.inst_ab]
+            cand_b = [i for i in groups_b[key] if i not in st.inst_ba]
+            # instances already matched on A's net must be matched to instances
+            # sitting on B's net, or the two nets are not really the same net
+            for i in groups_a[key]:
+                if i in st.inst_ab and st.inst_ab[i] not in groups_b[key]:
+                    raise Mismatch(
+                        "net-neighbourhood-mismatch",
+                        f"instance {i!r} sits on net {na!r} in A, but its counterpart "
+                        f"{st.inst_ab[i]!r} does not sit on the corresponding net {nb!r} in B",
+                        {"cell": key[0], "pin": key[1], "net in A": na, "net in B": nb},
+                    )
+            if not cand_a:
+                continue
+            if len(cand_a) == 1 and len(cand_b) == 1:
+                self.match_inst(
+                    st,
+                    cand_a[0],
+                    cand_b[0],
+                    f"sole {key[0]} .{key[1]} on net {na} (A) / {nb} (B)",
+                )
+            else:
+                self.deferred.add(na)
+
+    def _insts_on(self, side: Side, net: str, cell: str, pin: str) -> list[str]:
+        return sorted(i for i, p in side.pins_by_net[net] if p == pin and side.inst[i].cell == cell)
+
+    @staticmethod
+    def _group(side: Side, net: str) -> dict[tuple[str, str], list[str]]:
+        groups: dict[tuple[str, str], list[str]] = defaultdict(list)
+        for i, pin in side.pins_by_net[net]:
+            groups[(side.inst[i].cell, pin)].append(i)
+        return groups
+
+    def propagate(self, st: State) -> None:
+        while st.net_queue or st.inst_queue:
+            while st.inst_queue:
+                self.process_instance(st, st.inst_queue.pop())
+            if st.net_queue:
+                self.process_net(st, st.net_queue.pop())
+
+    # -- ambiguity resolution --------------------------------------------
+    def _signature(self, side: Side, st: State, inst: str, ab: bool) -> tuple:
+        """A rename-invariant fingerprint of an instance in the current state."""
+        obj = side.inst[inst]
+        parts = []
+        for pin, net in sorted(obj.connections.items()):
+            mapped = (st.net_ab if ab else st.net_ba).get(net)
+            if mapped is not None:
+                key = ("m", net if ab else mapped)
+            else:
+                key = ("u", tuple(sorted(map(str, side.key_counts(net).items()))))
+            parts.append((pin, key))
+        return (obj.cell, tuple(parts))
+
+    def refine(self, st: State) -> bool:
+        """Try to break ambiguous groups apart by signature. Returns True on progress."""
+        progress = False
+        for na in sorted(self.deferred):
+            nb = st.net_ab.get(na)
+            if nb is None:
+                continue
+            groups_a = self._group(self.a, na)
+            groups_b = self._group(self.b, nb)
+            for key in sorted(groups_a):
+                cand_a = [i for i in groups_a[key] if i not in st.inst_ab]
+                cand_b = [i for i in groups_b.get(key, []) if i not in st.inst_ba]
+                if not cand_a or len(cand_a) != len(cand_b):
+                    continue
+                if len(cand_a) == 1:
+                    self.match_inst(st, cand_a[0], cand_b[0], f"sole remaining {key[0]} .{key[1]}")
+                    progress = True
+                    continue
+                sig_a = defaultdict(list)
+                sig_b = defaultdict(list)
+                for i in cand_a:
+                    sig_a[self._signature(self.a, st, i, True)].append(i)
+                for i in cand_b:
+                    sig_b[self._signature(self.b, st, i, False)].append(i)
+                for sig, ilist in sig_a.items():
+                    jlist = sig_b.get(sig, [])
+                    if len(ilist) == 1 and len(jlist) == 1:
+                        self.match_inst(
+                            st, ilist[0], jlist[0], f"unique signature among {key[0]} .{key[1]}"
+                        )
+                        progress = True
+            if progress:
+                self.propagate(st)
+        if progress:
+            self.deferred = {n for n in self.deferred if self._still_ambiguous(st, n)}
+        return progress
+
+    def _still_ambiguous(self, st: State, na: str) -> bool:
+        nb = st.net_ab.get(na)
+        if nb is None:
+            return False
+        groups_a = self._group(self.a, na)
+        return any(
+            len([i for i in insts if i not in st.inst_ab]) > 0 for insts in groups_a.values()
+        )
+
+    def _branch_candidates(self, st: State) -> tuple[str, list[str]] | None:
+        """Pick the unmatched A instance with the fewest plausible B partners."""
+        best: tuple[int, str, list[str]] | None = None
+        unmatched_a = [i for i in sorted(self.a.inst) if i not in st.inst_ab]
+        if not unmatched_a:
+            return None
+        by_cell_b: dict[str, list[str]] = defaultdict(list)
+        for j in sorted(self.b.inst):
+            if j not in st.inst_ba:
+                by_cell_b[self.b.inst[j].cell].append(j)
+        for i in unmatched_a:
+            sig = self._signature(self.a, st, i, True)
+            cands = [
+                j
+                for j in by_cell_b[self.a.inst[i].cell]
+                if self._signature(self.b, st, j, False) == sig
+            ]
+            if not cands:
+                cands = by_cell_b[self.a.inst[i].cell]
+            if best is None or len(cands) < best[0]:
+                best = (len(cands), i, cands)
+            if best[0] <= 1:
+                break
+        assert best is not None
+        return best[1], best[2]
+
+    def solve(self, st: State, depth: int = 0) -> State | None:
+        try:
+            self.propagate(st)
+            while self.refine(st):
+                pass
+        except Mismatch as mm:
+            if self.first_failure is None:
+                self.first_failure = mm
+            return None
+        if len(st.inst_ab) == len(self.a.inst) and len(st.inst_ab) == len(self.b.inst):
+            return st
+        pick = self._branch_candidates(st)
+        if pick is None:
+            return st
+        ia, cands = pick
+        if not cands:
+            mm = Mismatch(
+                "no-candidate",
+                f"instance {ia!r} in A has no unmatched instance of cell "
+                f"{self.a.inst[ia].cell!r} left in B to correspond to",
+                {
+                    "cell": self.a.inst[ia].cell,
+                    "pins": ", ".join(
+                        f".{p}({n})" for p, n in sorted(self.a.inst[ia].connections.items())
+                    ),
+                },
+            )
+            if self.first_failure is None:
+                self.first_failure = mm
+            return None
+        rejected: list[str] = []
+        for ib in cands:
+            if self.branch_budget <= 0:
+                break
+            self.branch_budget -= 1
+            trial = st.copy()
+            try:
+                self.match_inst(trial, ia, ib, f"backtracking guess at depth {depth}")
+            except Mismatch as mm:
+                if self.first_failure is None:
+                    self.first_failure = mm
+                rejected.append(f"{ib} ({mm.kind})")
+                continue
+            solved = self.solve(trial, depth + 1)
+            if solved is not None:
+                return solved
+            rejected.append(f"{ib} (no consistent completion)")
+        mm = Mismatch(
+            "no-consistent-correspondence",
+            f"no correspondence exists for instance {ia!r} in A",
+            {
+                "cell": self.a.inst[ia].cell,
+                "pins": ", ".join(
+                    f".{p}({n})" for p, n in sorted(self.a.inst[ia].connections.items())
+                ),
+                "rejected candidates in B": rejected or "(none available)",
+            },
+        )
+        if self.first_failure is None or depth == 0:
+            self.first_failure = mm
+        return None
+
+    def run(self) -> tuple[State | None, Mismatch | None]:
+        st = State()
+        ports_a, ports_b = set(self.a.ports), set(self.b.ports)
+        shared = ports_a & ports_b
+        if not shared:
+            return None, Mismatch(
+                "no-shared-ports",
+                "the two netlists share no top-level port names, so there is nothing to seed "
+                "the correspondence with",
+                {"ports in A": sorted(ports_a) or "(none)", "ports in B": sorted(ports_b) or "(none)"},
+            )
+        try:
+            for name in sorted(shared):
+                self.match_net(st, name, name, "top-level port of the same name")
+            for const in sorted(vn.CONSTANT_NETS):
+                if const in self.a.pins_by_net and const in self.b.pins_by_net:
+                    self.match_net(st, const, const, "constant net")
+        except Mismatch as mm:
+            return None, mm
+        solved = self.solve(st)
+        if solved is None:
+            return None, self.first_failure or Mismatch(
+                "unresolved", "no correspondence could be established", {}
+            )
+        return solved, None
+
+
+# --------------------------------------------------------------------------
+# independent verification of the witness
+# --------------------------------------------------------------------------
+
+
+def verify(a: Side, b: Side, st: State) -> list[str]:
+    """Re-check a completed mapping from scratch. Returns a list of violations."""
+    problems: list[str] = []
+    if len(st.inst_ab) != len(a.inst):
+        problems.append(
+            f"{len(a.inst) - len(st.inst_ab)} signal instance(s) in A were never matched"
+        )
+    if len(st.inst_ba) != len(b.inst):
+        problems.append(
+            f"{len(b.inst) - len(st.inst_ba)} signal instance(s) in B were never matched"
+        )
+    if len(set(st.inst_ab.values())) != len(st.inst_ab):
+        problems.append("the instance mapping is not injective")
+    if len(set(st.net_ab.values())) != len(st.net_ab):
+        problems.append("the net mapping is not injective")
+
+    for ia, ib in sorted(st.inst_ab.items()):
+        ca, cb = a.inst[ia], b.inst[ib]
+        if ca.cell != cb.cell:
+            problems.append(f"instance {ia} -> {ib}: cell {ca.cell} != {cb.cell}")
+            continue
+        if set(ca.connections) != set(cb.connections):
+            problems.append(f"instance {ia} -> {ib}: pin sets differ")
+            continue
+        for pin, net in ca.connections.items():
+            want = st.net_ab.get(net)
+            if want is None:
+                problems.append(f"instance {ia} pin .{pin}: net {net} was never matched")
+            elif want != cb.connections[pin]:
+                problems.append(
+                    f"instance {ia} -> {ib} pin .{pin}: net {net} maps to {want}, "
+                    f"but B's pin is on {cb.connections[pin]}"
+                )
+
+    for na, nb in sorted(st.net_ab.items()):
+        if na in a.pins_by_net or nb in b.pins_by_net:
+            if a.key_counts(na) != b.key_counts(nb):
+                problems.append(f"net {na} -> {nb}: pin multisets differ")
+
+    for name in sorted(set(a.ports) & set(b.ports)):
+        if name in a.pins_by_net or name in b.pins_by_net:
+            if st.net_ab.get(name) != name:
+                problems.append(f"port {name} is not mapped to itself")
+    return problems
+
+
+# --------------------------------------------------------------------------
+# reporting
+# --------------------------------------------------------------------------
+
+
+def build_report(a: Side, b: Side, st: State | None, mismatch: Mismatch | None, args) -> dict:
+    fill_a, fill_b = a.fill_histogram(), b.fill_histogram()
+    fill_diff = (fill_a - fill_b) + (fill_b - fill_a)
+    cells_a, cells_b = a.cell_histogram(), b.cell_histogram()
+    cell_diff = (cells_a - cells_b) + (cells_b - cells_a)
+
+    report: dict = {
+        "a": {
+            "path": a.label,
+            "top": a.nl.top,
+            "signal_instances": len(a.inst),
+            "fill_instances": len(a.fill),
+            "nets": len(a.nets),
+            "ports": a.ports,
+        },
+        "b": {
+            "path": b.label,
+            "top": b.nl.top,
+            "signal_instances": len(b.inst),
+            "fill_instances": len(b.fill),
+            "nets": len(b.nets),
+            "ports": b.ports,
+        },
+        "ports_matched": sorted(set(a.ports) & set(b.ports)),
+        "ports_only_in_a": sorted(set(a.ports) - set(b.ports)),
+        "ports_only_in_b": sorted(set(b.ports) - set(a.ports)),
+        "cell_histogram_differences": {
+            cell: {"a": cells_a.get(cell, 0), "b": cells_b.get(cell, 0)} for cell in sorted(cell_diff)
+        },
+        "fill": {
+            "a": dict(sorted(fill_a.items())),
+            "b": dict(sorted(fill_b.items())),
+            "matched_by_count": not fill_diff,
+            "differences": {
+                cell: {"a": fill_a.get(cell, 0), "b": fill_b.get(cell, 0)}
+                for cell in sorted(fill_diff)
+            },
+        },
+    }
+
+    fill_fatal = bool(fill_diff) and args.strict_fill
+    if st is not None and mismatch is None:
+        problems = verify(a, b, st)
+        report["verification"] = {"checked": True, "problems": problems}
+        report["instances_matched"] = len(st.inst_ab)
+        report["nets_matched"] = len(st.net_ab)
+        unmatched_a = sorted(i for i in a.inst if i not in st.inst_ab)
+        unmatched_b = sorted(i for i in b.inst if i not in st.inst_ba)
+        if unmatched_a or unmatched_b:
+            report["equivalent"] = False
+            report["failure"] = {
+                "kind": "incomplete-correspondence",
+                "summary": "the search terminated with instances left over on at least one "
+                "side, so no bijection exists",
+                "problems": [
+                    f"unmatched in A: {i} ({a.inst[i].cell})" for i in unmatched_a[:10]
+                ]
+                + [f"unmatched in B: {i} ({b.inst[i].cell})" for i in unmatched_b[:10]],
+            }
+        elif problems:
+            report["equivalent"] = False
+            report["failure"] = {
+                "kind": "verification-failed",
+                "summary": "a correspondence was found but failed independent re-verification "
+                "(this is a bug in tools/compare, not necessarily a netlist difference)",
+                "problems": problems[:20],
+            }
+        elif fill_fatal:
+            report["equivalent"] = False
+            report["failure"] = {
+                "kind": "fill-count-mismatch",
+                "summary": "signal connectivity is equivalent, but fill cell counts differ "
+                "and --strict-fill was requested",
+                "differences": report["fill"]["differences"],
+            }
+        else:
+            report["equivalent"] = True
+    else:
+        report["equivalent"] = False
+        report["verification"] = {"checked": False, "problems": []}
+        report["instances_matched"] = len(st.inst_ab) if st else 0
+        report["nets_matched"] = len(st.net_ab) if st else 0
+        report["failure"] = mismatch.to_json() if mismatch else {"kind": "unknown"}
+    return report
+
+
+def render_text(report: dict, mismatch: Mismatch | None) -> str:
+    lines: list[str] = []
+    if not report["equivalent"]:
+        verdict = "NOT EQUIVALENT"
+    elif report["fill"]["matched_by_count"]:
+        verdict = "EQUIVALENT"
+    else:
+        verdict = "EQUIVALENT ON SIGNAL CONNECTIVITY (fill cell counts differ — see below)"
+    lines.append(verdict)
+    a, b = report["a"], report["b"]
+    lines.append(f"  A: {a['path']}  (module {a['top']})")
+    lines.append(f"  B: {b['path']}  (module {b['top']})")
+    lines.append("")
+    lines.append(
+        f"  ports         {len(report['ports_matched']):4d} matched by name: "
+        + " ".join(report["ports_matched"])
+    )
+    if report["ports_only_in_a"]:
+        lines.append(f"                     only in A: {' '.join(report['ports_only_in_a'])}")
+    if report["ports_only_in_b"]:
+        lines.append(f"                     only in B: {' '.join(report['ports_only_in_b'])}")
+    if report["verification"]["checked"]:
+        lines.append(
+            f"  signal cells  {report['instances_matched']:4d} matched 1:1 "
+            f"(A has {a['signal_instances']}, B has {b['signal_instances']})"
+        )
+        lines.append(
+            f"  nets          {report['nets_matched']:4d} matched "
+            f"(A has {a['nets']}, B has {b['nets']})"
+        )
+    else:
+        lines.append(
+            f"  signal cells       no complete correspondence "
+            f"(A has {a['signal_instances']}, B has {b['signal_instances']})"
+        )
+        lines.append(f"  nets               A has {a['nets']}, B has {b['nets']}")
+    fill = report["fill"]
+    total_a = sum(fill["a"].values())
+    total_b = sum(fill["b"].values())
+    status = "matched by count" if fill["matched_by_count"] else "COUNTS DIFFER"
+    detail = ", ".join(f"{vn.base_cell(c)}: {n}" for c, n in fill["a"].items()) or "none"
+    lines.append(f"  fill cells    {total_a:4d} {status} (B has {total_b}) [{detail}]")
+    for cell, counts in fill["differences"].items():
+        lines.append(f"                     {cell}: A {counts['a']} vs B {counts['b']}")
+    if report["cell_histogram_differences"]:
+        lines.append("  cell-type histogram differences (signal cells):")
+        for cell, counts in report["cell_histogram_differences"].items():
+            lines.append(f"      {cell}: A {counts['a']} vs B {counts['b']}")
+    if report["verification"]["checked"]:
+        problems = report["verification"]["problems"]
+        lines.append(
+            "  verification  independent re-check of the full mapping "
+            + ("passed" if not problems else f"FAILED ({len(problems)} problems)")
+        )
+    lines.append("")
+    if not report["equivalent"]:
+        lines.append("First difference:")
+        if mismatch is not None:
+            lines.extend(mismatch.render())
+        else:
+            failure = report.get("failure", {})
+            lines.append(f"  reason: {failure.get('kind')}")
+            lines.append(f"  {failure.get('summary', '')}")
+            for item in failure.get("problems", []):
+                lines.append(f"    - {item}")
+            for cell, counts in failure.get("differences", {}).items():
+                lines.append(f"    - {cell}: A {counts['a']} vs B {counts['b']}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+# --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="tools/compare",
+        description="Decide whether two gate-level netlists are the same circuit up to "
+        "instance and net renaming.",
+    )
+    parser.add_argument("a", help="netlist A (.v structural Verilog, or .json netlist)")
+    parser.add_argument("b", help="netlist B (.v structural Verilog, or .json netlist)")
+    parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument(
+        "--keep-power",
+        action="store_true",
+        help="do not drop VPWR/VGND/VPB/VNB pins and nets before comparing",
+    )
+    parser.add_argument(
+        "--strict-fill",
+        action="store_true",
+        help="treat a fill-cell count difference as a failure (default: reported, not fatal)",
+    )
+    parser.add_argument(
+        "--fill-prefix",
+        action="append",
+        default=None,
+        metavar="PREFIX",
+        help=f"cell-name prefix to treat as fill (default: {' '.join(vn.FILL_PREFIXES)})",
+    )
+    parser.add_argument(
+        "--branch-budget",
+        type=int,
+        default=DEFAULT_BRANCH_BUDGET,
+        help="maximum backtracking guesses before giving up (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--emit-json-netlist",
+        metavar="DIR",
+        help="also write both netlists to DIR in the canonical JSON form",
+    )
+    args = parser.parse_args(argv)
+
+    fill_prefixes = tuple(args.fill_prefix) if args.fill_prefix else vn.FILL_PREFIXES
+    try:
+        nl_a = vn.load(args.a)
+        nl_b = vn.load(args.b)
+    except (vn.ParseError, OSError, json.JSONDecodeError) as exc:
+        print(f"tools/compare: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    if args.emit_json_netlist:
+        os.makedirs(args.emit_json_netlist, exist_ok=True)
+        for tag, nl in (("a", nl_a), ("b", nl_b)):
+            out = os.path.join(args.emit_json_netlist, f"netlist_{tag}.json")
+            with open(out, "w", encoding="utf-8") as fh:
+                fh.write(nl.to_json_text())
+
+    try:
+        side_a = Side(nl_a, ignore_power=not args.keep_power, fill_prefixes=fill_prefixes)
+        side_b = Side(nl_b, ignore_power=not args.keep_power, fill_prefixes=fill_prefixes)
+    except ValueError as exc:
+        print(f"tools/compare: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    matcher = Matcher(side_a, side_b, branch_budget=args.branch_budget)
+    state, mismatch = matcher.run()
+    report = build_report(side_a, side_b, state, mismatch, args)
+
+    if args.format == "json":
+        print(json.dumps(report, indent=2))
+    else:
+        print(render_text(report, mismatch), end="")
+
+    return EXIT_EQUIVALENT if report["equivalent"] else EXIT_NOT_EQUIVALENT
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,90 @@
+# The warm-up regression, in CI.
+#
+# What this runs, and nothing else:
+#   lint -> comparator self-test + mutation suite -> warm-up regression
+#        -> embargo check
+#
+# Embargo obligations this workflow is written against (CLAUDE.md §1):
+#
+#   * `permissions:` is read-only and explicit. No job requests `administration`
+#     or `contents: write`, so no step here is *capable* of flipping repository
+#     visibility, pushing, or writing to another repository — that is
+#     operator-only across the fleet, and here it is also a commitment to a
+#     third party.
+#   * The checkout does not persist credentials, so nothing downstream can use
+#     the job token to push.
+#   * Only warm-up files are touched. `puzzle/puzzle.gds` and
+#     `example_inputs.vcd` are fetched by scripts/fetch-puzzle.sh (which
+#     verifies them) but nothing in this workflow reads them, derives anything
+#     from them, or prints them. The warm-up half is unembargoed by
+#     construction; the puzzle half is not.
+#   * No artifacts are uploaded and no external service is called, so no log or
+#     artifact can carry puzzle-derived content out of this repository.
+#   * scripts/check-embargo.sh runs on every job as the last step: it asserts the
+#     repository is still PRIVATE and that no remote points at a public repo.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Read-only. Deliberately minimal: nothing here needs to write.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  warmup-regression:
+    name: Warm-up regression + embargo check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out this repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Lint (compile tools, parse scripts)
+        run: ./scripts/lint.sh
+
+      - name: Fetch upstream puzzle files
+        # janestreet/asic-puzzle-2026 carries no license; these land in puzzle/,
+        # which is gitignored, and are never committed (CLAUDE.md §3).
+        run: ./scripts/fetch-puzzle.sh
+
+      - name: Warm-up regression (warm-up files only)
+        # Runs tools/test-compare (comparator self-test + three mutation tests)
+        # and, once tools/extract exists (issue #2), the end-to-end
+        # 04_final.gds -> extract -> compare gate. Never reads puzzle.gds.
+        run: ./scripts/warmup-regression.sh --no-fetch
+
+      - name: Embargo check
+        env:
+          # Read-only job token; used only for `gh repo view --json visibility`.
+          # The script degrades to a reported SKIP if it cannot read visibility.
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/check-embargo.sh
+
+      - name: Assert no upstream puzzle file became tracked
+        # Belt and braces on top of check-embargo.sh: a working tree that is not
+        # clean after the run would mean the fetch or the regression wrote
+        # something into version control.
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working tree is dirty after the run:"
+            git status --porcelain
+            exit 1
+          fi
+          echo "Working tree clean; nothing from puzzle/ was staged."

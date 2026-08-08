@@ -5,7 +5,10 @@ puzzle/
 *.oas
 *.vcd
 
-# Extraction and simulation output
+# Extraction and simulation output. build/ holds netlists extracted from the
+# upstream GDS — a derived representation of a file that carries no license, so
+# it is not committed either (CLAUDE.md §3).
+build/
 *.spice
 *.raw
 *.vcd.gz
