@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tools.sim.directed import DEFAULT_PORTS
 from tools.sim.icarus import compile_and_run
 from tools.sim.pdk import resolve_sky130_models
 from tools.sim.testbench import ShiftLoadCase, UNIT_DELAY_TIMESCALE
@@ -97,8 +98,6 @@ def record_shift_load_vcd(
     ports: dict[str, str] | None = None,
 ) -> None:
     """Simulate `netlist` through `cases` and dump D/A/B/S history to `out_vcd`."""
-    from tools.sim.directed import DEFAULT_PORTS
-
     ports = ports or DEFAULT_PORTS
     models = resolve_sky130_models()
     work_dir.mkdir(parents=True, exist_ok=True)
