@@ -32,7 +32,8 @@ Either way the writeup below must stand alone.
 
 **3. The Easter eggs have been investigated and found.**
 Gate-level replay reveals distinct failure messages: all-zero input emits `EMPTY SKY`,
-all-one emits `BIG BANG`, and ordinary invalid inputs emit `TRY AGAIN`. Physical GDS layer
+all-one emits `BIG BANG`, and every other failing input tested emits `TRY AGAIN` (169 words
+across eight families, including one-bit near-misses). Physical GDS layer
 200/0 encodes `PER ARENAM AD ASTRA` ("through sand, to the stars") in Morse code below the
 die, built from the 36 `INTERNAL_*` placements, and met2 carries an ~18 µm three-ring
 maze/record glyph connected to nothing. Structural differential analysis also recovers the
@@ -88,9 +89,10 @@ ever trusted to accept.
 **Checking the extraction on the real chip.** There is no ground-truth netlist for
 `puzzle.gds`, so the only oracle is `example_inputs.vcd`. Replaying it against our extracted
 netlist reproduces every recorded output transition's value exactly — 22 transitions on
-`O[7:0]` and 2 on `success`, zero value mismatches. The traces differ only in timing, by a
-constant offset of exactly one `UNIT_DELAY` quantum (1 ns, the sky130 primitive timescale),
-consistent with a gate-level simulation compared against a near-zero-delay reference. We
+`O[7:0]` and 2 on `success`, zero value mismatches. The traces differ only in timing: apart
+from one functionally inert pre-reset `x`-settling transition 4 ns early, every transition is
+offset by exactly one `UNIT_DELAY` quantum (+1 ns, the sky130 primitive timescale), consistent
+with a gate-level simulation compared against a near-zero-delay reference. We
 report that run as a literal FAIL under our exact-timestamp comparator rather than loosening
 the comparison, and characterise the offset separately.
 

@@ -362,9 +362,10 @@ properties to exactly the circuit's one accepted word.
 Everything below is verified in the sections above; each clause traces to
 a committed script and its literal output.
 
-> The chip answers back when you get it wrong: all-zeros in emits `EMPTY
-> SKY` on O[7:0], all-ones emits `BIG BANG`, and other failing inputs emit
-> `TRY AGAIN` (all gate-level Icarus replays, not solver decodes). Below
+> The chip answers back when you get it wrong: all-zeros input emits `EMPTY
+> SKY` on O[7:0], all-ones emits `BIG BANG`, and every other failing input
+> tested emits `TRY AGAIN` (169 words across eight families; all gate-level
+> Icarus replays, not solver decodes). Below
 > the die, GDS layer 200/0 spells **`PER ARENAM AD ASTRA`** — "through
 > sand, to the stars" — in Morse code built from the 36 `INTERNAL_*`
 > placements (1:3 dot/dash rectangle widths, 1/3/7-unit gaps). met2
