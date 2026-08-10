@@ -375,3 +375,35 @@ a committed script and its literal output.
 > regions**; with "exactly two stars per region" added, the accepted grid
 > is uniquely determined (31,197,434 candidates → 1) with no reference to
 > the acceptance circuit.
+
+## Addendum (2026-08-10, post-review-scoping) — claim 8 re-derived geometrically
+
+The "connected to nothing" assertion for the met2 glyph originally rested on
+cluster isolation. `evidence/easter-egg-ring-connectivity.py` re-tests it
+with KLayout boolean `Region` interactions — a different method: electrical
+connection to met2 requires met2 contact or a via1/via2 landing, and
+met1/met3 crossing the same XY without a via is only an underpass.
+
+```sh
+PYTHONPATH=. python3 evidence/easter-egg-ring-connectivity.py
+```
+
+```text
+glyph tiles: 1366  other met2 shapes in window: 0
+  electrical met2 (non-tile): 0 shapes in window, 0 interacting with glyph tiles
+  electrical via1 68/44: 0 shapes in window, 0 interacting with glyph tiles
+  electrical via2 69/44: 0 shapes in window, 0 interacting with glyph tiles
+  projection-only met1 68/20: 21 shapes in window, 7 crossing under/over the glyph (no via -> no connection)
+  projection-only met3 70/20: 0 shapes in window, 0 crossing under/over the glyph (no via -> no connection)
+RING VERDICT: ELECTRICALLY UNCONNECTED — no met2 contact and no via lands on it
+
+morse strip shapes: 36
+STRIP VERDICT: ISOLATED — no other layer's geometry touches the strip
+```
+
+Seven met1 wires pass beneath the glyph with no via reaching it; the glyph
+exchanges no current with the design. The Morse strip touches nothing on
+any other layer. An earlier draft of this script scored those met1
+underpasses as "connected" — the refinement to electrical semantics is
+recorded here deliberately, as the kind of false alarm the independent
+reviewer should also guard against.
