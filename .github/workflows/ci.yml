@@ -77,9 +77,12 @@ jobs:
       - name: Warm-up regression (warm-up files only)
         # Runs tools/test-compare (comparator self-test + three mutation tests),
         # tools/test-inventory and tools/test-pins (inventory/pins self-tests,
-        # issue #10), and, once tools/extract exists (issue #2), the end-to-end
-        # 04_final.gds -> extract -> compare gate. Never reads puzzle.gds.
-        run: ./scripts/warmup-regression.sh --no-fetch
+        # issue #10), and the end-to-end 04_final.gds -> extract -> compare gate.
+        # --require-extract turns a missing/non-functional tools/extract into a
+        # hard CI failure instead of a silent skip (issue #9) -- tools/extract
+        # landed in #2, so this step now always exercises the full chain. Never
+        # reads puzzle.gds.
+        run: ./scripts/warmup-regression.sh --no-fetch --require-extract
 
       - name: Embargo check
         env:

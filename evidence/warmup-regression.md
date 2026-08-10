@@ -6,14 +6,16 @@ one prerequisite is `./scripts/fetch-puzzle.sh`, because `puzzle/` is gitignored
 (`CLAUDE.md` §3 — upstream carries no license, so its files are never committed
 here).
 
-**Status: half green, half blocked.** The comparator and its mutation suite run
-today. The end-to-end half — `puzzle/warmup/04_final.gds → extract → compare` —
-needs `tools/extract`, which is issue #2 (itself downstream of #1). It is
-reported as a loud SKIP rather than quietly passing; `./scripts/warmup-regression.sh
---require-extract` turns that skip into a failure once #2 lands.
+**Status: fully green.** The comparator and its mutation suite run, and the
+end-to-end half — `puzzle/warmup/04_final.gds → extract → compare` — now runs
+too: `tools/extract` landed in #2, and `./scripts/warmup-regression.sh
+--require-extract` (the flag CI now always passes) exits 0 with the extracted
+netlist reported **equivalent** to `puzzle/warmup/01_netlist.v`. `--require-extract`
+still exists to turn a future missing/non-functional `tools/extract` into a hard
+CI failure rather than a silent skip — see §5's edge-case check.
 
-Environment: macOS 25.6.0 (darwin), Python 3.14.6, repo at `a72c47c` plus this
-branch. Date of run: 2026-08-08.
+Environment: macOS 25.6.0 (darwin), Python 3.14.6, repo at `8ac5d6d` plus this
+branch. Date of run: 2026-08-10.
 
 Identifiers from `puzzle/warmup/01_netlist.v` are elided as `<net-in-A>` /
 `<instance>` below, per `CLAUDE.md` §3 ("Do not copy fragments of them into
@@ -43,7 +45,7 @@ puzzle/ ready. It is gitignored; do not commit its contents.
 `tools/rename` renames every instance and internal net, shuffles instance order
 and pin order, and keeps only the six top-level port names — which is the actual
 situation the puzzle creates. It does not use `tools/extract`, so this check is
-independent of the blocked half.
+independent of the end-to-end half in §5.
 
 ```console
 $ ./tools/rename puzzle/warmup/01_netlist.v --seed 7 -o /tmp/wu_renamed.v
@@ -202,37 +204,97 @@ One of those deserves calling out: **`01_netlist.v` vs
 `02` is a separate file produced by someone else's flow, with `VPWR`/`VGND`
 pins on every instance and two extra top-level ports. The comparator drops
 supply pins and nets by default (`--keep-power` to keep them) and finds the same
-79-instance correspondence. It is the closest thing available to the real
-end-to-end check until `tools/extract` exists.
+79-instance correspondence. Before `tools/extract` existed, this was the
+closest available proxy for the real end-to-end check in §5; it now exercises
+the power-stripping and fill paths independently of the extractor.
 
-## 5. The end-to-end half — blocked on #2
+## 5. The end-to-end half — extract, then compare against ground truth
+
+`tools/extract` (issue #2) reads `04_final.gds` directly and emits a
+gate-level Verilog netlist. Run manually here for a clean transcript; this is
+exactly what `./scripts/warmup-regression.sh --require-extract` runs as its
+step 4, and `--require-extract` is the flag CI now always passes (issue #9).
 
 ```console
-$ ./scripts/warmup-regression.sh --no-fetch
+$ ./tools/extract puzzle/warmup/04_final.gds -o build/warmup-extracted.v
+tools/extract: wrote build/warmup-extracted.v
+$ echo $?
+0
+
+$ ./tools/compare build/warmup-extracted.v puzzle/warmup/01_netlist.v
+EQUIVALENT
+  A: build/warmup-extracted.v  (module adder_demo)
+  B: puzzle/warmup/01_netlist.v  (module adder_demo)
+
+  ports            6 matched by name: A B S clk en rst_n
+  signal cells    79 matched 1:1 (A has 79, B has 79)
+  nets            84 matched (A has 84, B has 84)
+  fill cells     151 matched by count (B has 151) [decap_3: 58, tapvpwrvgnd_1: 93]
+  verification  independent re-check of the full mapping passed
+$ echo $?
+0
+```
+
+`build/` is gitignored: a netlist extracted from `04_final.gds` is a derived
+representation of a file that carries no license, so committing it would be
+vendoring the puzzle files by another route (`CLAUDE.md` §3). It never leaves
+this machine; the *result* of comparing it is what gets recorded here.
+
+The full harness reaches the same result through `scripts/warmup-regression.sh`,
+which runs the comparator suite, the inventory/pins suite, and this end-to-end
+step in sequence:
+
+```console
+$ ./scripts/warmup-regression.sh --no-fetch --require-extract
 ...
-2. End-to-end: 04_final.gds -> extract -> compare against 01_netlist.v
+4. End-to-end: 04_final.gds -> extract -> compare against 01_netlist.v
+------------------------------------------------------------
+running: tools/extract .../puzzle/warmup/04_final.gds -o .../build/warmup-extracted.v
+tools/extract: wrote .../build/warmup-extracted.v
+running: tools/compare .../build/warmup-extracted.v .../puzzle/warmup/01_netlist.v
+EQUIVALENT
+  A: .../build/warmup-extracted.v  (module adder_demo)
+  B: .../puzzle/warmup/01_netlist.v  (module adder_demo)
+
+  ports            6 matched by name: A B S clk en rst_n
+  signal cells    79 matched 1:1 (A has 79, B has 79)
+  nets            84 matched (A has 84, B has 84)
+  fill cells     151 matched by count (B has 151) [decap_3: 58, tapvpwrvgnd_1: 93]
+  verification  independent re-check of the full mapping passed
+
+------------------------------------------------------------
+Warm-up regression complete.
+$ echo $?
+0
+```
+
+(Absolute worktree paths in the "running:" lines are elided to `...` above —
+they are a local build artifact of where this was run from, not puzzle
+content.)
+
+**Edge case: a missing/non-functional extractor must turn CI red, not
+yellow.** Verified by temporarily removing the executable bit from
+`tools/extract` and re-running:
+
+```console
+$ chmod -x tools/extract
+$ ./scripts/warmup-regression.sh --no-fetch --require-extract
+...
+4. End-to-end: 04_final.gds -> extract -> compare against 01_netlist.v
 ------------------------------------------------------------
 SKIPPED — tools/extract does not exist yet.
   Cell-level extraction is issue #2 (blocked on #1). Until it lands, the
   end-to-end half of this regression cannot run; the comparator half above
   is the part that is green today.
-$ echo $?
-0
-
-$ ./scripts/warmup-regression.sh --no-fetch --require-extract
-...
 FAILED — --require-extract was given but tools/extract is absent.
 $ echo $?
 1
+$ chmod +x tools/extract
 ```
 
-When `tools/extract` lands, the script runs it into `build/warmup-extracted.v`
-and compares that against `01_netlist.v`. Note the output path: `build/` is
-gitignored. Issue #3 named `evidence/warmup-extracted.v`, but a netlist
-extracted from `04_final.gds` is a derived representation of a file that carries
-no license, so committing it would be vendoring the puzzle files by another
-route (`CLAUDE.md` §3). It stays out of git; the *result* of comparing it is
-what gets recorded here.
+`--require-extract` is the flag `.github/workflows/ci.yml` passes on every
+run, so this is exactly the failure mode CI would hit if the extractor ever
+regresses to missing or non-executable.
 
 ## 6. The whole chain
 
@@ -255,8 +317,11 @@ reaching the later steps.
 
 ## What this does *not* yet claim
 
-- Nothing here says the extractor is correct, because there is no extractor. It
-  says the *comparator* is correct enough to be trusted as the judge when there
-  is one.
+- This is a **single-fixture** result: `tools/extract` recovers a netlist from
+  `04_final.gds` that the comparator finds equivalent to `01_netlist.v`, on the
+  one warm-up layout the repo ships. It is not a claim that extraction is
+  correct in general, or that it will succeed unchanged on the (much larger)
+  `puzzle.gds` — that is separate, embargoed work tracked elsewhere in this
+  repo, not here.
 - No claim at all is made about `puzzle.gds`. Nothing in this regression reads
   it (`CLAUDE.md` §1).
