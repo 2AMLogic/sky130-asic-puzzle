@@ -103,6 +103,35 @@ The 92-bit state is what sets stage 7's difficulty. The warm-up's 16 flip-flops 
 two shift registers feeding a comparator against a constant; the same shape at this size is
 a reasonable prior, and it is only a prior.
 
+## Prior art
+
+**Nohl, Evans, Starbug & Plötz, ["Reverse-Engineering a Cryptographic RFID
+Tag"](https://www.usenix.org/legacy/events/sec08/tech/full_papers/nohl/nohl.pdf), USENIX
+Security 2008** — the Mifare Classic / Crypto-1 recovery. The classic of this genre, and
+worth citing in the stage-8 writeup for what it shares and what it does not.
+
+*Shared:* the core method. Recover the sequential structure first, separate the **feedback**
+path from the **output/filter** path, then name the taps — and read the function off that
+skeleton rather than off the gate soup. `tools/sim/structure.py` arrived at the same
+approach independently: collapse the combinational logic, report the state graph, find the
+strongly-connected components and the shift chains, then read the taps.
+
+*Not shared:* their hard part was **imaging** — recovering a netlist from die photographs,
+recognising standard cells by appearance. Jane Street ships GDS with cell names and drive
+strengths intact, so that entire stage is a gift here, and the difficulty moves downstream
+to connectivity extraction (stage 4) instead.
+
+*Also not shared:* Crypto-1 is a cipher — a 48-bit LFSR with a nonlinear filter reading a
+subset of its taps. This design is **not cryptographic**. The tell is in the same skeleton:
+its feedback groups are 2-flop saturating counters rather than one long register with XOR
+taps, and 29 `xnor2_2` across 636 combinational gates is far too few for LFSR feedback at
+this scale. What looks from a distance like absorb-mix-compare is really
+count-per-row/column-and-check-adjacency (see `evidence/puzzle-solve.md` §5).
+
+Recorded because "serial input + feedback + wide comparison" reads as a keystream generator
+to an experienced eye, and it is worth having written down both why that reading is
+reasonable and what distinguishes this from it.
+
 ## Deliberate non-goals
 
 - **Not a design canary.** Nothing here is taped out, and no tier is claimed. If a tier label
