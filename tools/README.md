@@ -570,3 +570,50 @@ every prior `tools/sim` output was a single bit (`S` in the warm-up), which
 nothing can truncate. Fixed to zero-extend unless the leading digit is `x`
 or `z`, per the VCD spec; covered by `tools/sim/selftest_portmap.py`'s
 "correct wiring" check, which failed loudly against the bug before the fix.
+
+## Producing the answer (stage 8)
+
+Stage 7 proves an input sequence drives `success`. Stage 8 asks what the
+design says once it has — mechanical, per `spec/puzzle.md`, once stages
+4–7 are right, so this is additive to the stage 7 pipeline rather than a
+new solving stack:
+
+1. **`tools/sim/run_answer.py`** re-derives the stage-7 solved sequence by
+   calling the same `windowed_scenario` / `enumerate_solutions` machinery
+   `run_solve.py` uses — not by retyping the literal bit string recorded
+   in `evidence/puzzle-solve.md`, so there is exactly one source of truth
+   for the answer's input and every run is an independent reproduction,
+   not a copy. It then extends the simulated window past the goal cycle
+   (`--observe-cycles`, appended after `--solve-tail-cycles`) so the
+   output generator has room to keep running, watches the output bit ports
+   alongside the goal signal, and decodes what it sees.
+2. **`tools/sim/answer.py`** is the decode mechanism: whether output port
+   index 0 is a byte's LSB or MSB is not assumed. Both candidate orderings
+   are computed from the same sampled bits, and the one producing the
+   longer run of printable ASCII is selected and reported — visibly,
+   alongside the non-selected alternative, in every run.
+
+```sh
+# known-answer self-test first — a synthetic sequential DUT with a known
+# message, wired both ways plus a scrambled negative control; nothing
+# embargoed:
+python3 -m tools.sim.selftest_answer
+
+# replay the stage-7 answer, extend the window, decode the message
+python3 -m tools.sim.run_answer --netlist evidence/puzzle-extracted.v \
+    --active-cycles 121 --observe-cycles 30
+```
+
+If the observation window is too short to have let the message finish,
+`run_answer.py` says so explicitly (`WARNING: ... --observe-cycles may be
+too short`) rather than silently returning a truncated read — the message
+boundary is found by locating the longest run of printable bytes in the
+decoded stream and checking that stream has gone quiet (repeats the same
+byte) for the last few watched cycles, not by assuming a fixed length.
+
+Exit status: 0 on a decoded message, 1 when the stage-7 re-solve comes back
+UNSAT (a contradiction with `evidence/puzzle-solve.md` worth investigating,
+not proceeding past), 2 on a usage, verification, or environment failure.
+
+The full run, the self-test output, and the answer itself are recorded in
+`evidence/puzzle-answer.md`.

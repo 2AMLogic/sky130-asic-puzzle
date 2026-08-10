@@ -463,3 +463,21 @@ python3 -m tools.sim.run_solve --netlist evidence/puzzle-extracted.v \
   (`tools/sim/celltable.py`, `seqmodel.py`, `bmc.py`, `structure.py`,
   `solve.py`) is subject-independent and its warm-up self-test is not
   embargoed; the answer above is.
+
+## 10. Stage 8, landed — see `evidence/puzzle-answer.md`
+
+This section is an append made for issue #16 (stage 8), on top of the
+recorded result above — nothing above has been edited, per this repo's
+append-only evidence convention.
+
+Stage 8 is done: `tools/sim/run_answer.py` re-derives the 121-bit sequence
+above via the same `solve.py` machinery (rather than retyping it from §5),
+extends the simulated window past the goal cycle, and decodes `O[7:0]`.
+The "nine printable ASCII characters" note two bullets up (§9) is now
+resolved rather than open: it was an artifact of an insufficient
+observation window, not the message's true length — the full message is
+15 bytes. The bit order this section flagged as "not yet established" is
+now checked (both candidates computed, the printable one selected and
+reported alongside the non-printable alternative) rather than assumed. See
+`evidence/puzzle-answer.md` for the full command, output, self-test, and
+the answer itself.
