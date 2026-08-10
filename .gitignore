@@ -75,3 +75,6 @@ __pycache__/
 
 # squad machine-local install metadata (absolute source path + timestamp)
 .claude/skills/squad/.install-local.json
+
+# session handoff note (/repo:handoff) — session state, never committed
+.claude/handoff.md
