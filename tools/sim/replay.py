@@ -84,7 +84,7 @@ def run_vcd_replay(
     recorded_vcd_path: Path,
     *,
     top: str,
-    port_map: dict[str, str],
+    port_map: dict[str, str | list[str]],
     input_names: list[str],
     output_names: list[str],
     work_dir: Path | None = None,

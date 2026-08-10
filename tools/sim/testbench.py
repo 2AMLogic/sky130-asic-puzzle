@@ -124,7 +124,7 @@ def _verilog_literal(value: str, width: int) -> str:
 def build_vcd_replay_testbench(
     *,
     top: str,
-    port_map: dict[str, str],
+    port_map: dict[str, str | list[str]],
     input_names: list[str],
     output_names: list[str],
     recorded: VcdDocument,
@@ -139,6 +139,14 @@ def build_vcd_replay_testbench(
     should survive; port_map exists so a mismatch there doesn't require
     touching this generator).
 
+    A `port_map` value is either a single DUT port name (connects the whole
+    recorded signal to one DUT port, scalar or vector — the original,
+    unchanged behaviour) or a list of `width` DUT port names, one per bit,
+    ordered bit 0 (LSB) first. The list form is for netlists extracted
+    straight from GDS pin labels, which have no bus abstraction and so
+    declare one scalar port per bit (e.g. `\\O[0]` .. `\\O[7]`) rather than a
+    single `[7:0]` vector port — exactly the shape `tools/extract` produces.
+
     The generated testbench's own wires/regs are named identically to the
     *recorded* VCD signal names and are what gets dumped to `dump_path` — so
     the resulting VCD is directly comparable to `recorded` via
@@ -151,6 +159,14 @@ def build_vcd_replay_testbench(
     widths: dict[str, int] = {}
     for name in input_names + output_names:
         widths[name] = recorded.var_by_name(name).width
+
+    for name in input_names + output_names:
+        mapped = port_map[name]
+        if isinstance(mapped, list) and len(mapped) != widths[name]:
+            raise ValueError(
+                f"port_map[{name!r}] has {len(mapped)} entries but the recorded "
+                f"signal is {widths[name]} bits wide — provide one DUT port name per bit"
+            )
 
     events: list[tuple[int, str, str]] = []
     for name in input_names:
@@ -170,7 +186,18 @@ def build_vcd_replay_testbench(
         decl = f"[{w - 1}:0] " if w > 1 else ""
         lines.append(f"  wire {decl}{name};")
     lines.append("")
-    port_conns = ", ".join(f".{port_map[n]}({n})" for n in input_names + output_names)
+
+    def _connections(name: str) -> list[str]:
+        mapped = port_map[name]
+        # Trailing space after the DUT port name is required, not
+        # cosmetic: an escaped Verilog identifier (`\O[0]`) is only
+        # terminated by whitespace, so `.{port}(...)` with no space would
+        # be mis-tokenized as part of the identifier itself.
+        if isinstance(mapped, list):
+            return [f".{mapped[i]} ({name}[{i}])" for i in range(widths[name])]
+        return [f".{mapped} ({name})"]
+
+    port_conns = ", ".join(conn for n in input_names + output_names for conn in _connections(n))
     lines.append(f"  {top} dut ({port_conns});")
     lines.append("")
     lines.append("  initial begin")

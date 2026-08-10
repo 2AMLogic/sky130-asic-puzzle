@@ -29,10 +29,15 @@ def normalize_value(raw: str, width: int) -> str:
     """Pad/truncate a value-change bit string to exactly `width` characters.
 
     Per the VCD spec, a vector value shorter than its declared width is
-    extended using its own most-significant (leftmost) character — so
-    dumping 0 as "b0" for an 8-bit signal means "b00000000", and dumping X
-    as "bx" means all-X. A value longer than `width` (shouldn't happen from
-    a well-formed dump) is truncated to its low-order bits.
+    zero-extended — writers conventionally drop leading (most-significant)
+    zero bits from a vector dump to save space, so a reader must restore
+    them — UNLESS the most-significant digit actually given is `x` or `z`,
+    in which case the fill is that digit instead (so an unknown/high-Z
+    prefix propagates rather than being read as zero). E.g. dumping the
+    8-bit value 0x1B as "b11011" (leading zeros dropped) means
+    "b00011011", not "b11111011"; dumping "bx" for an 8-bit signal means
+    all-X. A value longer than `width` (shouldn't happen from a
+    well-formed dump) is truncated to its low-order bits.
     """
     if width <= 0:
         return raw
@@ -42,7 +47,7 @@ def normalize_value(raw: str, width: int) -> str:
         return raw[-width:]
     if not raw:
         return "x" * width
-    fill = raw[0]
+    fill = raw[0] if raw[0] in ("x", "z") else "0"
     return (fill * (width - len(raw))) + raw
 
 

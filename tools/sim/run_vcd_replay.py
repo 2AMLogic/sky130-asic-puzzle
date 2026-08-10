@@ -14,11 +14,16 @@ Once an extracted puzzle netlist exists, the intended invocation is:
         --top puzzle \\
         --inputs clk,rst_n,enable,I \\
         --outputs O,success \\
-        --port-map clk=clk,rst_n=rst_n,enable=enable,I=I,O=O,success=success
+        --port-map "clk=clk,rst_n=rst_n,enable=enable,I=I,success=success,O=\\O[0]:\\O[1]:\\O[2]:\\O[3]:\\O[4]:\\O[5]:\\O[6]:\\O[7]"
 
 `--port-map` defaults to the identity map (recorded VCD signal name == DUT
 port name) when omitted; pass explicit `recorded=dut` pairs if the extracted
-netlist's top-level ports were renamed.
+netlist's top-level ports were renamed. For a recorded signal wider than 1
+bit whose DUT has no vector port for it — the common case for a netlist
+extracted straight from GDS pin labels, which declares one scalar port per
+bit (e.g. `\\O[0]` .. `\\O[7]`) rather than a `[7:0]` vector — give a
+colon-separated list of `width` DUT port names instead of one name, ordered
+bit 0 (LSB) first: `O=\\O[0]:\\O[1]:...:\\O[7]`.
 """
 
 from __future__ import annotations
@@ -31,16 +36,21 @@ from tools.sim.pdk import PdkResolutionError
 from tools.sim.replay import run_vcd_replay
 
 
-def _parse_port_map(raw: str | None, names: list[str]) -> dict[str, str]:
+def _parse_port_map(raw: str | None, names: list[str]) -> dict[str, str | list[str]]:
     if not raw:
         return {n: n for n in names}
-    mapping: dict[str, str] = {}
+    mapping: dict[str, str | list[str]] = {}
     for pair in raw.split(","):
         pair = pair.strip()
         if not pair:
             continue
         k, _, v = pair.partition("=")
-        mapping[k] = v or k
+        if not v:
+            mapping[k] = k
+        elif ":" in v:
+            mapping[k] = v.split(":")
+        else:
+            mapping[k] = v
     for n in names:
         mapping.setdefault(n, n)
     return mapping
@@ -53,7 +63,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--top", required=True, help="DUT top module name")
     parser.add_argument("--inputs", required=True, help="comma-separated recorded input signal names")
     parser.add_argument("--outputs", required=True, help="comma-separated recorded output signal names")
-    parser.add_argument("--port-map", default=None, help="comma-separated recorded=dut pairs; default identity")
+    parser.add_argument(
+        "--port-map",
+        default=None,
+        help="comma-separated recorded=dut pairs; default identity. A dut value may be a "
+        "colon-separated list of per-bit port names (bit 0 first) for a multi-bit signal "
+        "with no vector port, e.g. O=\\O[0]:\\O[1]:...:\\O[7]",
+    )
     parser.add_argument("--margin", type=int, default=1000, help="extra sim time after the last recorded event")
     parser.add_argument("--work-dir", default=".sim-work/replay", help="scratch directory for generated sources")
     args = parser.parse_args(argv)
