@@ -120,12 +120,12 @@ differ only in unused suffix bits, so the uniqueness is at that bound rather tha
 The four unresettable flops were left as free variables throughout, and the answer holds under
 all 16 power-up combinations.
 
-**What the chip appears to be doing.** The taps are legible: 22 two-flop saturating counters
-(one per row and one per column of an 11-wide raster), an 8-flop running population count of
-`I`, and a shift register whose taps read offsets 1 and 11±1 — the neighbours of the current
-cell in raster order. The accepted word reads as an 11×11 grid with exactly two marks per row
-and per column and no two marks adjacent, even diagonally, which is consistent with that
-structure and with the emitted message.
+**What the chip is doing.** One-hot differential traces make the counter roles legible: 11
+two-flop counters receive one complete column each, another 11 receive disjoint irregular
+regions that partition the 11×11 raster, and one two-flop counter is reused across rows. An
+8-flop group counts the total population of `I`, while a 12-stage shift register reads offsets
+1 and 11±1 — the neighbours of the current cell in raster order. The accepted word has
+exactly two marks per row, column, and region, with no two marks adjacent even diagonally.
 
 Those conditions alone do not pin the answer down: enumerated independently — 11×11, two
 marks per row, two per column, minimum Chebyshev distance 2 — they admit **31,197,434**
