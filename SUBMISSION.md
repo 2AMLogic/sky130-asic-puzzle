@@ -91,6 +91,13 @@ consistent with a gate-level simulation compared against a near-zero-delay refer
 report that run as a literal FAIL under our exact-timestamp comparator rather than loosening
 the comparison, and characterise the offset separately.
 
+We want to be precise about what that establishes, because it is less than it looks. That
+trace has low internal coverage: across its 312 rising edges, **152 of 728 functional cells
+never toggle** — including 120 in the transitive cone of `O[7:0]` and 89 in the cone of
+`success`. An extraction error in cold logic would not have been caught by this replay. Our
+extraction is reproducible and agrees with the warm-up's published ground truth; on the
+puzzle itself it is corroborated, not proven.
+
 **Structure before solving.** We collapsed the combinational logic and looked at the state
 graph — an edge from flop X to flop Y when X's output is in the fan-in cone of Y's D pin.
 The warm-up decomposes into two independent 8-stage shift registers feeding one comparator.
@@ -105,16 +112,25 @@ model from that. Bounded model checking over the full 92-flop state (no state re
 assumed structure) found a 121-bit input sequence on `I` that drives `success` high. We
 replayed that sequence through Icarus against the extracted netlist itself — not just the SAT
 encoding — and it asserts `success`. Re-solving with that solution blocked returns UNSAT, so
-it is the only sequence at that bound. The four unresettable flops were left as free
-variables throughout, and the answer holds under all 16 power-up combinations.
+it is the only **121-bit active word** that works: longer windows admit further sequences that
+differ only in unused suffix bits, so the uniqueness is at that bound rather than absolute.
+The four unresettable flops were left as free variables throughout, and the answer holds under
+all 16 power-up combinations.
 
-**What the chip is.** The structure explains itself once you read the taps: 22 two-flop
-saturating counters (one per row and one per column of an 11-wide raster), an 8-flop running
-population count of `I`, and a shift register whose taps read offsets 1 and 11±1 — the
-neighbours of the current cell in raster order. It is a validator for a non-attacking
-placement puzzle. The solved input describes an 11-wide grid with exactly two marks per row
-and per column and no two marks adjacent, even diagonally. The message the chip emits,
-`(* TWO STARS *)`, names the rule it checks.
+**What the chip appears to be doing.** The taps are legible: 22 two-flop saturating counters
+(one per row and one per column of an 11-wide raster), an 8-flop running population count of
+`I`, and a shift register whose taps read offsets 1 and 11±1 — the neighbours of the current
+cell in raster order. The accepted word reads as an 11×11 grid with exactly two marks per row
+and per column and no two marks adjacent, even diagonally, which is consistent with that
+structure and with the emitted message.
+
+We are deliberately not claiming the chip implements exactly that predicate, because it
+doesn't. We enumerated the predicate independently — 11×11, two marks per row, two per
+column, minimum Chebyshev distance 2 — and it admits **31,197,434** valid grids, while the
+circuit accepts exactly **one** word at our bound. So the design checks those conditions
+*among others we have not isolated*. The honest statement is that the unique accepted word
+has those properties, and the structure is consistent with the circuit testing some of
+them.
 
 **Answer.** Extending the simulation past the goal cycle and watching `O[7:0]` yields 15
 printable ASCII bytes: `(* TWO STARS *)`. We decoded both candidate bit orders and selected
