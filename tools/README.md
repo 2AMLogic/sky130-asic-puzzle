@@ -121,6 +121,144 @@ anything extra) and re-execs into it if needed. Both `tools/inventory` and
 `klayout.db`, so either command works from a plain `python3` with no
 `klayout` package of its own, as long as `klt` is on `PATH`.
 
+## `tools/extract` — cell-level connectivity extraction (stage 4)
+
+    tools/extract <path.gds> [-o out.v] [--json out.json] [--top NAME] [--stats]
+
+Reads a placed-and-routed sky130 GDS stream directly (no PDK, and — unlike
+`klt extract` — no device-level SPICE step) and emits a **gate-level**
+Verilog + JSON netlist (`verilog_netlist.SCHEMA`) by tracing physical
+connectivity through the routing stack. `-o` writes structural Verilog
+(stdout if omitted); `--json` additionally writes the canonical JSON form;
+`--stats` prints the extraction report (below) to stderr even when both
+outputs are files. Backed by `tools/gds_extract.py`; issue #1's cell
+inventory (`gds_layers.classify`) and pin abstracts
+(`gds_pins.resolve_cell_pin_shapes`) are the two building blocks this reuses
+rather than re-deriving.
+
+### Conductor stack and via handling
+
+The routing stack this reads, bottom to top, and what bridges each
+consecutive pair:
+
+| Conductor (drawn, datatype 20) | GDS layer | Via above it (datatype 44) | GDS layer |
+|---|---|---|---|
+| `li1` | 67 | `mcon` | 67 |
+| `met1` | 68 | `via` | 68 |
+| `met2` | 69 | `via2` | 69 |
+| `met3` | 70 | `via3` | 70 |
+| `met4` | 71 | `via4` | 71 |
+| `met5` | 72 | — | — |
+
+(Confirmed empirically, not assumed: every `VIA_*` cell definition in both
+`warmup/04_final.gds` and `puzzle.gds` draws shapes on *exactly* the
+conductor-layer pair its own via-cut layer number predicts — e.g.
+`VIA_M2M3_PR` draws on 69/20, 70/20 and 69/44, and nothing else.)
+
+Two independent geometry sources feed each conductor/via layer, both
+required:
+
+- **Drawn directly in the top cell** — the P&R tool's own routing shapes
+  (`met1`-`met5` carry these; `li1` never does — see below).
+- **Drawn inside a `VIA_*` cell definition, transformed by its placement.**
+  `VIA_*` instances are the P&R tool's via arrays/singles; their own cell
+  definitions draw the *conductor* pads on both sides of the via as well as
+  the cut itself (e.g. `VIA_L1M1_PR_MR` draws 67/20, 68/20 **and** 67/44). On
+  both designs this repo works with, `li1` conductor geometry at the top
+  level comes *exclusively* from `VIA_*` cells — the top cell itself draws
+  zero `li1` shapes directly, since `li1` is confined to standard-cell rows.
+
+Same-layer connectivity is a `klayout.db.Region.merged()` over all shapes on
+that layer (from both sources above): touching/overlapping shapes on one
+layer become one physical "island". Vertical connectivity unions an island on
+layer N with an island on layer N+1 wherever a via-layer shape (drawn or
+`VIA_*`-cell-contributed, same two sources) touches both. This is a plain
+union-find, not `klayout.db.LayoutToNetlist` — the latter's device/circuit
+model is built for polygon-to-transistor recognition; this problem only
+needs polygon-to-polygon connectivity, so a direct implementation is both
+simpler and easier to audit than fitting a black-box-cell shape into an LVS
+engine designed for something else.
+
+**Standard cells are black boxes for *naming*, not for *conductivity*.**
+Only a cell's declared pins (`gds_pins`) ever become a net *connection* in
+the output — nothing about a cell's unlabelled internal geometry is ever
+exposed as a signal name. But restricting the conductor *pool* itself to only
+`VIA_*`-instance geometry produced false "unconnected pin" errors on real,
+connected pins in `warmup/04_final.gds` — traced to two real physical
+mechanisms a purely pin-and-via model misses:
+
+1. **A `.pin`-purpose marker is not always a pin's full net extent inside the
+   cell.** A high-drive-strength cell (parallel transistor legs, e.g.
+   `clkbuf_16`) can expose several separate `.pin` tabs for the same pin,
+   tied together by one much larger underlying `li1` "draw"-purpose shape —
+   and a via may legally land anywhere on that larger shape, not only inside
+   a narrow tab. `gds_extract._expand_pin_shapes` expands each pin's
+   marker(s) to the full **cell-local** merged island they sit on (a
+   same-layer merge scoped to one cell definition) before transforming to
+   top-level coordinates.
+2. **Some nets are distributed by direct `li1` abutment between adjacent
+   standard-cell instances, with no `VIA_*` cell anywhere nearby.** Confirmed
+   directly on `warmup/04_final.gds`: `sky130_fd_sc_hd__dfrtp_2`'s
+   `RESET_B` pin (wired `.RESET_B(rst_n)` on all 16 instances in
+   `warmup/01_netlist.v`) has no `VIA_*` cell within 1.67 µm of its own pin
+   shape — the reset signal reaches it via a neighbouring instance's own
+   `li1` geometry touching the pin directly. `gds_extract._gather_regions`
+   therefore includes **every** placed instance's own drawn shapes (standard
+   cells and fill cells too, not only `VIA_*`) in the global conductor pool.
+
+Both were found by running the extractor and chasing its first false
+"unconnected pin" down to real GDS geometry, not by inspection — see
+`evidence/extraction-notes.md` for the full trace of both.
+
+### Supply pins (VPWR/VGND/VPB/VNB)
+
+`VPWR`/`VPB` pins collapse to a single net `"VPWR"`; `VGND`/`VNB` collapse to
+`"VGND"` — by pin **name**, never resolved geometrically, and never emitted
+as a connection on any instance in the output (matching both
+`warmup/01_netlist.v`, which never wires power pins, and this repo's own
+simulation harness, `tools/sim/icarus.py`, compiled without
+`USE_POWER_PINS`). `VPB`/`VNB` resolve to shapes on the nwell/pwell layers
+(64/122) entirely outside the `li1`-`met5` stack above, so there is no
+top-level routing model to resolve them against even if that were wanted.
+
+The same union-find is still run across the full stack purely as a sanity
+check, independent of the name collapse: a net found carrying both a supply
+label (`VPWR`/`VGND`, read from met4/met5 text) and a non-supply top-level
+port label — or both `VPWR` and `VGND` at once — is a hard `ExtractionError`
+("spurious supply short"), and the extraction report
+(`tools/extract --stats`) prints the number of distinct physical islands each
+supply label resolves to (expected: exactly 1 each) plus the total
+name-collapsed connection count per supply, for a rough cross-check against
+the fill-cell count. See `evidence/extraction-notes.md` for real numbers from
+both designs.
+
+### Pin-transform correctness
+
+Every standard-cell instance's pin geometry is transformed from the cell's
+own local coordinates to top-level coordinates via `db.Instance.dcplx_trans`
+(KLayout's own placement transform, in microns — handles the 90-degree
+rotations and mirrors sky130 rows use heavily without any hand-rolled
+trigonometry). Neither design this repo works with uses instance arrays or
+magnification (`db.Instance.is_regular_array()` is `False` and
+`cplx_trans.mag == 1.0` for all 1,099 / 9,875 top-cell instances, checked
+directly), so a plain `db.Trans` always applies. As a direct check on
+transform correctness (the "highest-risk detail" issue #2 calls out), every
+transformed pin polygon is asserted to lie inside its own instance's
+bounding box (`db.DBox`, small tolerance for floating-point rounding) before
+it is used for any connectivity query — a transform bug would show up as
+this assertion failing, not as a silently wrong net.
+
+### Instance naming
+
+Emitted instance names are `<base-cell-name>_<x>_<y>`, where `(x, y)` is the
+instance's own **transformed bounding box**'s lower-left corner in dbu — not
+`db.Instance.trans.disp` (the raw placement pivot point), which two
+instances can legitimately share while occupying disjoint footprints (e.g. a
+`r180`-rotated and an `r0` instance placed in adjacent rows, confirmed on
+`warmup/04_final.gds`: two distinct `sky130_fd_sc_hd__and2_2` instances at
+the identical `disp`). The transformed bbox corner is unique per instance
+(no two placed instances may legally overlap) and fully deterministic.
+
 ## `tools/vcd` — minimal VCD reader/writer
 
 `tools/vcd/reader.py` / `tools/vcd/writer.py` parse and emit the subset of

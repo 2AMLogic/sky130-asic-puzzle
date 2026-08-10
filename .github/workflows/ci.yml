@@ -56,6 +56,16 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install klayout (Python package)
+        # tools/extract (issue #2) reads GDS geometry directly via KLayout's
+        # Python API. klayout_env.py's fast path is "already importable in
+        # the running interpreter" -- installing the standalone `klayout`
+        # wheel here satisfies that without needing the full `klt` binary
+        # (klayout-tools) on the runner. Without this, the warm-up
+        # regression step below fails outright (not a skip) once
+        # tools/extract exists, since it is invoked unconditionally.
+        run: pip install klayout
+
       - name: Lint (compile tools, parse scripts)
         run: ./scripts/lint.sh
 

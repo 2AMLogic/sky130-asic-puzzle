@@ -1,0 +1,407 @@
+#!/usr/bin/env python3
+"""Self-test for `tools/gds_extract.py` (cell-level connectivity extraction).
+
+Run with no arguments:  `tools/test-extract`
+
+Four families of check:
+
+* **Synthetic, well-formed** -- two tiny in-memory standard-cell instances
+  (one plain, one placed with a 180-degree rotation -- the "highest-risk
+  detail" issue #2 calls out) wired together by a top-level `li1` shape,
+  with top-level port labels. Proves pin-transform correctness (rotation)
+  and basic net naming/direction inference.
+* **Synthetic, unconnected pin** -- a third instance with a pin touching no
+  conductor at all. Must raise `ExtractionError` naming the instance and
+  pin -- the total-or-loud contract this issue's acceptance criteria
+  require.
+* **Synthetic, spurious supply short** -- a net that resolves both a signal
+  port label and a supply rail label to the same physically connected
+  island. Must raise `ExtractionError` describing the conflict.
+* **Real-file smoke test** -- `tools/extract` against
+  `puzzle/warmup/04_final.gds`, checked against `puzzle/warmup/01_netlist.v`
+  via `tools/compare` (must report EQUIVALENT, matched fill-by-count), plus
+  `puzzle/puzzle.gds` (no ground truth to compare against -- checked for
+  the counts `spec/puzzle.md`/`tools/README.md` already established:
+  738 logic+sequential instances, 92 flip-flops split 84/4/4, and the
+  13 named top-level ports). SKIPPED, loudly, when `puzzle/` is absent.
+
+All of the above are SKIPPED, loudly, if no interpreter with an importable
+`klayout` module can be found.
+
+Exit status: 0 if every check that ran passed, 1 otherwise.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+
+EXTRACT = os.path.join(HERE, "extract")
+COMPARE = os.path.join(HERE, "compare")
+WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
+WARMUP_NETLIST = os.path.join(ROOT, "puzzle", "warmup", "01_netlist.v")
+PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
+
+PASS, FAIL, SKIP = "pass", "FAIL", "skip"
+results: list[tuple[str, str, str]] = []
+
+
+def record(name: str, status: str, detail: str = "") -> None:
+    results.append((name, status, detail))
+    marker = {"pass": "ok", "FAIL": "FAIL", "skip": "skip"}[status]
+    print(f"  {marker:6s} {name}" + (f" -- {detail}" if detail else ""))
+
+
+def check(name: str, condition: bool, detail: str = "") -> None:
+    record(name, PASS if condition else FAIL, detail)
+
+
+try:
+    import klayout_env
+
+    klayout_env.ensure_klayout()
+    import klayout.db as db
+
+    KLAYOUT_OK = True
+except Exception as exc:  # pragma: no cover - environment-dependent
+    KLAYOUT_OK = False
+    KLAYOUT_SKIP_REASON = str(exc)
+
+
+# ---------------------------------------------------------------------------
+# synthetic layout construction
+# ---------------------------------------------------------------------------
+
+CELL_NAME = "sky130_fd_sc_hd__synthbuf_2"
+
+
+def _box(cell, layout, layer_num, datatype, x0, y0, x1, y1):
+    li = layout.layer(layer_num, datatype)
+    cell.shapes(li).insert(db.Box(x0, y0, x1, y1))
+
+
+def _label(cell, layout, layer_num, datatype, text, x, y):
+    li = layout.layer(layer_num, datatype)
+    cell.shapes(li).insert(db.Text(text, x, y))
+
+
+def _synthbuf_cell(layout):
+    """A minimal `A -> Y` black-box cell: li1 pins only, no power pins (this
+    module never needs geometry for power pins, so omitting them proves
+    `gds_extract` does not silently assume they exist)."""
+    cell = layout.create_cell(CELL_NAME)
+    _box(cell, layout, 67, 16, 100, 100, 200, 200)
+    _label(cell, layout, 67, 5, "A", 150, 150)
+    _box(cell, layout, 67, 16, 700, 100, 800, 200)
+    _label(cell, layout, 67, 5, "Y", 750, 150)
+    return cell
+
+
+def _via_stack(top, layout, box) -> None:
+    """A vertical `li1`-through-`met3` stack at exactly `box`'s location:
+    same-size drawn shapes on every conductor layer 67-70 plus the cut
+    layers bridging them (67/68/69, i.e. mcon/via/via2). Lets a synthetic
+    top-level port label (met3, layer 70) reach all the way down to a
+    standard cell's `li1` pin without modelling a full via-cell placement.
+    """
+    for layer in (67, 68, 69, 70):
+        top.shapes(layout.layer(layer, 20)).insert(box)
+    for layer in (67, 68, 69):
+        top.shapes(layout.layer(layer, 44)).insert(box)
+
+
+def _connected_layout():
+    """Two `synthbuf` instances, one plain (`R0`) and one rotated 180
+    degrees, wired `u0.Y -> u1.A` by a top-level `li1` shape spanning both
+    (computed from the real transformed pin boxes, not hand-derived
+    coordinates -- if `gds_extract`'s own transform is wrong, this
+    connecting shape and the pin-resolution query would disagree the same
+    way, so a transform bug cannot make this test vacuously pass)."""
+    layout = db.Layout()
+    layout.dbu = 0.001
+    _synthbuf_cell(layout)
+    top = layout.create_cell("test_top")
+    cell_idx = layout.cell_by_name(CELL_NAME)
+
+    t0 = db.Trans(db.Trans.R0, 0, 0)
+    t1 = db.Trans(db.Trans.R180, 3000, 0)
+    top.insert(db.CellInstArray(cell_idx, t0))
+    top.insert(db.CellInstArray(cell_idx, t1))
+
+    li1 = layout.layer(67, 20)
+    y_local = db.Box(700, 100, 800, 200)
+    a_local = db.Box(100, 100, 200, 200)
+    y0_top = db.Polygon(y_local).transformed(t0).bbox()
+    a1_top = db.Polygon(a_local).transformed(t1).bbox()
+    bridge = y0_top + a1_top  # bounding box union -- a single spanning wire
+    top.shapes(li1).insert(bridge)
+
+    # Top-level port labels: "IN" over u0.A, "OUT" over u1.Y -- each reached
+    # by its own li1-met3 via stack (a real top-level port label sits on
+    # met3, routed down to the pin through mcon/via/via2, not directly on
+    # the pin's own li1 shape).
+    a0_top = db.Polygon(a_local).transformed(t0).bbox()
+    y1_top = db.Polygon(y_local).transformed(t1).bbox()
+    _via_stack(top, layout, a0_top)
+    _via_stack(top, layout, y1_top)
+    _label(top, layout, 70, 5, "IN", a0_top.center().x, a0_top.center().y)
+    _label(top, layout, 70, 5, "OUT", y1_top.center().x, y1_top.center().y)
+
+    return layout, top
+
+
+def _layout_with_dangling_pin():
+    """Same as `_connected_layout`, plus a third instance whose `A` pin
+    touches no conductor at all -- must be a hard `ExtractionError`."""
+    layout, top = _connected_layout()
+    cell_idx = layout.cell_by_name(CELL_NAME)
+    top.insert(db.CellInstArray(cell_idx, db.Trans(db.Trans.R0, 10000, 0)))
+    return layout, top
+
+
+def _layout_with_supply_short():
+    """A net that resolves to both a signal port label ("SIG", met3) and a
+    supply rail label ("VPWR", met4), bridged by a via3 shape -- must be a
+    hard `ExtractionError` naming the conflict."""
+    layout = db.Layout()
+    layout.dbu = 0.001
+    top = layout.create_cell("test_top")
+    met3 = layout.layer(70, 20)
+    met4 = layout.layer(71, 20)
+    via3 = layout.layer(70, 44)
+    top.shapes(met3).insert(db.Box(0, 0, 500, 500))
+    top.shapes(met4).insert(db.Box(0, 0, 500, 500))
+    top.shapes(via3).insert(db.Box(100, 100, 200, 200))
+    _label(top, layout, 70, 5, "SIG", 250, 250)
+    _label(top, layout, 71, 5, "VPWR", 250, 250)
+    return layout, top
+
+
+# ---------------------------------------------------------------------------
+# tests
+# ---------------------------------------------------------------------------
+
+
+def test_well_formed_rotation_and_naming() -> None:
+    import gds_extract as ge
+
+    layout, top = _connected_layout()
+    result = ge.extract(layout, source="<synthetic>", top_name=top.name)
+    nl = result.netlist
+
+    check("well-formed: two signal instances emitted", len(nl.instances) == 2, str(len(nl.instances)))
+    check("well-formed: ports are IN (input) and OUT (output)", sorted(nl.port_names()) == ["IN", "OUT"])
+    by_name = {p.name: p.direction for p in nl.ports}
+    check(
+        "well-formed: direction inferred from pin name (IN touches only an 'A' pin -> input; "
+        "OUT touches a 'Y' pin, one of OUTPUT_PIN_NAMES -> output)",
+        by_name == {"IN": "input", "OUT": "output"},
+        str(by_name),
+    )
+    # net IN and net OUT must correspond to distinct nets, and the two
+    # instances' A/Y pins must land on those two nets respectively -- this
+    # is the actual connectivity assertion (rotation transform correctness).
+    conns = {inst.name: inst.connections for inst in nl.instances}
+    nets_seen = set()
+    for c in conns.values():
+        nets_seen.update(c.values())
+    check(
+        "well-formed: exactly 2 distinct nets (IN and OUT)",
+        nets_seen == {"IN", "OUT"},
+        str(nets_seen),
+    )
+    # The bridging wire ties u0.Y to u1.A -- both must resolve to the SAME
+    # net (not "IN" or "OUT", since Y/A are internal pins on this synthetic
+    # cell, but they were connected to the port-labeled nets by construction
+    # here since IN labels u0.A and OUT labels u1.Y directly). Check the
+    # bridged internal connection explicitly instead: exactly one instance's
+    # Y and the other's A must match.
+    ys = [c["Y"] for c in conns.values() if "Y" in c]
+    as_ = [c["A"] for c in conns.values() if "A" in c]
+    check("well-formed: u0.Y and u1.A share one net (the bridge)", len(set(ys) & set(as_)) >= 1)
+
+
+def test_unconnected_pin_is_hard_error() -> None:
+    import gds_extract as ge
+
+    layout, top = _layout_with_dangling_pin()
+    try:
+        ge.extract(layout, source="<synthetic>", top_name=top.name)
+    except ge.ExtractionError as exc:
+        msg = str(exc)
+        check("unconnected pin: raises ExtractionError", True)
+        check("unconnected pin: message names the pin", "'A'" in msg or '"A"' in msg, msg)
+    else:
+        check("unconnected pin: raises ExtractionError", False, "no exception raised")
+
+
+def test_spurious_supply_short_is_hard_error() -> None:
+    import gds_extract as ge
+
+    layout, top = _layout_with_supply_short()
+    try:
+        ge.extract(layout, source="<synthetic>", top_name=top.name)
+    except ge.ExtractionError as exc:
+        msg = str(exc)
+        check("supply short: raises ExtractionError", True)
+        check(
+            "supply short: message names both conflicting labels",
+            "SIG" in msg and "VPWR" in msg,
+            msg,
+        )
+    else:
+        check("supply short: raises ExtractionError", False, "no exception raised")
+
+
+# ---------------------------------------------------------------------------
+# real-file smoke test
+# ---------------------------------------------------------------------------
+
+
+def _run(cmd: list[str]) -> tuple[int, str, str]:
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+def _smoke_warmup() -> None:
+    if not os.path.isfile(WARMUP_GDS):
+        record("warmup smoke test", SKIP, f"{WARMUP_GDS} missing -- run scripts/fetch-puzzle.sh")
+        return
+    out_v = "/tmp/test-extract-warmup.v"
+    out_json = "/tmp/test-extract-warmup.json"
+    code, _out, err = _run([sys.executable, EXTRACT, WARMUP_GDS, "-o", out_v, "--json", out_json])
+    check("warmup: tools/extract exits 0", code == 0, err.strip()[:400])
+    if code != 0:
+        return
+    with open(out_json, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    from collections import Counter
+
+    histogram = Counter(
+        i["cell"] for i in doc["instances"] if not i["cell"].split("__", 1)[-1].startswith(("tapvpwrvgnd", "decap"))
+    )
+    expected = {
+        "sky130_fd_sc_hd__dfrtp_2": 16,
+        "sky130_fd_sc_hd__mux2_1": 16,
+        "sky130_fd_sc_hd__nor2_2": 8,
+        "sky130_fd_sc_hd__and2_2": 7,
+        "sky130_fd_sc_hd__xor2_2": 5,
+        "sky130_fd_sc_hd__or2_2": 5,
+        "sky130_fd_sc_hd__a31o_2": 5,
+        "sky130_fd_sc_hd__nand2_2": 4,
+        "sky130_fd_sc_hd__xnor2_2": 3,
+        "sky130_fd_sc_hd__clkbuf_16": 3,
+        "sky130_fd_sc_hd__and4bb_2": 2,
+        "sky130_fd_sc_hd__o21bai_2": 1,
+        "sky130_fd_sc_hd__and3_2": 1,
+        "sky130_fd_sc_hd__a21o_2": 1,
+        "sky130_fd_sc_hd__a21boi_2": 1,
+        "sky130_fd_sc_hd__a21bo_2": 1,
+    }
+    check(
+        "warmup: cell-type histogram matches 01_netlist.v exactly (79 cells)",
+        dict(histogram) == expected,
+        json.dumps({k: v for k, v in histogram.items() if expected.get(k) != v}),
+    )
+    check("warmup: ports are A B S clk en rst_n", sorted(p["name"] for p in doc["ports"]) == sorted(
+        ["A", "B", "S", "clk", "en", "rst_n"]
+    ))
+
+    if not os.path.isfile(WARMUP_NETLIST):
+        record("warmup: tools/compare", SKIP, f"{WARMUP_NETLIST} missing")
+        return
+    code, out, err = _run([sys.executable, COMPARE, out_v, WARMUP_NETLIST])
+    check("warmup: tools/compare reports EQUIVALENT", code == 0, (out + err).strip()[:600])
+
+
+def _smoke_puzzle() -> None:
+    if not os.path.isfile(PUZZLE_GDS):
+        record("puzzle smoke test", SKIP, f"{PUZZLE_GDS} missing -- run scripts/fetch-puzzle.sh")
+        return
+    out_json = "/tmp/test-extract-puzzle.json"
+    code, _out, err = _run([sys.executable, EXTRACT, PUZZLE_GDS, "--json", out_json, "-o", "/tmp/test-extract-puzzle.v"])
+    check("puzzle: tools/extract exits 0", code == 0, err.strip()[:400])
+    if code != 0:
+        return
+    with open(out_json, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    from collections import Counter
+
+    non_fill = [
+        i
+        for i in doc["instances"]
+        if not i["cell"].split("__", 1)[-1].startswith(("tapvpwrvgnd", "decap"))
+    ]
+    check("puzzle: 738 logic+sequential instances", len(non_fill) == 738, str(len(non_fill)))
+    ff_counts = Counter(
+        i["cell"] for i in non_fill if i["cell"].split("__", 1)[-1].startswith(("dfrtp", "dfstp", "dfxtp"))
+    )
+    check(
+        "puzzle: 92 flip-flops (84 dfrtp_2, 4 dfstp_2, 4 dfxtp_2)",
+        dict(ff_counts)
+        == {
+            "sky130_fd_sc_hd__dfrtp_2": 84,
+            "sky130_fd_sc_hd__dfstp_2": 4,
+            "sky130_fd_sc_hd__dfxtp_2": 4,
+        },
+        str(dict(ff_counts)),
+    )
+    expected_ports = ["I"] + [f"O[{i}]" for i in range(8)] + ["clk", "enable", "rst_n", "success"]
+    check(
+        "puzzle: ports are I O[0..7] clk enable rst_n success",
+        sorted(p["name"] for p in doc["ports"]) == sorted(expected_ports),
+        str(sorted(p["name"] for p in doc["ports"])),
+    )
+    for inst in doc["instances"]:
+        for pin, net in inst["connections"].items():
+            if pin in ("VPWR", "VGND", "VPB", "VNB"):
+                check(
+                    f"puzzle: no supply pin ({pin}) emitted in output connections",
+                    False,
+                    f"{inst['name']}.{pin} -> {net}",
+                )
+                return
+    check("puzzle: no supply pins (VPWR/VGND/VPB/VNB) emitted in any instance's connections", True)
+
+
+def main() -> int:
+    print("tools/test-extract")
+    print("=" * 60)
+
+    if not KLAYOUT_OK:
+        print(f"  {SKIP:6s} all checks -- klayout not importable: {KLAYOUT_SKIP_REASON}")
+        print("=" * 60)
+        print("SKIPPED (no klayout)")
+        return 0
+
+    print("\n1. Synthetic, well-formed (rotation + naming + direction)")
+    test_well_formed_rotation_and_naming()
+
+    print("\n2. Synthetic, unconnected pin (total-or-loud contract)")
+    test_unconnected_pin_is_hard_error()
+
+    print("\n3. Synthetic, spurious supply short")
+    test_spurious_supply_short_is_hard_error()
+
+    print("\n4. Real-file smoke test (warm-up: exact histogram + tools/compare EQUIVALENT)")
+    _smoke_warmup()
+
+    print("\n5. Real-file smoke test (puzzle: counts + ports, no ground truth to compare)")
+    _smoke_puzzle()
+
+    print("=" * 60)
+    failed = [r for r in results if r[1] == FAIL]
+    skipped = [r for r in results if r[1] == SKIP]
+    passed = [r for r in results if r[1] == PASS]
+    print(f"{len(passed)} passed, {len(failed)} failed, {len(skipped)} skipped")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

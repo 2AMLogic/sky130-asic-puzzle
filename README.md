@@ -140,4 +140,9 @@ puzzle/     upstream files, gitignored, never committed
 
 ## Status
 
-Just opened. Nothing extracted yet.
+Stage 4 (`tools/extract`, see `tools/README.md`) is done: `warmup/04_final.gds`
+extracts to a gate-level netlist that `tools/compare` reports **equivalent** to
+`warmup/01_netlist.v` — the primary regression fixture (`CLAUDE.md` §4) is green.
+`puzzle.gds` extracts too (738 logic+sequential instances, 92 flip-flops); its
+result has no published ground truth to compare against yet — see
+`evidence/extraction-notes.md`.
