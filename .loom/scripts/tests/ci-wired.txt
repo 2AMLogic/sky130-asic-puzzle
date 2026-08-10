@@ -42,6 +42,7 @@ test-check-main-freshness.sh
 test-check-quarantine-stashes.sh
 test-check-runtime-capabilities.sh
 test-check-verified-corrections-preserved.sh
+test-classify-dependency-block.sh
 test-classify-error.sh
 test-clean-stale-binary.sh
 test-cleanup-branches-pr-review-branch.sh
@@ -50,6 +51,7 @@ test-config-tiers-cli-migration.sh
 test-default-branch.sh
 test-dependency-parse.sh
 test-detect-dependency-cycle.sh
+test-detect-startable-subset.sh
 test-disk-headroom.sh
 test-docs-guide-lock.sh
 test-docs-worktree.sh
@@ -119,6 +121,7 @@ test-sweep-pr-mode.sh
 test-sweep-run-registry.sh
 test-sync-labels-repo-flag.sh
 test-urgent-flip-guard.sh
+test-verdict-staleness-guard.sh
 test-verify-install-scope.sh
 test-warn-operator-gated.sh
 test-warn-out-of-set-deps.sh
@@ -134,6 +137,7 @@ test-worktree-root-override.sh
 test-worktree-sentinel-reinvoke.sh
 test-worktree-sentinel.sh
 test-worktree-snapshot.sh
+test-worktree-stale-merged-branch.sh
 test-worktree-stash-baseline.sh
 
 # tests/hooks/ (repo root) — Claude-path guard suites, wired since #4769.
@@ -161,6 +165,7 @@ tests/install/test-pnpm-runnable-check.sh
 tests/install/test-provision-daemon.sh
 tests/install/test-uninstall-labels-block.sh
 tests/install/test-uninstall-preserve-siblings.sh
+tests/install/test-uninstall-shim-cleanup.sh
 
 # tests/hermit/ — the Hermit role's stateless-ceremony heuristic regression
 # guard, wired since #5275 (was previously orphaned, no CI runner at all).

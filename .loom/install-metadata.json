@@ -1,6 +1,7 @@
 {
-  "loom_version": "0.18.0",
-  "loom_commit": "621f7363",
+  "loom_version": "unknown",
+  "loom_commit": "unknown",
   "install_date": "2026-08-07",
-  "installed_files": []
+  "installed_files": [],
+  "last_resync": "2026-08-09"
 }
