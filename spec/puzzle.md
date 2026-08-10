@@ -24,6 +24,33 @@ Recover the netlist of `puzzle.gds`, determine the function, find inputs that dr
 high, then simulate the output-generator region to produce the answer string. Submissions
 close **2026-09-04**.
 
+### How submission actually works
+
+Read off Jane Street's post on 2026-08-10, because the deadline and the deliverable were
+recorded here from the start but the *mechanism* was not — and a deliverable with no
+recorded route to the recipient is how a finished solve gets missed.
+
+- **No registration, sign-up, or entry step.** Nothing has to happen before the answer is
+  ready. There is no earlier deadline hiding behind the 2026-09-04 one.
+- **Submission is a Google Form**, linked from the post:
+  `https://docs.google.com/forms/d/e/1FAIpQLScNCnfZ1wC4HbARwynUZ25EKZyqJIzXM_5H5aHom-QeAhE6FA/viewform`
+- **What it wants:** the answer string **plus a brief description of how you did it** —
+  *"submit your answer … along with a brief description of how you did it."* The writeup is
+  part of the submission, not an optional extra, so stage 8 produces two artifacts rather
+  than one.
+- **Questions:** `asic-puzzle@janestreet.com`.
+- **After submissions close**, publishing is welcomed and there is an action attached to it:
+  *"If you do publish your solution (on a personal blog or repository) after submissions are
+  closed, email us and we may include the link in our follow-up post!"* — so flipping this
+  repo public on 2026-09-04 has a follow-up step, not just a visibility change.
+- **Recognition:** *"We'll feature the most interesting writeups and techniques in a
+  follow-up post, and send swag for our favorite solutions."* Note "techniques" — the
+  toolkit story this repo exists to produce (deliverable 1) is the kind of thing being asked
+  for, which makes the two deliverables less separate than the ranking above implies.
+
+Verified against the source post rather than inferred; re-check before submitting in case
+the terms change.
+
 ## The staged plan
 
 Each stage has a check that does not depend on the next stage being right.
