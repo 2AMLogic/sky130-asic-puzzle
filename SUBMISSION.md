@@ -30,12 +30,15 @@ it included at submission time would point at a private repo. Options, in prefer
 
 Either way the writeup below must stand alone.
 
-**3. "Easter Eggs" is a form field, and nobody has looked.**
-The form has an optional short-answer field named *Easter Eggs*. That is a strong hint the
-design contains something beyond the `success` path — a message in unused logic, a pattern in
-cell placement, unreachable states with meaning. **This repo has never investigated it**
-(`grep -ri easter` returns nothing). It is optional, so it does not block submission, but it
-is free signal that the puzzle author expects solvers to find something, and we have 25 days.
+**3. The Easter eggs have been investigated and found.**
+Gate-level replay reveals distinct failure messages: all-zero input emits `EMPTY SKY`,
+all-one emits `BIG BANG`, and ordinary invalid inputs emit `TRY AGAIN`. Physical GDS layer
+200/0 encodes `PER ARENAM AD ASTRA` ("through sand, to the stars") in Morse code below the
+die, built from the 36 `INTERNAL_*` placements, and met2 carries an ~18 µm three-ring
+maze/record glyph connected to nothing. Structural differential analysis also recovers the
+11 irregular Star Battle regions omitted from the initial semantic description; adding
+exactly two stars per recovered region makes the accepted grid independently unique. Full
+commands, literal output, and reproducible scripts are in `evidence/easter-eggs.md`.
 
 ---
 
@@ -53,7 +56,7 @@ The form requires identity details no agent should invent:
 | Agree to publishing your name and solution if selected? | yes | *(operator decision)* |
 | Interested in exploring careers at Jane Street? | optional | *(operator — LinkedIn or personal page)* |
 | Comments | optional | *(operator)* |
-| Easter Eggs | optional | see §3 above — nothing found yet |
+| Easter Eggs | optional | Use the draft in `evidence/easter-eggs.md` ("Deliverable" section): `EMPTY SKY` / `BIG BANG` / `TRY AGAIN` failure messages, the Morse `PER ARENAM AD ASTRA` strip on layer 200/0, the met2 three-ring maze/record glyph, and the 11 recovered Star Battle regions that make the answer unique. |
 
 ---
 
@@ -124,13 +127,16 @@ cell in raster order. The accepted word reads as an 11×11 grid with exactly two
 and per column and no two marks adjacent, even diagonally, which is consistent with that
 structure and with the emitted message.
 
-We are deliberately not claiming the chip implements exactly that predicate, because it
-doesn't. We enumerated the predicate independently — 11×11, two marks per row, two per
-column, minimum Chebyshev distance 2 — and it admits **31,197,434** valid grids, while the
-circuit accepts exactly **one** word at our bound. So the design checks those conditions
-*among others we have not isolated*. The honest statement is that the unique accepted word
-has those properties, and the structure is consistent with the circuit testing some of
-them.
+Those conditions alone do not pin the answer down: enumerated independently — 11×11, two
+marks per row, two per column, minimum Chebyshev distance 2 — they admit **31,197,434**
+valid grids, while the circuit accepts exactly **one** word at our bound. The missing
+predicate turned out to be recoverable from the circuit itself. Differential one-hot
+traces classify its 23 two-flop feedback groups as 11 column counters, one shared row
+counter, and **11 counters over irregular regions that partition the board** — the puzzle
+is a standard two-star Star Battle whose region map was withheld. As an independent check
+we encoded only the recovered rules (two marks per row, column, and recovered region; no
+touching) as a fresh CNF with no reference to the gate-level circuit: it has exactly one
+solution, and it is the accepted word.
 
 **Answer.** Extending the simulation past the goal cycle and watching `O[7:0]` yields 15
 printable ASCII bytes: `(* TWO STARS *)`. We decoded both candidate bit orders and selected
