@@ -213,14 +213,55 @@ instead of raising): all 7 checks fail and the run exits 1, including the
 `no PDK anywhere` check reporting `NO exception raised — silently returned
 'fabricated'`. A test that cannot fail is not evidence (CLAUDE.md §5).
 
-## What this does not cover yet
+## Cross-netlist agreement: `evidence/warmup-extracted.v` vs `01_netlist.v` (acceptance criterion 2)
 
-Acceptance criterion 2 from issue #5 — the same directed-test harness run on
-`evidence/warmup-extracted.v`, agreeing with `01_netlist.v` cycle-for-cycle
-over >=1,000 cycles of shared randomized stimulus — is blocked on #2
-(cell-level extraction) and is **not** covered here. `run_directed_test()`
-in `tools/sim/directed.py` already accepts an arbitrary list of netlist
-files, so once `evidence/warmup-extracted.v` exists this is pointing the
-same CLI at it and comparing against a Python model of `01_netlist.v`'s
-behaviour (or running both netlists side by side and diffing their `S`
-traces directly) — no new simulation machinery, just a new invocation.
+`#2` (cell-level extraction) closed via PR #11, unblocking this. Rather than
+comparing each netlist independently against the Python oracle (which only
+checks the same ten-or-so directed cases each netlist was already checked
+against above, not an independent cross-netlist agreement), this records a
+single randomized shift-load stimulus by simulating the *reference* netlist
+(`01_netlist.v`) and replays the exact same recorded input trace against the
+*candidate* (`evidence/warmup-extracted.v`) via `tools.sim.replay`, diffing
+`S` at every sampled timestamp — the functional counterpart to the
+structural comparator (`tools/compare`), and independent of it: nothing here
+reuses or derives from what the structural comparator already validated.
+
+```sh
+python3 -m tools.sim.run_warmup_cross_check \
+    --reference puzzle/warmup/01_netlist.v \
+    --candidate evidence/warmup-extracted.v \
+    --cases 150 --seed 496
+```
+
+```
+Reference netlist: puzzle/warmup/01_netlist.v
+Candidate netlist: evidence/warmup-extracted.v
+Cases: 160 (150 randomized + 10 fixed directed, seed=496)
+Recorded stimulus: .sim-work/warmup-cross-check/recorded.vcd
+
+PDK variant: sky130A
+PDK version: open_pdks c6d73a35f524070e85faff4a6a9eef49553ebc2b
+Resolved via: klt pdk find --pdk sky130A (root: /home/ubuntu/.volare)
+Model files:
+  /home/ubuntu/.volare/sky130A/libs.ref/sky130_fd_sc_hd/verilog/primitives.v
+  /home/ubuntu/.volare/sky130A/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v
+
+Compared through t=17630000 (1ps units)
+Clock cycles covered: 1763 (counted rising edges of clk in the recorded stimulus)
+
+RESULT PASS — candidate agrees with reference on S over the entire shared stimulus
+```
+
+1,763 clock cycles of shared randomized `(A, B)` stimulus, comfortably over
+the 1,000-cycle floor. Zero divergence: the extracted netlist reproduces
+`01_netlist.v`'s `S` output cycle-for-cycle over the entire trace. Unlike the
+directed test above, this comparison never computes `S` from the `(a, b)`
+sum independently — it is netlist-vs-netlist agreement, deliberately not a
+re-run of the sum-oracle check.
+
+`tools/sim/run_warmup_cross_check.py` reuses the existing recorder/replay
+machinery (`tools/sim/warmup_recorder.py`, factored out of
+`tools/sim/selftest_replay.py`, and `tools/sim/replay.py`) rather than
+introducing a new simulation path — recording a stimulus and replaying it
+against a second netlist is exactly what the self-test already does against
+the *same* netlist.

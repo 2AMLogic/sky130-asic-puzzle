@@ -283,10 +283,13 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/testbench.py` | generates directed-test and VCD-replay Verilog testbenches |
 | `tools/sim/directed.py` | the `A + B == 496` directed test (stage 5) |
 | `tools/sim/replay.py` | general VCD replay + trace diff (stage 6) |
+| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (shared by the replay self-test and the cross-netlist check below) |
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
+| `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
+| `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
 
 ### Where the behavioural models come from, and how to install them
 
@@ -366,15 +369,36 @@ python3 -m tools.sim.run_warmup_directed \
     --random 50
 ```
 
-VCD replay (stage 6, needs an extracted netlist):
+VCD replay (stage 6, needs an extracted netlist). A netlist extracted
+straight from GDS pin labels has no bus abstraction — a multi-bit signal
+like `O[7:0]` becomes eight separate scalar, escaped-identifier DUT ports
+(`\O[0]` .. `\O[7]`), not one vector port — so `--port-map` accepts a
+colon-separated list of per-bit DUT port names (bit 0 first) for such a
+signal, in place of a single name:
 
 ```sh
 python3 -m tools.sim.run_vcd_replay \
-    --netlist <extracted-netlist.v> \
+    --netlist evidence/puzzle-extracted.v \
     --vcd puzzle/example_inputs.vcd \
-    --top <top-module> \
+    --top puzzle \
     --inputs clk,rst_n,enable,I \
-    --outputs O,success
+    --outputs O,success \
+    --port-map "clk=clk,rst_n=rst_n,enable=enable,I=I,success=success,O=\O[0]:\O[1]:\O[2]:\O[3]:\O[4]:\O[5]:\O[6]:\O[7]"
+```
+
+`--port-map` defaults to the identity map (recorded signal name == DUT port
+name) when omitted, for netlists that do declare a proper vector port.
+
+Cross-netlist agreement (issue #5 acceptance criterion 2 — an independent,
+functional counterpart to the structural comparator): records a randomized
+shift-load stimulus against a reference netlist and replays it against a
+candidate, diffing `S` cycle-for-cycle:
+
+```sh
+python3 -m tools.sim.run_warmup_cross_check \
+    --reference puzzle/warmup/01_netlist.v \
+    --candidate evidence/warmup-extracted.v \
+    --cases 150 --seed 496
 ```
 
 Replay-engine self-test (exercises the full VCD replay path against the
@@ -382,6 +406,15 @@ warm-up, with no dependency on an extractor):
 
 ```sh
 python3 -m tools.sim.selftest_replay
+```
+
+Multi-bit port-map self-test (exercises the per-bit-port `port_map`
+connection logic — including a reversed-bit-order negative control and a
+corrupted-recording detection check — against a synthetic DUT, no GDS or
+sky130 cells needed):
+
+```sh
+python3 -m tools.sim.selftest_portmap
 ```
 
 PDK-resolver self-test (resolution order + the no-PDK-anywhere failure
@@ -393,3 +426,19 @@ python3 -m tools.sim.selftest_pdk
 
 See `evidence/warmup-sim.md` and `evidence/puzzle-replay.md` for recorded
 results and current status.
+
+### A latent `tools/vcd` bug this issue's multi-bit replay surfaced
+
+`tools/vcd/reader.py::normalize_value` restores a VCD writer's truncated
+vector dumps (writers conventionally drop leading zero bits from a `b...`
+value to save space) back to the signal's full declared width. The prior
+implementation padded by repeating whichever digit was *leftmost in the
+truncated value* — correct when that digit is `0`, `x`, or `z`, but wrong
+whenever a truncated value's leftmost remaining digit is `1` (e.g. Icarus
+dumping `0x1B` as `b11011` was zero-extended to `11111011` instead of
+`00011011`). This went unexercised until this issue's first multi-bit
+*output* signal (`O[7:0]`, replayed from the puzzle's extracted netlist) —
+every prior `tools/sim` output was a single bit (`S` in the warm-up), which
+nothing can truncate. Fixed to zero-extend unless the leading digit is `x`
+or `z`, per the VCD spec; covered by `tools/sim/selftest_portmap.py`'s
+"correct wiring" check, which failed loudly against the bug before the fix.

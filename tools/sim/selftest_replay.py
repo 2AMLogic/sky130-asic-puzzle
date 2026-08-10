@@ -28,19 +28,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from tools.sim.directed import DEFAULT_PORTS
-from tools.sim.icarus import compile_and_run
-from tools.sim.pdk import resolve_sky130_models
 from tools.sim.replay import run_vcd_replay
-from tools.sim.testbench import ShiftLoadCase, UNIT_DELAY_TIMESCALE
+from tools.sim.testbench import ShiftLoadCase
+from tools.sim.warmup_recorder import REPLAY_PORT_MAP, record_shift_load_vcd
 from tools.vcd.reader import read_vcd
 from tools.vcd.writer import document_to_vcd
-
-# `example_inputs.vcd`'s signal names are the DUT's own top-level port
-# names for the puzzle; the warm-up's recorded trace here uses the same
-# convention (the recorder testbench below dumps signals literally named
-# clk/rst_n/en/A/B/S), so replay's port_map is the identity map.
-REPLAY_PORT_MAP = {"clk": "clk", "rst_n": "rst_n", "en": "en", "A": "A", "B": "B", "S": "S"}
 
 RECORD_CASES = [
     ShiftLoadCase(a=248, b=248, expected_s=True, label="exact"),
@@ -50,64 +42,8 @@ RECORD_CASES = [
 ]
 
 
-def _build_recorder_testbench(top: str, ports: dict[str, str], cases: list[ShiftLoadCase], dump_path: Path) -> str:
-    """A shift-load driver that dumps a real VCD instead of self-checking.
-
-    Distinct from `tools.sim.testbench.build_shift_load_testbench` (which
-    self-checks in Verilog) because the point here is to produce a VCD
-    artifact to replay, not a pass/fail — kept separate rather than
-    overloading that generator with a dump-or-check mode switch.
-    """
-    lines: list[str] = []
-    lines.append(f"`timescale {UNIT_DELAY_TIMESCALE}")
-    lines.append("module tb;")
-    lines.append("  reg clk = 0, rst_n = 0, en = 0, A = 0, B = 0;")
-    lines.append("  wire S;")
-    lines.append("  integer i, case_idx;")
-    n = len(cases)
-    lines.append(f"  reg [7:0] a_vals [0:{n - 1}];")
-    lines.append(f"  reg [7:0] b_vals [0:{n - 1}];")
-    lines.append(
-        f"  {top} dut (.{ports['clk']}(clk), .{ports['rst_n']}(rst_n), .{ports['en']}(en), "
-        f".{ports['a']}(A), .{ports['b']}(B), .{ports['s']}(S));"
-    )
-    lines.append("  always #5 clk = ~clk;")
-    lines.append("  initial begin")
-    lines.append(f'    $dumpfile("{dump_path}");')
-    lines.append("    $dumpvars(0, clk, rst_n, en, A, B, S);")
-    for idx, case in enumerate(cases):
-        lines.append(f"    a_vals[{idx}] = 8'd{case.a};")
-        lines.append(f"    b_vals[{idx}] = 8'd{case.b};")
-    lines.append(f"    for (case_idx = 0; case_idx < {n}; case_idx = case_idx + 1) begin")
-    lines.append("      @(negedge clk);")
-    lines.append("      rst_n = 0; en = 0;")
-    lines.append("      @(negedge clk);")
-    lines.append("      rst_n = 1;")
-    lines.append("      for (i = 7; i >= 0; i = i - 1) begin")
-    lines.append("        A = a_vals[case_idx][i];")
-    lines.append("        B = b_vals[case_idx][i];")
-    lines.append("        en = 1;")
-    lines.append("        @(negedge clk);")
-    lines.append("      end")
-    lines.append("      en = 0;")
-    lines.append("      #20;")
-    lines.append("    end")
-    lines.append("    #20;")
-    lines.append("    $finish;")
-    lines.append("  end")
-    lines.append("endmodule")
-    return "\n".join(lines) + "\n"
-
-
 def record_warmup_vcd(netlist: Path, out_vcd: Path, work_dir: Path) -> None:
-    models = resolve_sky130_models()
-    work_dir.mkdir(parents=True, exist_ok=True)
-    tb_source = _build_recorder_testbench("adder_demo", DEFAULT_PORTS, RECORD_CASES, out_vcd)
-    tb_path = work_dir / "tb_record.v"
-    tb_path.write_text(tb_source)
-    sim = compile_and_run([tb_path, netlist, *models.model_files()], work_dir=work_dir)
-    if not sim.compiled or not sim.ran or not out_vcd.exists():
-        raise RuntimeError(f"failed to record warm-up VCD:\n{sim.compile_stderr}\n{sim.run_stderr}")
+    record_shift_load_vcd(netlist, RECORD_CASES, out_vcd, work_dir)
 
 
 def main() -> int:
