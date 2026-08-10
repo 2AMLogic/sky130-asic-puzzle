@@ -407,3 +407,43 @@ any other layer. An earlier draft of this script scored those met1
 underpasses as "connected" — the refinement to electrical semantics is
 recorded here deliberately, as the kind of false alarm the independent
 reviewer should also guard against.
+
+## Addendum (2026-08-10, second) — claims 7 and 8 finished off
+
+**Claim 7, independent tooling.** `evidence/easter-egg-morse-independent.py`
+re-derives the Morse message with no KLayout at all: a standard-library
+GDSII binary parser (records, structures, BOUNDARY/XY, SREF transforms)
+and its own Morse table. Two unrelated readers of the same bytes agree:
+
+```sh
+python3 evidence/easter-egg-morse-independent.py
+```
+
+```text
+structures parsed: 81
+cells with 200/0 geometry: {'INTERNAL_3': 1, 'INTERNAL_7': 1}
+placed 200/0 rectangles: 36
+strip y (dbu): bottom [-52720] top [-50000]
+widths (dbu): min 1380 max 4140 unit 1380
+INDEPENDENT DECODE: PER ARENAM AD ASTRA
+```
+
+**Claim 8, window caveat closed.** `evidence/easter-egg-glyph-survey.py`
+drops the fixed search window and surveys the entire die: every met2 shape
+that is an exact 0.30 um square is collected and clustered.
+
+```sh
+PYTHONPATH=. python3 evidence/easter-egg-glyph-survey.py
+```
+
+```text
+met2 shapes: 1366 exact 0.3 um tiles, 7151 other
+clusters (>= 50 tiles) over the whole die:
+   1366 tiles  bbox (34.9,35.2)-(52.0,52.3)  non-tile met2 overlapping bbox:    0  -> ARTWORK-LIKE (no wiring inside)
+SURVEY VERDICT: 1 artwork-like cluster(s) on met2 across the whole die
+  -> 1366 tiles at (34.9,35.2)-(52.0,52.3)
+```
+
+All 1,366 exact-tile shapes on met2 belong to the one glyph; no other such
+tile exists anywhere on the layer, so there is no fourth ring, tail, or
+second glyph outside the original window.
