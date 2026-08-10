@@ -9,13 +9,18 @@
 # is embargoed. This script deliberately never reads puzzle/puzzle.gds and never
 # prints anything derived from it — see CLAUDE.md §1.
 #
-# Two halves, and only the first one is implemented today:
+# Three halves, and only the first two are implemented today:
 #
 #   1. The comparator's own correctness — tools/test-compare, which renames
 #      01_netlist.v and checks that the comparator says "equivalent", then
 #      damages it three ways and checks that the comparator says "not
 #      equivalent" AND localises the damage. Runs now.
-#   2. The end-to-end gate — extract 04_final.gds and compare the result against
+#   2. The inventory/pins layer's own correctness — tools/test-inventory and
+#      tools/test-pins (issue #10), covering GDS cell classification and
+#      label-to-shape pin association. Their real-file smoke-test sections
+#      run for free here since fetch-puzzle.sh has already populated puzzle/
+#      by this point. Runs now.
+#   3. The end-to-end gate — extract 04_final.gds and compare the result against
 #      01_netlist.v. Needs tools/extract, which is issue #2 (cell-level
 #      extraction), itself downstream of #1. SKIPPED, loudly, until that lands;
 #      pass --require-extract to make the skip a failure once it has.
@@ -70,7 +75,17 @@ hr
 "$ROOT/tools/test-compare"
 
 echo
-echo "2. End-to-end: 04_final.gds -> extract -> compare against 01_netlist.v"
+echo "2. Inventory self-test (GDS cell classification)"
+hr
+"$ROOT/tools/test-inventory"
+
+echo
+echo "3. Pins self-test (label-to-shape association)"
+hr
+"$ROOT/tools/test-pins"
+
+echo
+echo "4. End-to-end: 04_final.gds -> extract -> compare against 01_netlist.v"
 hr
 if [ ! -x "$ROOT/tools/extract" ]; then
   echo "SKIPPED — tools/extract does not exist yet."
