@@ -50,6 +50,13 @@ against a renamed copy of `01_netlist.v` and against three deliberate mutations,
 known to reject as well as accept before any extractor is pointed at it — see
 [`evidence/warmup-regression.md`](../evidence/warmup-regression.md).
 
+Stage 6 has run: the extraction flow was pointed at `puzzle.gds` and replayed against
+`example_inputs.vcd`. The literal result is `RESULT FAIL` (strict exact-timestamp
+comparison) but with zero value-content mismatches across the full trace — see
+[`evidence/puzzle-replay.md`](../evidence/puzzle-replay.md) for the full record, including
+the go/no-go decision to proceed to stage 7 with the timing discrepancy flagged as an open,
+low-severity risk rather than a blocking one.
+
 ## What is known before solving
 
 From the stream, without any reverse engineering (`tools/inventory`,
