@@ -218,3 +218,109 @@ def build_vcd_replay_testbench(
     lines.append("  end")
     lines.append("endmodule")
     return "\n".join(lines) + "\n"
+
+
+@dataclass(frozen=True)
+class SequenceExpectation:
+    """Assert `signal` (a watched DUT output) equals `value` at `cycle`."""
+
+    cycle: int
+    signal: str
+    value: int
+
+
+def build_sequence_testbench(
+    *,
+    top: str,
+    clock_port: str,
+    drive: dict[str, list[int]],
+    watch: list[str],
+    expect: list[SequenceExpectation] | None = None,
+    clock_period_ns: int = 10,
+    sample_lead_ns: int = 1,
+) -> str:
+    """Generate a testbench that drives a caller-supplied per-cycle bit sequence.
+
+    Unlike `build_vcd_replay_testbench`, nothing here is replayed from a
+    recording: `drive` maps each 1-bit DUT input port to an explicit list of
+    per-cycle values, which is what a *solver-produced* stimulus looks like
+    (`tools/sim/bmc.py`). All lists must be the same length.
+
+    Timing matches the cycle model in `tools/sim/seqmodel.py`: cycle `t`
+    starts at `t * clock_period_ns`, the inputs for that cycle are applied
+    there, the rising clock edge follows half a period later, and the
+    watched outputs are sampled `sample_lead_ns` before the *next* cycle's
+    edge — i.e. the values a design settles to with cycle `t`'s inputs and
+    the state it entered cycle `t` with.
+
+    Each sampled cycle prints one `CYCLE <t> <sig>=<bit> ...` line;
+    `expect` entries are checked against those samples and summarised as a
+    final `RESULT PASS` / `RESULT FAIL <n>` line.
+    """
+    if not drive:
+        raise ValueError("drive must name at least one input port")
+    lengths = {len(v) for v in drive.values()}
+    if len(lengths) != 1:
+        raise ValueError(f"drive sequences have differing lengths: { {k: len(v) for k, v in drive.items()} }")
+    n_cycles = lengths.pop()
+    if clock_period_ns < 2 or clock_period_ns % 2:
+        raise ValueError("clock_period_ns must be an even number of ns >= 2")
+    if not 0 < sample_lead_ns < clock_period_ns // 2:
+        raise ValueError("sample_lead_ns must fall between the cycle start and the rising edge")
+    expect = expect or []
+    unknown = {e.signal for e in expect} - set(watch)
+    if unknown:
+        raise ValueError(f"expectations name unwatched signals: {sorted(unknown)}")
+
+    half = clock_period_ns // 2
+    sample_at = half - sample_lead_ns
+    reg_names = {port: f"drv_{i}" for i, port in enumerate(drive)}
+    wire_names = {port: f"obs_{i}" for i, port in enumerate(watch)}
+
+    lines = [f"`timescale {UNIT_DELAY_TIMESCALE}", "module tb;"]
+    lines.append("  reg clk = 0;")
+    lines.append("  integer t;")
+    lines.append("  integer failures = 0;")
+    for port, reg in reg_names.items():
+        lines.append(f"  reg {reg} = 1'b0;   // -> {port}")
+    for port, wire in wire_names.items():
+        lines.append(f"  wire {wire};        // <- {port}")
+    for port, reg in reg_names.items():
+        lines.append(f"  reg [{max(n_cycles - 1, 0)}:0] {reg}_vec;")
+    lines.append("")
+    # A trailing space after each port name is required for escaped
+    # identifiers (`\O[0] `), which are only terminated by whitespace.
+    conns = [f".{clock_port} (clk)"]
+    conns += [f".{p} ({r})" for p, r in reg_names.items()]
+    conns += [f".{p} ({w})" for p, w in wire_names.items()]
+    lines.append(f"  {top} dut ({', '.join(conns)});")
+    lines.append("")
+    lines.append(f"  always #{half} clk = ~clk;")
+    lines.append("")
+    lines.append("  initial begin")
+    for port, reg in reg_names.items():
+        bits = "".join(str(b) for b in reversed(drive[port]))
+        lines.append(f"    {reg}_vec = {n_cycles}'b{bits};")
+    lines.append(f"    for (t = 0; t < {n_cycles}; t = t + 1) begin")
+    for port, reg in reg_names.items():
+        lines.append(f"      {reg} = {reg}_vec[t];")
+    lines.append(f"      #{sample_at};")
+    fmt = " ".join(f"{p}=%b" for p in watch)
+    args = ", ".join(wire_names[p] for p in watch)
+    lines.append(f'      $display("CYCLE %0d {fmt}", t{", " + args if args else ""});')
+    for e in expect:
+        lines.append(f"      if (t == {e.cycle} && {wire_names[e.signal]} !== 1'b{e.value}) begin")
+        lines.append("        failures = failures + 1;")
+        lines.append(
+            f'        $display("EXPECT FAIL cycle=%0d signal={e.signal} '
+            f'want={e.value} got=%b", t, {wire_names[e.signal]});'
+        )
+        lines.append("      end")
+    lines.append(f"      #{clock_period_ns - sample_at};")
+    lines.append("    end")
+    lines.append('    if (failures == 0) $display("RESULT PASS");')
+    lines.append('    else $display("RESULT FAIL %0d", failures);')
+    lines.append("    $finish;")
+    lines.append("  end")
+    lines.append("endmodule")
+    return "\n".join(lines) + "\n"

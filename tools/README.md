@@ -290,6 +290,13 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
+| `tools/sim/celltable.py` | measures each standard cell's truth table by simulating the PDK models (stage 7) |
+| `tools/sim/seqmodel.py` | cycle-level Boolean model of a netlist: flops + topologically ordered gates (stage 7) |
+| `tools/sim/structure.py` | flip-flop-level structural analysis: does the state decompose? (stage 7) |
+| `tools/sim/bmc.py` | bounded model checking — CNF unrolling + SAT (stage 7) |
+| `tools/sim/solve.py` | the model → structure → solve → verify-by-simulation pipeline (stage 7) |
+| `tools/sim/run_solve.py` | CLI for that pipeline |
+| `tools/sim/selftest_solve.py` | known-answer self-test of the whole solver stack against the warm-up |
 
 ### Where the behavioural models come from, and how to install them
 
@@ -424,8 +431,129 @@ path; no PDK, `klt` or simulator required):
 python3 -m tools.sim.selftest_pdk
 ```
 
-See `evidence/warmup-sim.md` and `evidence/puzzle-replay.md` for recorded
-results and current status.
+See `evidence/warmup-sim.md`, `evidence/puzzle-replay.md` and
+`evidence/puzzle-solve.md` for recorded results and current status.
+
+## Solving for an output (stage 7)
+
+Forward simulation answers "what does this design do with these inputs".
+Stage 7 asks the inverse — "which inputs make `success` go high" — over a
+92-flop state, which no amount of simulation can search. `spec/puzzle.md`
+names the tool for that: bounded model checking / SAT.
+
+Four layers, each usable on its own:
+
+1. **`celltable.py` — cell functions are measured, not remembered.** A
+   generated testbench instantiates every combinational cell type the netlist
+   uses, sweeps all input combinations, and reads the outputs back out of the
+   same `sky130_fd_sc_hd` behavioural models everything else here simulates
+   against. Port directions are parsed from the model file's own
+   declarations. Writing these tables from memory would put an unbacked claim
+   underneath every result built on them.
+2. **`seqmodel.py` — a cycle-level Boolean model.** Flops (D/Q/clock, async
+   set/reset) plus the combinational gates between them in topological order.
+   It *checks* the assumptions that make the reduction valid rather than
+   assuming them: one clock domain reaching every flop through non-inverting
+   buffers, no multiply-driven net, no combinational loop — each a hard error
+   naming the offending net.
+3. **`structure.py` — the structural question, asked before the solver.** It
+   reports the state graph (edge `X -> Y` when flop `X` feeds flop `Y`'s `D`
+   cone): weakly-connected components (independent clusters), SCCs
+   (feedback), shift-register chains, broadcast flops, and wide-fan-in sinks.
+   Whether a design decomposes decides whether a solver is even the right
+   tool, and it is answerable without running anything.
+4. **`bmc.py` — CNF unrolling + SAT.** Every net at every cycle becomes a
+   literal; each gate contributes the clauses of its measured truth table;
+   flops are the only thing crossing a cycle boundary. Constants are folded
+   during the unroll, which is what keeps a 130-cycle unroll of a 636-gate
+   design at ~20k variables. The solver back end is `python-sat` (CaDiCaL by
+   default), imported lazily so nothing else in `tools/` gains a hard
+   dependency on it.
+
+A solver result is a claim about the *encoding*; only a simulation is a claim
+about the *netlist*. `solve.py`'s `verify_by_simulation` closes that gap by
+replaying the solved per-cycle stimulus through Icarus against the real
+netlist (`testbench.py`'s `build_sequence_testbench`), and `run_solve.py`
+`--verify` does it as part of one command.
+
+```sh
+pip install python-sat          # the solver back end; not needed by anything else
+
+# known-answer self-test first — warm-up only, nothing embargoed:
+#   model-vs-Icarus agreement, exhaustive solution enumeration checked against
+#   the 15 pairs with A + B == 496, an Icarus confirmation, a flipped-bit
+#   negative control and an UNSAT control.
+python3 -m tools.sim.selftest_solve
+
+# structural report + solve + uniqueness + Icarus verification, in one run
+python3 -m tools.sim.run_solve --netlist evidence/puzzle-extracted.v \
+    --structure --verify --max-solutions 2 --grid-width 11
+```
+
+`--max-solutions N` also answers the uniqueness question: each found
+assignment of the free inputs is blocked and the instance re-solved, so an
+`UNSAT` on the follow-up is a proof that the previous answers are the only
+ones at that bound. Exit status is 0 on success, 1 when the instance is UNSAT
+at the given bound (a complete answer, with the bound stated, not a failure),
+2 on a usage or environment error.
+
+The robustness and negative-control checks quoted in
+`evidence/puzzle-solve.md` come from this script:
+
+```sh
+python3 - <<'PY'
+import sys, itertools; sys.path.insert(0, ".")
+from pathlib import Path
+from tools.sim.solve import load_design, windowed_scenario, enumerate_solutions, verify_by_simulation
+from tools.sim.seqmodel import simulate, initial_state
+from tools.sim.testbench import SequenceExpectation
+
+d = load_design(Path("evidence/puzzle-extracted.v"), work_dir=Path(".sim-work/solve"))
+m = d.model
+sc = windowed_scenario(m, reset_cycles=3, idle_cycles=1, active_cycles=121, tail_cycles=5,
+                       free_ports=["I"], enable_port="enable", reset_port="rst_n",
+                       goal_output="success")
+act = sc.free_cycles("I")
+
+# (a) uniqueness with the one undriven net left free as well
+rep = enumerate_solutions(m, sc, free_ports=["I"], max_solutions=1, undriven_value=None)
+print("solutions:", len(rep.solutions), "second solve UNSAT:", rep.exhausted)
+base = [{"clk": 1, **{p: rep.solutions[0].inputs[t].get(p, 0) for p in m.inputs if p != "clk"}}
+        for t in range(sc.cycles)]
+
+# (b) insensitivity to that net's value
+for uv in (0, 1):
+    print(f"  undriven={uv}: success =", simulate(m, base, undriven_value=uv).outputs[sc.goal_cycle]["success"])
+
+# (c) insensitivity to the unresettable flops' power-up values
+idx = [i for i, ff in enumerate(m.ffs) if ff.cell == "dfxtp_2"]
+bad = 0
+for combo in itertools.product((0, 1), repeat=len(idx)):
+    st = list(initial_state(m))
+    for i, v in zip(idx, combo):
+        st[i] = v
+    bad += simulate(m, base, state=tuple(st)).outputs[sc.goal_cycle]["success"] != 1
+print(f"  {2 ** len(idx)} power-up combinations, {bad} failed")
+
+# (d) negative control: every single-bit flip must stop asserting success
+fails = 0
+for k in range(len(act)):
+    seq = [dict(r) for r in base]
+    seq[act[k]]["I"] ^= 1
+    fails += simulate(m, seq).outputs[sc.goal_cycle]["success"] != 0
+print(f"  {len(act)} flips tried, {fails} still asserted success")
+
+# (e) the same, through Icarus, on three of them
+for k in (0, len(act) // 2, len(act) - 1):
+    seq = [dict(r) for r in base]
+    seq[act[k]]["I"] ^= 1
+    drive = {p: [seq[t][p] for t in range(sc.cycles)] for p in m.inputs if p != "clk"}
+    r = verify_by_simulation(d, drive=drive, watch=["success"],
+                             expect=[SequenceExpectation(cycle=sc.goal_cycle, signal="success", value=0)],
+                             work_dir=Path(".sim-work/neg"))
+    print(f"  flip bit {k}: Icarus says success=0 -> {r.ok}")
+PY
+```
 
 ### A latent `tools/vcd` bug this issue's multi-bit replay surfaced
 
