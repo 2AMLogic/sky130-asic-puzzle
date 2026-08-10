@@ -180,3 +180,154 @@ an injected divergence rather than just reporting a false PASS. See
 `evidence/warmup-sim.md` § "Replay-engine self-test". The multi-bit
 per-bit-port `port_map` extension this replay needed is self-tested
 independently in `tools/sim/selftest_portmap.py` (see "Port shape" above).
+
+## Reproduction (issue #14) and go/no-go decision
+
+Everything above this section was recorded by PR #18. This section is an
+append made for issue #14 (stage 6's remaining scope), on top of that
+recorded result — nothing above has been edited, per this repo's
+append-only evidence convention.
+
+### Reproduction
+
+The exact command in "The command, run for real" above was re-run,
+unmodified, against the current worktree (`origin/main` @ `f8ac624`):
+
+```
+RESULT FAIL — first divergence at t=1000 signal=O
+  expected: xxxxxxxx
+  actual:   00000000
+```
+
+— identical to the recorded result. The value-content check was re-run too
+and reproduces exactly:
+
+```
+O: 22 transitions, 0 value mismatches, timing deltas (sim-rec, ps) = [-4000, 1000]
+success: 2 transitions, 0 value mismatches, timing deltas (sim-rec, ps) = [-4000]
+```
+
+24 total recorded transitions across `O[7:0]` and `success` (22 + 2), 0
+value mismatches in either — unchanged from the original run. This is a
+literal, freshly-executed rerun (PDK resolved locally the same way, model
+files unchanged), not an assertion carried forward from the earlier PR.
+
+### Strengthening the timing-offset mechanism (cheap check, item 2 of the issue)
+
+The evidence above calls the timing-offset mechanism "most likely" but
+unconfirmed: a fixed simulation-delay difference between this repo's
+gate-level sim and whatever produced `example_inputs.vcd`. One cheap,
+concrete check narrows that: the simulation is compiled with `-D
+UNIT_DELAY=#1` against the sky130 primitive models, which declare
+`` `timescale 1ns / 1ps `` (`primitives.v:31`, confirmed locally at the PDK
+root this run resolved). Under that timescale, `#1` is **exactly one
+nanosecond** — i.e. exactly 1000ps in `example_inputs.vcd`'s own `1ps`
+timescale. The observed constant offset on every non-anomalous transition
+is `+1000`ps. That is not merely "some constant delta" (as the original
+evidence described it) but numerically **exactly one `UNIT_DELAY` quantum**
+under the timescale this simulation actually runs at.
+
+This does not fully explain why the offset is the *same* +1000ps
+regardless of a signal's combinational depth from its driving flip-flop
+(`success` is a bare `dfrtp_2` `Q` output — zero combinational gates;
+`O[0]`/`O[7]` are each driven through a final `sky130_fd_sc_hd__and3_2`
+gate fed by further combinational logic upstream — checked directly against
+`evidence/puzzle-extracted.v` lines ~840-858 and ~3170-3180). Working out
+*why* the offset does not scale with logic depth (e.g. whether it is
+governed by which single net's transition the VCD dumper treats as "the"
+value-change event, or by how the reference trace's own generator was
+built) would require deeper investigation than "cheap" — it is **not**
+pursued here, consistent with the issue's framing of item 2 as optional
+depth. What the cheap check does establish: the *magnitude* of the offset
+is not arbitrary — it is exactly the delay quantum this simulation's own
+compile flags introduce, which is independent confirmation (beyond "it's a
+constant, so probably timing") that the divergence mechanism is a
+simulation-timing artifact of this repo's own `UNIT_DELAY=#1` choice, not
+some other, unexplained effect that happens to be the same magnitude.
+
+### Re-examining the outlier (-4000ps) transition
+
+The one exception to the "+1000ps, later" pattern is the very first value
+change on both `O` and `success` (`x` → `0`), which arrives 4000ps
+*earlier* in this simulation (`t=1000`) than in the recording (`t=5000`).
+Reproduced directly against the stimulus trace this run:
+
+```
+rst_n  first deasserts at t=30000
+enable first asserts   at t=40000
+O      first settles    at t=1000  (sim) / t=5000  (recorded)
+success first settles   at t=1000  (sim) / t=5000  (recorded)
+```
+
+Both settle events happen well before either `rst_n` or `enable` is ever
+driven to a meaningful value — confirming, by direct inspection this run
+(not by re-asserting the earlier claim), that this transition is
+functionally inert: it is the `x`-to-known-value settle of registers held
+in reset, not a difference in circuit behavior. Its direction (sim
+*earlier*, vs. every other transition being sim *later*) is explained by it
+being a single async-reset propagation step rather than a synchronous
+clock-to-Q + combinational chain — a qualitatively different kind of event
+from the rest of the trace, which is why its delta does not follow the
+`+1000` pattern. This re-examination does not change the original
+characterization; it confirms it against fresh output.
+
+### Decision: GO — treat the extraction as sufficient to unblock stage 7, with the risk explicitly flagged, not fully retired
+
+**Call**: proceed to stage 7 (#15). The documented zero-value-content-mismatch
+agreement (24/24 transitions, 0 mismatches, reproduced above) is treated as
+satisfying this stage's intent — "the recovered netlist behaves like the
+real device on the one trace we have" — even though it does not satisfy
+`run_vcd_replay.py`'s literal exact-timestamp `PASS` contract, and is not
+expected to: that contract checks something (delay-annotated timing
+fidelity) extraction never claimed to reproduce (structure, not timing —
+stated in the original evidence above).
+
+**Why GO and not "block on more confirmation":**
+
+- Every one of 24 recorded output transitions across both output signals
+  (`O[7:0]`, `success`) matches in value, with zero exceptions. There is no
+  partial match, no signal that agrees more than another, no cycle where
+  the two traces disagree on a bit's actual value — the strongest form of
+  agreement short of exact-timestamp equality.
+- All divergence collapses to exactly two numeric deltas, not a scatter:
+  `-4000` (one occurrence, functionally inert, reconfirmed above) and
+  `+1000` (every other occurrence). A latent extraction bug — a swapped
+  net, a misidentified cell, a dropped connection — would be expected to
+  produce a **value** mismatch somewhere in a 92-flip-flop, 738-cell design
+  exercised over 3.12µs and multiple `enable`/`rst_n` cycles, not a
+  uniform, small, structurally-explained timing shift. Getting the
+  *content* bit-exact by coincidence while the *structure* is wrong is
+  implausible at this scale.
+- The `+1000`ps delta is now shown (this run) to equal exactly one
+  `UNIT_DELAY=#1` quantum under the timescale this simulation compiles at —
+  not just "a constant," but a constant with an identified, mechanistic
+  source in this repo's own simulation flags.
+
+**Why "explicitly flagged as an open risk," not "fully closed":**
+
+- The tool/settings that actually produced `example_inputs.vcd` are not
+  known (Jane Street ships the trace, not the generator) — the "near-zero-
+  delay RTL/functional sim" explanation for *why the reference lacks this
+  delay* remains inference, not confirmation from the other side.
+- The combinational-depth-independence of the `+1000`ps offset (noted
+  above) is not fully explained. It is not evidence *against* the
+  timing-artifact reading (the alternative — a logic bug that happens to
+  reproduce a constant, quantum-sized, depth-independent offset on every
+  single transition of a 24-transition, two-signal, multi-depth trace —
+  is a strictly less parsimonious explanation of the same data) but it is
+  a loose end, and stage 7/8 have no independent oracle of their own that
+  would catch a subtler extraction defect if one exists beneath this
+  agreement.
+
+**What this unblocks, and what it does not:** stage 7 (#15) may proceed
+treating `evidence/puzzle-extracted.v` as the netlist to solve against.
+Stage 7/8 work should not re-litigate this file's `RESULT FAIL` as reason
+to distrust the netlist's *values* — that question is answered here with
+the strongest evidence this repo can produce without the reference
+simulator's own settings. It should, however, carry the open risk forward:
+if stage 7's solve produces behavior inconsistent with what a human reading
+of the design would expect (e.g. `success` provably unreachable, or the
+92-bit state space behaving unlike any plausible comparator/counter
+structure), that inconsistency is grounds to revisit this decision rather
+than assume the solver is at fault, since the two would look identical from
+inside stage 7.
