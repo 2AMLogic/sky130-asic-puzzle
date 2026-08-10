@@ -1,0 +1,137 @@
+# Submission draft — Jane Street ASIC puzzle
+
+**Form:** https://docs.google.com/forms/d/e/1FAIpQLScNCnfZ1wC4HbARwynUZ25EKZyqJIzXM_5H5aHom-QeAhE6FA/viewform
+**Closes:** 2026-09-04 · **Questions:** asic-puzzle@janestreet.com
+**Header text:** *"Cracked the chip? Submit your answer below, along with a writeup of how you
+did it."*
+
+Nothing here has been submitted. This file is the staged content, so the form is a
+transcription step rather than a drafting-under-deadline step.
+
+---
+
+## Before submitting — three things to settle
+
+**1. The form does not state that responses can be edited after submission.**
+Google Forms only allows editing when the creator enables it, and this one does not say so.
+Treat submission as final. That is the argument for completing `REVIEW-REQUEST.md` first —
+the review is cheap (25 days remain, nothing is gated on it) and its whole value is catching
+something before the one irreversible step.
+
+**2. The writeup field offers "an optional link to a longer document" — and we cannot use it
+yet.** This repo goes public on 2026-09-04, which *is* the submission deadline. Any link to
+it included at submission time would point at a private repo. Options, in preference order:
+
+- Submit the self-contained writeup below with no link, then email `asic-puzzle@janestreet.com`
+  after 2026-09-04 with the repo URL — which is exactly the follow-up Jane Street invites
+  ("If you do publish your solution … after submissions are closed, email us and we may
+  include the link in our follow-up post!").
+- Or publish the evidence trail elsewhere on 2026-09-04 and email that.
+
+Either way the writeup below must stand alone.
+
+**3. "Easter Eggs" is a form field, and nobody has looked.**
+The form has an optional short-answer field named *Easter Eggs*. That is a strong hint the
+design contains something beyond the `success` path — a message in unused logic, a pattern in
+cell placement, unreachable states with meaning. **This repo has never investigated it**
+(`grep -ri easter` returns nothing). It is optional, so it does not block submission, but it
+is free signal that the puzzle author expects solvers to find something, and we have 25 days.
+
+---
+
+## Fields the operator must supply
+
+The form requires identity details no agent should invent:
+
+| Field | Required | Value |
+|---|---|---|
+| Full Name | yes | *(operator)* |
+| Email | yes | *(operator)* |
+| Academic or professional status | yes | High school student / University student / PhD Candidate / Professional / **Other** — 2AM Logic is a company, so "Professional" or "Other" |
+| Affiliation | yes | *(operator — "2AM Logic"?)* |
+| Country | yes | *(operator — used for the mailing address for swag)* |
+| Agree to publishing your name and solution if selected? | yes | *(operator decision)* |
+| Interested in exploring careers at Jane Street? | optional | *(operator — LinkedIn or personal page)* |
+| Comments | optional | *(operator)* |
+| Easter Eggs | optional | see §3 above — nothing found yet |
+
+---
+
+## The answer
+
+```
+(* TWO STARS *)
+```
+
+15 printable ASCII bytes, emitted one byte per clock cycle on `O[7:0]` after `success`
+asserts. Recorded in `evidence/puzzle-answer.md`.
+
+---
+
+## Writeup (draft — paste into the "Writeup" field)
+
+We recovered the netlist mechanically and solved it with a SAT solver; no step relied on
+guessing what the circuit was.
+
+**Extraction.** `puzzle.gds` ships with `sky130_fd_sc_hd` cell names and drive strengths
+intact, so the work was connectivity rather than cell recognition. We built a cell-level
+extractor that resolves each instance's pin geometry from the GDS stream's own label layers
+and traces nets through the routing stack. We validated it against the published warm-up,
+where ground truth exists: extracted netlist versus `01_netlist.v`, compared up to instance
+and net renaming, seeded from the top-level port names. That comparator self-tests against a
+renamed copy and against three deliberate mutations, so it was known to reject before it was
+ever trusted to accept.
+
+**Checking the extraction on the real chip.** There is no ground-truth netlist for
+`puzzle.gds`, so the only oracle is `example_inputs.vcd`. Replaying it against our extracted
+netlist reproduces every recorded output transition's value exactly — 22 transitions on
+`O[7:0]` and 2 on `success`, zero value mismatches. The traces differ only in timing, by a
+constant offset of exactly one `UNIT_DELAY` quantum (1 ns, the sky130 primitive timescale),
+consistent with a gate-level simulation compared against a near-zero-delay reference. We
+report that run as a literal FAIL under our exact-timestamp comparator rather than loosening
+the comparison, and characterise the offset separately.
+
+**Structure before solving.** We collapsed the combinational logic and looked at the state
+graph — an edge from flop X to flop Y when X's output is in the fan-in cone of Y's D pin.
+The warm-up decomposes into two independent 8-stage shift registers feeding one comparator.
+The puzzle does not decompose at all: all 92 flops sit in one connected component, with
+feedback groups of 9, 8 and 4 flops, a 12-stage shift register fed by `I`, and two sinks
+reading 57 of the 92 flops. That ruled out inverting it by construction and told us to use a
+solver.
+
+**Solving.** We measured the truth table of all 63 combinational cell types by simulating
+the real sky130 behavioural models, rather than writing them from memory, and built a cycle
+model from that. Bounded model checking over the full 92-flop state (no state reduction, no
+assumed structure) found a 121-bit input sequence on `I` that drives `success` high. We
+replayed that sequence through Icarus against the extracted netlist itself — not just the SAT
+encoding — and it asserts `success`. Re-solving with that solution blocked returns UNSAT, so
+it is the only sequence at that bound. The four unresettable flops were left as free
+variables throughout, and the answer holds under all 16 power-up combinations.
+
+**What the chip is.** The structure explains itself once you read the taps: 22 two-flop
+saturating counters (one per row and one per column of an 11-wide raster), an 8-flop running
+population count of `I`, and a shift register whose taps read offsets 1 and 11±1 — the
+neighbours of the current cell in raster order. It is a validator for a non-attacking
+placement puzzle. The solved input describes an 11-wide grid with exactly two marks per row
+and per column and no two marks adjacent, even diagonally. The message the chip emits,
+`(* TWO STARS *)`, names the rule it checks.
+
+**Answer.** Extending the simulation past the goal cycle and watching `O[7:0]` yields 15
+printable ASCII bytes: `(* TWO STARS *)`. We decoded both candidate bit orders and selected
+on printability, with the decoder unit-tested against a synthetic known-answer fixture first,
+and checked that the observation window was long enough that the message was not truncated —
+a short window returns 9 bytes mid-word, which we reproduced deliberately rather than
+assumed.
+
+Tools: our own extractor and cycle model (built for this), Icarus Verilog with the real
+sky130 behavioural models, and CaDiCaL via python-sat. Every claim above is backed by a
+recorded command and its literal output.
+
+---
+
+## After submitting
+
+- [ ] 2026-09-04: flip this repo public (operator-only).
+- [ ] Email `asic-puzzle@janestreet.com` with the repo link — the follow-up post invitation.
+- [ ] Return `fleet_priority` to the canary band (44 is free); `repos.yml` warns that leaving
+      it at 5 starves the orchestrator for a finished contest.
