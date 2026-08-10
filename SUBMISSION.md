@@ -105,8 +105,8 @@ puzzle itself it is corroborated, not proven.
 graph — an edge from flop X to flop Y when X's output is in the fan-in cone of Y's D pin.
 The warm-up decomposes into two independent 8-stage shift registers feeding one comparator.
 The puzzle does not decompose at all: all 92 flops sit in one connected component, with
-feedback groups of 9, 8 and 4 flops, a 12-stage shift register fed by `I`, and two sinks
-reading 57 of the 92 flops. That ruled out inverting it by construction and told us to use a
+feedback groups of 9, 8 and 4 flops plus 23 two-flop pairs, a 12-stage shift register fed
+by `I`, and two sinks reading 57 of the 92 flops. That ruled out inverting it by construction and told us to use a
 solver.
 
 **Solving.** We measured the truth table of all 63 combinational cell types by simulating
@@ -130,10 +130,9 @@ exactly two marks per row, column, and region, with no two marks adjacent even d
 Those conditions alone do not pin the answer down: enumerated independently — 11×11, two
 marks per row, two per column, minimum Chebyshev distance 2 — they admit **31,197,434**
 valid grids, while the circuit accepts exactly **one** word at our bound. The missing
-predicate turned out to be recoverable from the circuit itself. Differential one-hot
-traces classify its 23 two-flop feedback groups as 11 column counters, one shared row
-counter, and **11 counters over irregular regions that partition the board** — the puzzle
-is a standard two-star Star Battle whose region map was withheld. As an independent check
+predicate turned out to be recoverable from the circuit itself: the region counters above
+are exactly it — the puzzle is a standard **two-star Star Battle** whose region map was
+withheld. As an independent check
 we encoded only the recovered rules (two marks per row, column, and recovered region; no
 touching) as a fresh CNF with no reference to the gate-level circuit: it has exactly one
 solution, and it is the accepted word.
