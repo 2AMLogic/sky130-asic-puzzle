@@ -71,3 +71,7 @@ __pycache__/
 
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
 .claude/skills/repo/.install-local.json
+.squad/
+
+# squad machine-local install metadata (absolute source path + timestamp)
+.claude/skills/squad/.install-local.json

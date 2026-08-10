@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "squad": {
+      "command": "node",
+      "args": [
+        "/Users/rwalters/GitHub/squad/dist/index.js"
+      ],
+      "env": {
+        "SQUAD_PERSONA": "claude",
+        "SQUAD_DIR": "/Users/rwalters/GitHub/sky130-asic-puzzle/.squad"
+      }
+    }
+  }
+}
