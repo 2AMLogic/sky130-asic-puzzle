@@ -142,6 +142,64 @@ def resolve_cell_pins(layout, cell) -> CellPins:
     return result
 
 
+def resolve_cell_pin_shapes(layout, cell) -> dict[str, list[tuple[int, "db.Polygon"]]]:
+    """Like `resolve_cell_pins`, but returns native, untransformed `db.Polygon`
+    shapes (dbu-integer, cell-local coordinates) instead of JSON-ready micron
+    tuples -- for a caller (`tools/gds_extract.py`, issue #2) that needs to
+    apply an instance placement transform (`db.Trans`/`db.DCplxTrans`) to get
+    top-level geometry, where re-parsing rounded micron floats back out of
+    `resolve_cell_pins`' output would be lossy and redundant.
+
+    Same total-or-loud contract as `resolve_cell_pins` (raises
+    `PinResolutionError` naming the cell and pin), and the same "at least one
+    occurrence must land inside a `.pin` shape" rule -- this is a second view
+    of the same resolution, not a different algorithm, so the two must never
+    disagree about which pins resolve.
+
+    Returns: pin name -> list of `(target_layer_number, db.Polygon)`, one
+    entry per distinct resolved shape (a pin's geometry may be more than one
+    polygon, same as `resolve_cell_pins`).
+    """
+    dbu = layout.dbu
+    occurrences: dict[str, list[tuple[int, object]]] = {}
+    for layer_num, datatype in LABEL_SOURCES:
+        target_layer = PIN_TARGET_LAYER[(layer_num, datatype)]
+        li = layout.layer(layer_num, datatype)
+        for shape in cell.each_shape(li):
+            if not shape.is_text():
+                continue
+            name = shape.text.string
+            occurrences.setdefault(name, []).append((target_layer, shape.text_pos))
+
+    result: dict[str, list[tuple[int, object]]] = {}
+    for name, occs in sorted(occurrences.items()):
+        seen: set[str] = set()
+        shapes: list[tuple[int, object]] = []
+        for target_layer, pos in occs:
+            pt = db.DPoint(pos.x * dbu, pos.y * dbu)
+            pin_li = layout.layer(target_layer, PIN_DATATYPE)
+            for pshape in cell.each_shape(pin_li):
+                if pshape.is_text():
+                    continue
+                poly = pshape.polygon
+                if poly is None:
+                    continue
+                if not poly.to_dtype(dbu).inside(pt):
+                    continue
+                key = poly.to_s()
+                if key not in seen:
+                    seen.add(key)
+                    shapes.append((target_layer, poly))
+        if not shapes:
+            raise PinResolutionError(
+                f"{cell.name}: pin {name!r} has {len(occs)} label occurrence(s) but none "
+                f"land inside a .pin (datatype {PIN_DATATYPE}) shape on the expected "
+                f"layer -- cannot resolve this pin's geometry from the stream"
+            )
+        result[name] = shapes
+    return result
+
+
 def library_cell_names(layout) -> list[str]:
     """Every distinct `sky130_fd_sc_hd__*` cell *definition* in the layout."""
     return sorted({c.name for c in layout.each_cell() if c.name.startswith(LIBRARY_PREFIX)})

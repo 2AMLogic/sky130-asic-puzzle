@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+"""Cell-level connectivity extraction: GDS -> gate-level netlist (issue #2).
+
+    tools/extract <path.gds> [-o out.v] [--json out.json] [--top NAME] [--stats]
+
+Reads a placed-and-routed sky130 GDS stream directly (no PDK, no `klt`
+device-level extraction) and emits a gate-level Verilog + JSON netlist by
+tracing physical connectivity through `li1`/`met1`-`met5` and the via cells.
+See `tools/gds_extract.py` for the algorithm and `tools/README.md`
+("Conductor stack and via handling") for the narrative version, including
+the two empirical corrections to the naive algorithm that this module makes.
+
+Resolution is total-or-loud, same contract as `tools/pins` (issue #1): an
+instance pin with no resolvable net, or a signal net found electrically
+shorted to a supply rail, is a hard error naming the instance/pin (or the
+conflicting net names) -- never a silently dropped connection or a partial
+netlist on stdout.
+
+Exit status: 0 on success, 1 on an extraction error (unresolved pin,
+spurious short), 2 on a usage/read error.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import klayout_env  # noqa: E402
+
+EXIT_OK = 0
+EXIT_EXTRACTION_ERROR = 1
+EXIT_ERROR = 2
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="tools/extract",
+        description="Cell-level connectivity extraction: GDS -> gate-level Verilog + JSON netlist.",
+    )
+    parser.add_argument("gds", help="path to a GDSII stream (e.g. puzzle/warmup/04_final.gds)")
+    parser.add_argument("-o", "--output", metavar="FILE", help="write structural Verilog to FILE")
+    parser.add_argument("--json", metavar="FILE", help="also write the canonical JSON netlist to FILE")
+    parser.add_argument(
+        "--top", metavar="NAME", help="extract this cell instead of the GDS stream's top cell"
+    )
+    parser.add_argument(
+        "--stats",
+        action="store_true",
+        help="print the extraction report (instance/net/via counts, supply-pin sanity check) "
+        "to stderr even when -o/--json are given (always printed if neither is given)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        klayout_env.ensure_klayout()
+    except klayout_env.KlayoutResolutionError as exc:
+        print(f"tools/extract: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    import klayout.db as db
+
+    import gds_extract
+    import verilog_netlist as vn
+
+    if not os.path.isfile(args.gds):
+        print(f"tools/extract: no such file: {args.gds}", file=sys.stderr)
+        return EXIT_ERROR
+
+    layout = db.Layout()
+    try:
+        layout.read(args.gds)
+    except Exception as exc:  # klayout raises its own RuntimeError subclasses
+        print(f"tools/extract: could not read {args.gds!r}: {exc}", file=sys.stderr)
+        return EXIT_ERROR
+
+    try:
+        result = gds_extract.extract(layout, source=args.gds, top_name=args.top)
+    except gds_extract.ExtractionError as exc:
+        print(f"tools/extract: EXTRACTION FAILED: {exc}", file=sys.stderr)
+        return EXIT_EXTRACTION_ERROR
+
+    if args.stats or not (args.output or args.json):
+        print(result.stats.render(), file=sys.stderr)
+
+    verilog_text = vn.write_verilog(result.netlist)
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as fh:
+            fh.write(verilog_text)
+        print(f"tools/extract: wrote {args.output}", file=sys.stderr)
+    else:
+        print(verilog_text, end="")
+
+    if args.json:
+        with open(args.json, "w", encoding="utf-8") as fh:
+            fh.write(result.netlist.to_json_text())
+        print(f"tools/extract: wrote {args.json}", file=sys.stderr)
+
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())
