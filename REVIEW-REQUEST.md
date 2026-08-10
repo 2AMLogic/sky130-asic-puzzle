@@ -144,3 +144,31 @@ A file `evidence/independent-review.md` containing:
 
 Do not edit the existing `evidence/` files — this repo's convention is append-only, and your
 review is independent evidence, not a revision of theirs.
+
+---
+
+## Addendum (2026-08-10) — the easter-egg hunt added claims; attack those too
+
+`evidence/easter-eggs.md` now records five further claims. All seven scripts under
+`evidence/easter-egg-*.py` were re-run from their committed paths on 2026-08-10 and
+reproduced their published output exactly; that is reproducibility, not correctness. The
+new claims, and where each would break:
+
+| # | Claim | Attack surface |
+|---|---|---|
+| 6 | Failing inputs emit messages: all-zeros → `EMPTY SKY`, all-ones → `BIG BANG`, five structured failures → `TRY AGAIN` | Same bit-order/window caveats as claim 5. Are these Icarus replays independent of the SAT model? Try a failing input *family* the scripts did not (random words, near-misses of the accepted grid) — is `TRY AGAIN` universal or do other messages exist? |
+| 7 | Layer 200/0 spells `PER ARENAM AD ASTRA` in Morse (`easter-egg-morse-strip.py`) | Decode is deterministic from measured geometry — verify the *geometry claim*: read the 36 rectangles from the GDS with a different tool and confirm widths/gaps. A wrong `unit` would garble everything; the script asserts widths are exactly 1 or 3 units. |
+| 8 | met2 carries an isolated three-ring glyph, connected to nothing (`easter-egg-met2-ring.py`) | "Connected to nothing" is asserted from isolation, not an LVS trace. Check no met1/mcon/via geometry touches the tile cluster. Is the search window (fixed in the script) hiding a fourth ring or tail? |
+| 9 | The withheld constraint is the two-star Star Battle region rule; 11 recovered regions make the accepted word unique with **no reference to the circuit** (`easter-egg-lead4.py`) | The strongest new claim. The region map came from one-hot *differential* traces — could a different perturbation scheme assign boundary cells differently and still pass the uniqueness check? Verify the CNF really encodes only recovered rules, and that "solutions_up_to_2=1" enumerated to exhaustion. |
+
+The hunt also closed three of this document's open questions — treat the closures as claims:
+
+- **§5 timing offset**: explained as exactly one functional-model `UNIT_DELAY=#1` (zero-delay
+  combinational models), which is why it does not scale with depth. Check the sky130
+  behavioural model source actually has this structure.
+- **§2 `net_00575`**: forward cone is 10 cells reaching only `O[1]`/`O[4]`; forcing both
+  polarities changed no sampled output on four trace families. This is robustness on tested
+  traces, not global irrelevance — say which it is in your verdict.
+- **Claim 4's hedge** ("consistent with checking some of them") is now superseded by claim 9;
+  the submission writeup was reworded accordingly. Review the new wording in `SUBMISSION.md`
+  against what `easter-egg-lead4.py` actually proves.
