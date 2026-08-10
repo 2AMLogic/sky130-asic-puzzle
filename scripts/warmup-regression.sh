@@ -9,7 +9,8 @@
 # is embargoed. This script deliberately never reads puzzle/puzzle.gds and never
 # prints anything derived from it — see CLAUDE.md §1.
 #
-# Three halves, and only the first two are implemented today:
+# Three halves, all implemented and running today (issue #9 wired up the
+# third once tools/extract landed via #2):
 #
 #   1. The comparator's own correctness — tools/test-compare, which renames
 #      01_netlist.v and checks that the comparator says "equivalent", then
@@ -21,9 +22,13 @@
 #      run for free here since fetch-puzzle.sh has already populated puzzle/
 #      by this point. Runs now.
 #   3. The end-to-end gate — extract 04_final.gds and compare the result against
-#      01_netlist.v. Needs tools/extract, which is issue #2 (cell-level
-#      extraction), itself downstream of #1. SKIPPED, loudly, until that lands;
-#      pass --require-extract to make the skip a failure once it has.
+#      01_netlist.v. Runs `tools/extract` (issue #2, cell-level extraction) and
+#      feeds its output straight into `tools/compare`. If `tools/extract` is
+#      ever missing or not executable again (e.g. a regression, or a stripped-
+#      down checkout), this half reports a loud SKIPPED instead of silently
+#      passing; pass --require-extract to turn that skip into a hard failure
+#      (CI always passes this flag, so a missing/broken extractor turns CI red
+#      there, not yellow).
 #
 # Extraction output is written to build/ (gitignored) and never committed: it is
 # a derived representation of an upstream file that carries no license
