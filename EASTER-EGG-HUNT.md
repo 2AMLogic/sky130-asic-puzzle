@@ -30,7 +30,7 @@ Read these before starting; they answer most first questions.
 | `evidence/puzzle-solve.md` | the 121-bit input, the structural analysis, the state graph |
 | `evidence/puzzle-answer.md` | the message `(* TWO STARS *)` and how it was decoded |
 | `evidence/independent-review.md` | the coverage measurement and the refutation of claim 4 |
-| `evidence/inventory-puzzle.json` | every placed instance with its cell type and **placement coordinates** |
+| `evidence/inventory-puzzle.json` | instance **counts** by class and by cell (`by_class`/`by_cell`), plus top-level ports — **no per-instance coordinates**; those are read from the GDS directly |
 
 Facts worth having in hand:
 
@@ -61,8 +61,10 @@ check.
   all**.
 - Look for structure in fill: 880 tap/decap cells and 36 `INTERNAL_*` bookkeeping cells.
   Fill is normally uniform. Is it?
-- Placement coordinates are in `evidence/inventory-puzzle.json`. Plot them. Cells spelling
-  text or forming an image would show up immediately.
+- Placement coordinates are **not** in `evidence/inventory-puzzle.json` — that file carries
+  counts only. Read per-instance origins straight from the GDS with `klayout.db`
+  (`inst.trans` / `inst.bbox()`, the pattern the `evidence/easter-egg-*.py` scripts use) and
+  plot them. Cells spelling text or forming an image would show up immediately.
 
 ### Lead 2 — The 120 cold cells in the `O[7:0]` cone
 
