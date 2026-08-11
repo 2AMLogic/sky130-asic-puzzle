@@ -362,6 +362,11 @@ properties to exactly the circuit's one accepted word.
 Everything below is verified in the sections above; each clause traces to
 a committed script and its literal output.
 
+*(Historical note: the version actually submitted on 2026-08-10 predates the
+fifth-message discovery — it is preserved in git at `74a2703`. The paragraph
+below is the current five-message version, kept for the post-close
+publication and any operator-chosen supplement to Jane Street.)*
+
 > The chip answers back when you get it wrong — and we proved the complete
 > message set by exhaustive BMC over all failing inputs. All-zeros input
 > emits `EMPTY SKY` on O[7:0], all-ones emits `BIG BANG`, and a grid that
