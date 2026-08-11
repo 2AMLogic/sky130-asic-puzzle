@@ -32,10 +32,13 @@ it included at submission time would point at a private repo. Options, in prefer
 
 Either way the writeup below must stand alone.
 
-**3. The Easter eggs have been investigated and found.**
-Gate-level replay reveals distinct failure messages: all-zero input emits `EMPTY SKY`,
-all-one emits `BIG BANG`, and every other failing input tested emits `TRY AGAIN` (169 words
-across eight families, including one-bit near-misses). Physical GDS layer
+**3. The Easter eggs have been investigated and found — the message set is now enumerated,
+not sampled.** The chip's complete output behavior is proven by BMC over all failing inputs
+(`evidence/easter-egg-try-again-universality.py`): all-zeros emits `EMPTY SKY`, all-ones
+emits `BIG BANG`, a word satisfying every row/column/region count that violates only the
+adjacency rule emits a fifth, previously unknown diagnostic — **`TWO"NOT TOUCH`**, the `"` a
+ditto mark for STARS — and every other failing word emits `TRY AGAIN` (exactly two failure
+streams exist; exhaustive enumeration, all 16 power-up combinations). Physical GDS layer
 200/0 encodes `PER ARENAM AD ASTRA` ("through sand, to the stars") in Morse code below the
 die, built from the 36 `INTERNAL_*` placements, and met2 carries an ~18 µm three-ring
 maze/record glyph connected to nothing. Structural differential analysis also recovers the
@@ -59,7 +62,7 @@ The form requires identity details no agent should invent:
 | Agree to publishing your name and solution if selected? | yes | *(operator decision)* |
 | Interested in exploring careers at Jane Street? | optional | *(operator — LinkedIn or personal page)* |
 | Comments | optional | *(operator)* |
-| Easter Eggs | optional | Use the draft in `evidence/easter-eggs.md` ("Deliverable" section): `EMPTY SKY` / `BIG BANG` / `TRY AGAIN` failure messages, the Morse `PER ARENAM AD ASTRA` strip on layer 200/0, the met2 three-ring maze/record glyph, and the 11 recovered Star Battle regions that make the answer unique. |
+| Easter Eggs | optional | Use the draft in `evidence/easter-eggs.md` ("Deliverable" section): `EMPTY SKY` / `BIG BANG` / `TRY AGAIN` / `TWO"NOT TOUCH` failure messages (the complete set, proven by exhaustive BMC — the fifth fires iff only the adjacency rule is violated), the Morse `PER ARENAM AD ASTRA` strip on layer 200/0, the met2 three-ring maze/record glyph, and the 11 recovered Star Battle regions that make the answer unique. |
 
 ---
 

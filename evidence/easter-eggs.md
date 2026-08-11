@@ -362,10 +362,14 @@ properties to exactly the circuit's one accepted word.
 Everything below is verified in the sections above; each clause traces to
 a committed script and its literal output.
 
-> The chip answers back when you get it wrong: all-zeros input emits `EMPTY
-> SKY` on O[7:0], all-ones emits `BIG BANG`, and every other failing input
-> tested emits `TRY AGAIN` (169 words across eight families; all gate-level
-> Icarus replays, not solver decodes). Below
+> The chip answers back when you get it wrong — and we proved the complete
+> message set by exhaustive BMC over all failing inputs. All-zeros input
+> emits `EMPTY SKY` on O[7:0], all-ones emits `BIG BANG`, and a grid that
+> satisfies every row, column, and region count but lets two stars touch
+> gets a targeted diagnostic: **`TWO"NOT TOUCH`** — the `"` a ditto mark
+> for STARS. Every other failing word emits `TRY AGAIN`; exactly these two
+> failure streams exist, for all 16 power-up states of the unresettable
+> flops (gate-level Icarus replays, not solver decodes). Below
 > the die, GDS layer 200/0 spells **`PER ARENAM AD ASTRA`** — "through
 > sand, to the stars" — in Morse code built from the 36 `INTERNAL_*`
 > placements (1:3 dot/dash rectangle widths, 1/3/7-unit gaps). met2
@@ -448,3 +452,59 @@ SURVEY VERDICT: 1 artwork-like cluster(s) on met2 across the whole die
 All 1,366 exact-tile shapes on met2 belong to the one glyph; no other such
 tile exists anywhere on the layer, so there is no fourth ring, tail, or
 second glyph outside the original window.
+
+## Addendum (2026-08-11) — a FIFTH message, and the complete message map, proven
+
+The independent review's one open limitation was "`TRY AGAIN` universality is
+sampled (169 failing words). A per-cycle BMC over all failing inputs would
+close it; not run." Running it refuted universality:
+`evidence/easter-egg-try-again-universality.py` enumerates every distinct
+O[7:0] stream a failing word can produce (blocking clauses until UNSAT, the
+4 unresettable power-up bits left free throughout) and proves the firing
+condition of the new stream exactly.
+
+```sh
+PYTHONPATH=. .sim-work/review-venv/bin/python \
+  evidence/easter-egg-try-again-universality.py
+```
+
+```text
+accepted-word validation: success asserts
+stream 1: '.TRY AGAIN'  (0.04s)
+  witness word: 1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111110
+stream 2: '.TWO"NOT TOUCH'  (0.84s)
+  witness word: 1000000001000001010000000000010100011000000010000010000000001001000100000010000000100001000100000010000100100001100000000
+enumeration COMPLETE: exactly 2 failure streams exist
+diagnostic bytes: 00 54 57 4f 22 4e 4f 54 20 54 4f 55 43 48 00 00
+class proof (counts-ok+touch => diagnostic): sat=False (2.71s)
+converse proof: 66 queries, 0 unexpected SAT
+power-up sweep: 1 distinct stream(s) across 16 combos
+icarus sim ok: True
+success cycles: none
+icarus vs model: 0 mismatches; x-pessimism cycles [129, 138, 139, 140] (model proves these constant across all 16 power-ups)
+
+COMPLETE MESSAGE MAP (proven, all 16 power-ups):
+  accepted word                          -> (* TWO STARS *), success
+  all-zeros                              -> EMPTY SKY
+  all-ones                               -> BIG BANG
+  all counts == 2 and >=1 touching pair  -> TWO"NOT TOUCH
+  everything else                        -> TRY AGAIN
+```
+
+The fifth message is **`TWO"NOT TOUCH`** — 0x22, a ditto mark, between `TWO`
+and `NOT`: read against the answer `(* TWO STARS *)`, it says *two stars,
+not touch*. It fires **iff** a word satisfies every row, column, and
+recovered-region count (all == 2) and violates only the adjacency rule —
+the chip diagnoses the one subtle way to fail. The 169-word review sample
+never saw it because every sampled family (random words, near-misses,
+complements, alternations) breaks a counting constraint.
+
+The Icarus replay confirms the witness gate-level (`success` never asserts;
+every defined byte matches), with `x` at exactly four byte-cycles — classic
+x-pessimism from the unresettable flops, at positions the 16-way power-up
+sweep proves constant.
+
+The earlier statement "every other failing input we tested emits `TRY
+AGAIN`" (169 words) remains literally true; it is now superseded by the
+exact map above. This addendum also completes the review's limitation list:
+nothing about the message behavior is sampled any more — it is enumerated.
