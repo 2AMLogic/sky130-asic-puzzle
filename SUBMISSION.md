@@ -186,8 +186,29 @@ is simply missing this egg.
 - [ ] Optionally email `asic-puzzle@janestreet.com` a short supplement naming
       the fifth message and its firing condition. The address is the form's
       own questions channel; a private mail to the puzzle's authors is not a
-      public spoiler, and submissions are open until 2026-09-04. Draft
-      support: the "Deliverable" paragraph in `evidence/easter-eggs.md` now
-      carries the five-message version.
+      public spoiler, and submissions are open until 2026-09-04. Paste-ready
+      draft below.
 - [ ] Otherwise, the fifth message rides with the post-close publication and
       follow-up email above.
+
+**Draft supplement (operator to send from the address used on the form):**
+
+> Subject: ASIC puzzle — supplement to our submission (one more easter egg)
+>
+> Hi — we submitted earlier today (name: Robb Walters). About fifteen
+> minutes after clicking send, a final verification pass we had in flight
+> finished, and it found one more easter egg we'd like to add to our
+> Easter Eggs answer rather than sit on until the close.
+>
+> Enumerating every output stream the chip can produce on a failing input
+> (bounded model checking with blocking clauses, all power-up states of the
+> four unresettable flops), exactly two exist. Besides `TRY AGAIN`, a grid
+> that satisfies every row, column, and region count but lets two stars
+> touch gets its own diagnostic: `TWO"NOT TOUCH` — with the ditto mark
+> standing in for STARS, as in *two stars, not touch*. We proved the firing
+> condition exact in both directions, so that's the complete message set:
+> `(* TWO STARS *)`, `EMPTY SKY`, `BIG BANG`, `TRY AGAIN`, and
+> `TWO"NOT TOUCH`.
+>
+> Everything else in our submission stands as sent. Thanks for a wonderful
+> puzzle — the ditto mark got a genuine laugh over here.
