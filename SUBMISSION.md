@@ -1,16 +1,18 @@
-# Submission draft — Jane Street ASIC puzzle
+# Submission record — Jane Street ASIC puzzle
 
 **Form:** https://docs.google.com/forms/d/e/1FAIpQLScNCnfZ1wC4HbARwynUZ25EKZyqJIzXM_5H5aHom-QeAhE6FA/viewform
 **Closes:** 2026-09-04 · **Questions:** asic-puzzle@janestreet.com
 **Header text:** *"Cracked the chip? Submit your answer below, along with a writeup of how you
 did it."*
 
-Nothing here has been submitted. This file is the staged content, so the form is a
-transcription step rather than a drafting-under-deadline step.
+**Submitted:** 2026-08-10 at approximately 17:03 PDT. Robb Walters reported the Google
+Form submission complete. The Chrome debugging page was no longer available afterward, so
+this records the operator report rather than an independently captured confirmation page.
+The field contents below are the reviewed text staged immediately before submission.
 
 ---
 
-## Before submitting — three things to settle
+## Pre-submission decisions
 
 **1. The form does not state that responses can be edited after submission.**
 Google Forms only allows editing when the creator enables it, and this one does not say so.
@@ -154,6 +156,8 @@ recorded command and its literal output.
 
 ## After submitting
 
+- [x] Submit the reviewed answer, writeup, and Easter Eggs response (operator-reported
+      complete 2026-08-10).
 - [ ] 2026-09-04: flip this repo public (operator-only).
 - [ ] Email `asic-puzzle@janestreet.com` with the repo link — the follow-up post invitation.
 - [ ] Return `fleet_priority` to the canary band (44 is free); `repos.yml` warns that leaving
