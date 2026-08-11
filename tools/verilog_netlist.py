@@ -252,7 +252,7 @@ class _Parser:
             # representative that reads well in reports
             return (0 if n in CONSTANT_NETS else 1, 0 if n in ports else 1, n)
 
-        keep, drop = sorted([ra, rb], key=rank)[0], sorted([ra, rb], key=rank)[1]
+        keep, drop = min(ra, rb, key=rank), max(ra, rb, key=rank)
         self.parent[drop] = keep
 
     # -- grammar ----------------------------------------------------------
@@ -464,7 +464,7 @@ def normalize_constant(text: str, line: int, source: str) -> str:
     m = re.fullmatch(r"(\d*)'[sS]?([bBoOdDhH])([0-9a-fA-FxXzZ_]+)", text)
     if not m:
         raise ParseError(f"{source}:{line}: unsupported literal {text!r}")
-    width, base, digits = m.groups()
+    width, _base, digits = m.groups()
     digits = digits.replace("_", "")
     if width not in ("", "1"):
         raise ParseError(f"{source}:{line}: multi-bit literal {text!r} is not supported")

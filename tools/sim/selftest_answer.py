@@ -39,7 +39,7 @@ WIDTH = 8
 CYCLE_RE = re.compile(r"^CYCLE (\d+) (.*)$")
 
 
-def _build_dut(*, bit_of: "list[int] | range") -> str:
+def _build_dut(*, bit_of: list[int] | range) -> str:
     """A tiny sequential DUT: on `en`, shifts out `MESSAGE` one byte per cycle.
 
     `bit_of[i]` names which bit of the internal byte register drives output
@@ -108,7 +108,7 @@ def _run(dut_src: str, work_dir: Path) -> list[dict[str, str]]:
 def main() -> int:
     work_root = Path.cwd() / ".sim-work" / "selftest-answer"
     bare_ports = [f"Q[{i}]" for i in range(WIDTH)]
-    cycles = list(range(0, len(MESSAGE) + 8))
+    cycles = list(range(len(MESSAGE) + 8))
     checks: list[tuple[str, bool]] = []
 
     print("== [control] index 0 = bit 0 wiring recovers the known message ==")

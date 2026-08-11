@@ -13,7 +13,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-from gds_layers import InstanceClass, TOP_PORT_LABEL_SOURCES, classify
+from gds_layers import TOP_PORT_LABEL_SOURCES, InstanceClass, classify
 
 
 @dataclass

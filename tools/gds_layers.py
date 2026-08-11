@@ -62,8 +62,7 @@ def cell_family(cell_name: str) -> str:
     misfire on one) is returned with the library prefix stripped only.
     """
     base = cell_name
-    if base.startswith(LIBRARY_PREFIX):
-        base = base[len(LIBRARY_PREFIX) :]
+    base = base.removeprefix(LIBRARY_PREFIX)
     prefix, _, suffix = base.rpartition("_")
     if prefix and suffix.isdigit():
         return prefix

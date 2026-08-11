@@ -66,6 +66,14 @@ jobs:
         # tools/extract exists, since it is invoked unconditionally.
         run: pip install klayout
 
+      - name: Install ruff
+        # scripts/lint.sh's ruff check is opt-in: it runs only when `ruff` is
+        # on PATH, and reports (not silently) a skip otherwise. Without this
+        # step the runner never has ruff installed, so the ruff branch never
+        # executes here and `ruff check` conformance is not actually a CI
+        # guarantee despite the Lint job appearing to be strict (issue #24).
+        run: pip install ruff
+
       - name: Lint (compile tools, parse scripts)
         run: ./scripts/lint.sh
 

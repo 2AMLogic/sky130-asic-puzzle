@@ -92,7 +92,7 @@ def compile_and_run(
         compile_cmd += [str(Path(s).resolve()) for s in sources]
 
         compile_proc = subprocess.run(
-            compile_cmd, capture_output=True, text=True, timeout=timeout_s
+            compile_cmd, capture_output=True, text=True, timeout=timeout_s, check=False
         )
         if compile_proc.returncode != 0:
             return SimResult(
@@ -112,6 +112,7 @@ def compile_and_run(
             text=True,
             timeout=timeout_s,
             cwd=out_dir,
+            check=False,
         )
         return SimResult(
             compiled=True,

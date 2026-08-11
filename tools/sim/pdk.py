@@ -99,6 +99,7 @@ def _try_klt() -> ResolvedModels | None:
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
