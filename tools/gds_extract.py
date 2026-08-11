@@ -42,11 +42,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-import klayout.db as db
-
 import gds_pins
 import verilog_netlist as vn
-from gds_layers import InstanceClass, TOP_PORT_LABEL_SOURCES, cell_family, classify
+from gds_layers import TOP_PORT_LABEL_SOURCES, InstanceClass, cell_family, classify
+from klayout import db
 
 # The conductor stack this reads, in bottom-to-top order. `datatype 20` is
 # KLayout's convention for "drawn" shapes on each of these GDS layer numbers.
@@ -156,7 +155,7 @@ class _LayerIslands:
     index_by_key: dict[str, int] = field(default_factory=dict)
 
     @classmethod
-    def build(cls, layer: int, raw: db.Region) -> "_LayerIslands":
+    def build(cls, layer: int, raw: db.Region) -> _LayerIslands:
         merged = raw.merged()
         polys = list(merged.each())
         index_by_key = {p.to_s(): i for i, p in enumerate(polys)}
@@ -359,7 +358,7 @@ class ExtractionStats:
 
 @dataclass
 class ExtractionResult:
-    netlist: "vn.Netlist"
+    netlist: vn.Netlist
     stats: ExtractionStats
 
 

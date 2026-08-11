@@ -21,7 +21,7 @@ from dataclasses import dataclass
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models  # noqa: E402
+from sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
 
 # `sky130_fd_sc_hd.v` defines each cell multiple times, guarded by
 # `` `ifdef FUNCTIONAL``/`` `ifdef USE_POWER_PINS`` -- once with VPWR/VGND/
@@ -30,7 +30,7 @@ from sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models  #
 # `module <cell> ( ... );` header's ports across all `ifdef` variants, not
 # just whichever one happens to compile first.
 _MODULE_HEADER_RE = re.compile(
-    r"module\s+(sky130_fd_sc_hd__\w+)\s*\(([^)]*)\)\s*;", re.S
+    r"module\s+(sky130_fd_sc_hd__\w+)\s*\(([^)]*)\)\s*;", re.DOTALL
 )
 
 
@@ -101,4 +101,4 @@ def crosscheck(cell_pins: dict[str, set[str]]) -> CrosscheckResult:
     )
 
 
-__all__ = ["crosscheck", "CrosscheckResult", "PdkResolutionError"]
+__all__ = ["CrosscheckResult", "PdkResolutionError", "crosscheck"]

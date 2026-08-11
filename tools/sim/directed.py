@@ -83,7 +83,7 @@ def _parse_outcomes(cases: list[ShiftLoadCase], stdout: str) -> list[CaseOutcome
         status = parts[2]
         got_s = None
         for tok in parts:
-            if tok.startswith("s=") or tok.startswith("got_s="):
+            if tok.startswith(("s=", "got_s=")):
                 got_s = tok.split("=", 1)[1] == "1"
         matched = status == "OK"
         outcomes.append(

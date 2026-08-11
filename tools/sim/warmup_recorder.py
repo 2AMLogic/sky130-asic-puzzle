@@ -26,7 +26,7 @@ from pathlib import Path
 from tools.sim.directed import DEFAULT_PORTS
 from tools.sim.icarus import compile_and_run
 from tools.sim.pdk import resolve_sky130_models
-from tools.sim.testbench import ShiftLoadCase, UNIT_DELAY_TIMESCALE
+from tools.sim.testbench import UNIT_DELAY_TIMESCALE, ShiftLoadCase
 
 # The recorder testbench always dumps signals under these fixed local
 # names (see `build_shift_load_recorder_testbench` below), matching the

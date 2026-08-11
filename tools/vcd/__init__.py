@@ -13,8 +13,8 @@ __all__ = [
     "ValueChange",
     "VcdDocument",
     "VcdVar",
+    "document_to_vcd",
     "normalize_value",
     "read_vcd",
-    "document_to_vcd",
     "write_vcd",
 ]

@@ -35,9 +35,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-import klayout.db as db
-
 from gds_layers import LABEL_SOURCES, LIBRARY_PREFIX, PIN_DATATYPE, PIN_TARGET_LAYER
+from klayout import db
 
 
 class PinResolutionError(RuntimeError):
@@ -77,7 +76,7 @@ class CellPins:
 
 def _round_digits(dbu: float) -> int:
     """How many decimal (micron) digits round-trip the stream's own dbu grid."""
-    return max(0, -int(round(math.log10(dbu))))
+    return max(0, -round(math.log10(dbu)))
 
 
 def _polygon_points(dbu: float, shape) -> Polygon:
@@ -142,7 +141,7 @@ def resolve_cell_pins(layout, cell) -> CellPins:
     return result
 
 
-def resolve_cell_pin_shapes(layout, cell) -> dict[str, list[tuple[int, "db.Polygon"]]]:
+def resolve_cell_pin_shapes(layout, cell) -> dict[str, list[tuple[int, db.Polygon]]]:
     """Like `resolve_cell_pins`, but returns native, untransformed `db.Polygon`
     shapes (dbu-integer, cell-local coordinates) instead of JSON-ready micron
     tuples -- for a caller (`tools/gds_extract.py`, issue #2) that needs to
