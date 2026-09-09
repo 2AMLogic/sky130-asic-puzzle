@@ -159,7 +159,7 @@ recorded command and its literal output.
 - [x] Submit the reviewed answer, writeup, and Easter Eggs response (operator-reported
       complete 2026-08-10).
 - [x] 2026-09-04: flip this repo public (operator-only). Verified public 2026-09-08.
-- [ ] Email `asic-puzzle@janestreet.com` with the repo link — the follow-up post invitation.
+- [x] Email `asic-puzzle@janestreet.com` with the repo link — the follow-up post invitation. Sent by the operator (confirmed 2026-09-08).
 - [x] Return `fleet_priority` to the canary band — moot: removed from the fleet 2026-08-11 (`2am/repos.yml`) (44 is free); `repos.yml` warns that leaving
       it at 5 starves the orchestrator for a finished contest.
 
