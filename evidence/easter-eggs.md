@@ -513,3 +513,101 @@ The earlier statement "every other failing input we tested emits `TRY
 AGAIN`" (169 words) remains literally true; it is now superseded by the
 exact map above. This addendum also completes the review's limitation list:
 nothing about the message behavior is sampled any more — it is enumerated.
+
+## Addendum (2026-09-08, post-close) — corrections from other solvers' writeups
+
+Submissions closed 2026-09-04 and five external writeups are now public (README, "Other
+solutions"). Reading them against this record turned up one error, one misidentification,
+and two things never looked at. Each was verified here before being recorded.
+
+### The ditto mark is the floating net — the fifth message is `TWO NOT TOUCH`
+
+Two other solvers report the adjacency diagnostic as `TWO NOT TOUCH`. Lead 5 above notes
+that `net_00575` (undriven, two consumers) can reach only `O[1]` and `O[4]`, and that forcing
+it did not change the accepted / all-zero / all-one / alternating traces. The 2026-08-11
+addendum's witness was never put through that check, and 0x22 vs 0x20 differ in exactly
+bit 1. `evidence/easter-egg-floating-net-ditto.py` replays every message class under both
+constants and prints Icarus's per-bit view of the witness:
+
+```sh
+PYTHONPATH=. .sim-work/review-venv/bin/python \
+  evidence/easter-egg-floating-net-ditto.py
+```
+
+```text
+undriven nets: ['net_00575']
+accepted     uv=0 '.(* TWO STARS *)'  uv=1 '.(* TWO STARS *)'  success@[126]/[126]  diffs=[]
+diag(touch)  uv=0 '.TWO"NOT TOUCH'  uv=1 '.TWO NOT TOUCJ'  success@[]/[]  diffs=[(129, '22', '20'), (138, '48', '4a'), (139, '00', '02'), (140, '00', '10')]
+zeros        uv=0 '.EMPTY SKY'  uv=1 '.EMPTY SKY'  success@[]/[]  diffs=[]
+ones         uv=0 '.BIG BANG'  uv=1 '.BIG BANG'  success@[]/[]  diffs=[]
+tryagain     uv=0 '.TRY AGAIN'  uv=1 '.TRY AGAIN'  success@[]/[]  diffs=[]
+icarus ok: True
+  cycle 125: O[7:0]=00000000 -> 00 .
+  cycle 126: O[7:0]=01010100 -> 54 T
+  cycle 127: O[7:0]=01010111 -> 57 W
+  cycle 128: O[7:0]=01001111 -> 4f O
+  cycle 129: O[7:0]=001000x0 -> x
+  cycle 130: O[7:0]=01001110 -> 4e N
+  cycle 131: O[7:0]=01001111 -> 4f O
+  cycle 132: O[7:0]=01010100 -> 54 T
+  cycle 133: O[7:0]=00100000 -> 20  
+  cycle 134: O[7:0]=01010100 -> 54 T
+  cycle 135: O[7:0]=01001111 -> 4f O
+  cycle 136: O[7:0]=01010101 -> 55 U
+  cycle 137: O[7:0]=01000011 -> 43 C
+  cycle 138: O[7:0]=010010x0 -> x
+  cycle 139: O[7:0]=000000x0 -> x
+  cycle 140: O[7:0]=000x00x0 -> x
+  cycle 141: O[7:0]=00000000 -> 00 .
+  cycle 142: O[7:0]=00000000 -> 00 .
+  cycle 143: O[7:0]=00000000 -> 00 .
+  cycle 144: O[7:0]=00000000 -> 00 .
+```
+
+So: with the net forced low the model says `TWO"NOT TOUCH`; forced high it says
+`TWO NOT TOUCJ` plus two stray bytes; Icarus, which leaves the net `x`, reports `O[1]` as
+`x` at the disputed byte (cycle 129) and at cycles 138–140, with `O[4]` also `x` at 140.
+No single constant reproduces a clean `TWO NOT TOUCH`, which is consistent with the net
+being a signal that should have been wired rather than a tie-off. The 2026-08-11 addendum's
+line "x-pessimism cycles [129, 138, 139, 140] (model proves these constant across all 16
+power-ups)" was true of the power-up bits and beside the point — the `x` is the undriven net.
+jestoph reported this net ("a wire that's only connected to two input pins", "a connection on
+a neighboring pin that isn't even an input or an output") to Jane Street and had it confirmed
+as a bug the next day. The intended text, read from the ROM by Sunaabh, is `TWO NOT TOUCH`;
+on silicon the affected bits are undefined. The "two stars, not touch" ditto reading is
+withdrawn. The other four messages are unaffected (no diffs under either constant).
+
+### The met2 glyph is the Jane Street logo
+
+The concentric broken rings found under Lead 1 are Jane Street's registered
+concentric-circle mark — three rings, one gap each, gaps rotating — compare
+`evidence/easter-egg-met2-ring.svg` with the mark on janestreet.com. The "maze / record"
+reading above is withdrawn. Two other writeups (Sunaabh, jestoph) identified it on sight.
+
+### The VCD header was never read
+
+`puzzle/example_inputs.vcd` opens with:
+
+```text
+$date
+  Sat Dec 31 23:59:60 2016
+$end
+$version
+	Leave no stone unturned! But for this file, consider looking at it in a waveform viewer instead.
+$end
+```
+
+23:59:60 UTC on 2016-12-31 is the leap second — a timestamp that existed for exactly one
+second. Nothing in this repo had looked at the header. One writeup links the date to Jane
+Street's December 2016 puzzle "Star Search" and calls it a Star Battle variant; Jane Street's
+solution page for that puzzle describes movie trivia (answer *Inception*), so the link is a
+pun on "star" at most. The example input itself, decoded as two 11×11 words (242 enabled
+cycles, 38 ones each), draws no picture we can recognise.
+
+### The regions read as "JS" — partly
+
+`evidence/region-map-render.py` renders the Lead 4 map as `evidence/region-map.png`.
+Region G (rows 3–7, columns 4–6) is a block-letter S. Region A — bar on row 4, stem down
+column 7, hook across rows 8–10 — reads as a J wrapped around it, with extra cells along the
+right edge. One writeup calls the map "JS", the Jane Street wordmark. The S is certain; the J
+is a fair reading, not a proof.

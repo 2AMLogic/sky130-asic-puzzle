@@ -15,7 +15,12 @@ gate-level netlist, work out what the circuit does, and simulate it.
 
 ---
 
-## 🔒 Private until 2026-09-04
+## 🔓 Private until 2026-09-04 — lifted
+
+**Lifted.** Submissions closed 2026-09-04 and this repository is public (verified against the
+GitHub API 2026-09-08). The section below is kept as the record of why it stayed dark; see
+[Other solutions](#other-solutions) for what has been published since.
+
 
 Jane Street asks solvers to **refrain from posting spoilers or a full writeup online until
 submissions close on September 4th, 2026.**
@@ -140,9 +145,73 @@ puzzle/     upstream files, gitignored, never committed
 
 ## Status
 
+**Solved and submitted.** The answer is `(* TWO STARS *)`, emitted after a unique 121-bit
+word drives `success` (`evidence/puzzle-solve.md`, `evidence/puzzle-answer.md`); the form
+went in 2026-08-10 (`SUBMISSION.md`). The chip is a two-star Star Battle verifier whose
+11 regions were withheld and recovered from the circuit (`evidence/easter-eggs.md`).
+
 Stage 4 (`tools/extract`, see `tools/README.md`) is done: `warmup/04_final.gds`
 extracts to a gate-level netlist that `tools/compare` reports **equivalent** to
 `warmup/01_netlist.v` — the primary regression fixture (`CLAUDE.md` §4) is green.
 `puzzle.gds` extracts too (738 logic+sequential instances, 92 flip-flops); its
 result has no published ground truth to compare against yet — see
 `evidence/extraction-notes.md`.
+
+## Other solutions
+
+Submissions closed 2026-09-04 and writeups are appearing. Ours is the evidence trail in
+`evidence/`; these are the others found so far (add to this table as more surface). Every
+one that states an answer agrees with ours — `(* TWO STARS *)` from the same 121-bit word.
+Two presentation traps when comparing: Jagadeesh's bitstring is the same word printed
+MSB-first (his grid, not his string, is in feed order), and Dan Xie's has a trailing 122nd
+cycle bit.
+
+| Writeup | Extraction | Solve | Eggs reported |
+|---|---|---|---|
+| [Jagadeesh Mummana](https://mummanajagadeesh.github.io/blogs/janestreet-asic-puzzle/) | gdstk + shapely polygon union, pins from the PDK macro LEF | SymbiYosys `cover(success)` on bitwuzla, ~105 s; uniqueness by blocking the witness → UNSAT | VCD header hint and leap-second timestamp; Morse strip; regions read as "JS"; `TWO NOT TOUCH` |
+| [Dan Xie, SemiWiki](https://semiwiki.com/forum/threads/25827) (2026-09-04) | KLayout LVS deck → transistor-level SPICE → structural Verilog (with Claude) | Z3 bounded model checking over all 92 flops; proves `success` cannot assert before cycle 122 | `EMPTY SKY` / `BIG BANG` / `TRY AGAIN`; layer 200/0 Morse |
+| [Kjartan van Driel & Leander Post](https://kjartanvandriel.github.io/asic/) | li1/metal tracing from pin labels, own cycle simulator | block-by-block inference; region map read directly from the 4-wire lookup table | Morse; region patches of 4–28 cells "with rather odd outlines" |
+| [jestoph](https://jestoph.com/2026/09/04/jane-street-challenge.html) (2026-09-04, [code](https://github.com/jestoph/jane-street-puzzle)) | gdstk, own connectivity extraction and simulator | Z3 constraints per hand-mapped subcircuit | `EMPTY SKY` / `BIG BANG` / `TRY AGAIN`; **reported the undriven net to Jane Street, who confirmed it as a design bug** |
+| [Sunaabh](https://sunaabh.com/systems/2026/08/18/jspuzzle.html) (2026-08-18) | KLayout Python API → IR → Verilog, Yosys | Yosys `sat -seq 140 -set-at 125 success 1` | four ROM messages including `TWO NOT TOUCH`; the Jane Street logo on met2 |
+| [Hacker News thread](https://news.ycombinator.com/item?id=49200933) | — | — | a 30-year chip designer reports solving it in ~6 hours with KLayout, Surfer and Icarus; no writeup |
+
+Jane Street's promised follow-up post had not appeared on their blog as of 2026-09-08.
+
+## What the other solutions taught us
+
+Corrections to our own record. Each was verified here before being written down
+(`CLAUDE.md` §5); the original evidence files are append-only, so the corrections live in
+addenda there and are summarised here.
+
+1. **The fifth message is `TWO NOT TOUCH`, not `TWO"NOT TOUCH`.** The ditto mark was an
+   artifact. `net_00575` is the extracted netlist's one undriven net; the cycle model fills
+   undriven nets with a constant, and the 0x22 byte is what that constant produces. Icarus,
+   which leaves the net `x`, reports bit `O[1]` as `x` at exactly that byte — and again at
+   three cycles around the final `H`. The 2026-08-11 addendum attributed those `x` cycles to
+   the unresettable flops; they are the floating net. jestoph reported the same net as a bug
+   and Jane Street confirmed it, so on silicon the byte is undefined and the intended text,
+   as Sunaabh read it from the ROM, is `TWO NOT TOUCH`. Reproducer:
+   `evidence/easter-egg-floating-net-ditto.py`. The draft supplement email in
+   `SUBMISSION.md` was never sent; do not send it as written.
+2. **The met2 glyph is the Jane Street logo.** Three concentric broken rings with rotating
+   gaps is Jane Street's registered concentric-circle mark. We recorded it faithfully
+   (`evidence/easter-egg-met2-ring.svg`) and misread it as a maze or a record. Sunaabh and
+   jestoph both recognised it on sight.
+3. **We never read the VCD header.** `example_inputs.vcd` opens with
+   `$date Sat Dec 31 23:59:60 2016` — the 2016 leap second, a timestamp that existed for
+   one second — and `$version Leave no stone unturned! But for this file, consider looking
+   at it in a waveform viewer instead.` Jagadeesh ties the date to Jane Street's December
+   2016 puzzle "Star Search" and calls it a Star Battle variant; Jane Street's own solution
+   page says that puzzle was movie trivia (answer: *Inception*), so read the link as a pun on
+   "star", not as a rules reference.
+4. **The regions may spell "JS".** We recovered the region map structurally and never looked
+   at it as a picture — the exact mistake Lead 1 of `EASTER-EGG-HUNT.md` warned about.
+   Rendered (`evidence/region-map.png`, from `evidence/region-map-render.py`), region G is an
+   unmistakable block-letter S and region A reads as a J (bar, stem, hook) wrapped around
+   it. Jagadeesh reads the whole map as "JS"; we would call the S certain and the J
+   plausible.
+
+Things in our record that no other writeup so far contains: the complete message map,
+*proven* — exactly two failure streams exist besides the three constant ones — the
+31,197,434-grid enumeration showing that the withheld regions are what make the answer
+unique, and the SAT-independent uniqueness check from the recovered rules alone.

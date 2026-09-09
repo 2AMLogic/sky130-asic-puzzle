@@ -158,9 +158,9 @@ recorded command and its literal output.
 
 - [x] Submit the reviewed answer, writeup, and Easter Eggs response (operator-reported
       complete 2026-08-10).
-- [ ] 2026-09-04: flip this repo public (operator-only).
+- [x] 2026-09-04: flip this repo public (operator-only). Verified public 2026-09-08.
 - [ ] Email `asic-puzzle@janestreet.com` with the repo link — the follow-up post invitation.
-- [ ] Return `fleet_priority` to the canary band (44 is free); `repos.yml` warns that leaving
+- [x] Return `fleet_priority` to the canary band — moot: removed from the fleet 2026-08-11 (`2am/repos.yml`) (44 is free); `repos.yml` warns that leaving
       it at 5 starves the orchestrator for a finished contest.
 
 ---
@@ -212,3 +212,16 @@ is simply missing this egg.
 >
 > Everything else in our submission stands as sent. Thanks for a wonderful
 > puzzle — the ditto mark got a genuine laugh over here.
+
+---
+
+## Correction to the addendum (2026-09-08, post-close)
+
+The fifth message is **`TWO NOT TOUCH`**. The `"` in the addendum above is an artifact of
+`net_00575`, the extracted netlist's undriven net: the cycle model fills it with a constant
+and that constant produces 0x22 where the ROM says 0x20. Icarus reports `O[1]` as `x` at that
+byte. Another solver reported the same net to Jane Street as a bug and they confirmed it.
+Full record in `evidence/easter-eggs.md` (2026-09-08 addendum) and
+`evidence/easter-egg-floating-net-ditto.py`. **The draft supplement email above was never sent
+and must not be sent as written** — its ditto-mark reading is wrong. The submitted form text
+is unaffected; it never mentioned the fifth message.

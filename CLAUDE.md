@@ -9,6 +9,11 @@ rules below are local and sit on top of them.
 
 ## 1. This repo is private until 2026-09-04, and that is load-bearing
 
+**Lifted 2026-09-04.** The repository is public and publishing is invited. Everything below is
+kept as the record of why it stayed dark; the only rule that still binds is §3 (do not vendor
+the puzzle files).
+
+
 Jane Street asks solvers to refrain from posting spoilers or a full writeup online until
 **submissions close 2026-09-04**. Privacy is how that is honored, and it means the work
 itself is unconstrained: **commit the netlist, the solve and the answer here freely.** A
