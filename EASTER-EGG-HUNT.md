@@ -10,7 +10,12 @@ This is optional and does not block submission. It is also free signal with **~3
 the 2026-09-04 close, and the highest-value work left in this repo now that stages 1–8 are
 closed and the independent review is in.
 
-## Hard constraint, read first
+## Hard constraint, read first — lifted
+
+**Lifted 2026-09-04.** Submissions closed and this repository is public; publishing is
+invited (`CLAUDE.md` §1). The constraint below is kept as the record of what applied while
+this hunt was in progress — the only rule that still binds is not vendoring the puzzle files
+(`CLAUDE.md` §3).
 
 This repo is **private until 2026-09-04** because Jane Street asks solvers not to post
 spoilers or a writeup before submissions close. That is a commitment to a third party.

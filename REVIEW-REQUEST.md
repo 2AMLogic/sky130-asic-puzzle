@@ -11,7 +11,12 @@ sending. That asymmetry is why this review exists.
 
 ---
 
-## Hard constraint, read first
+## Hard constraint, read first — lifted
+
+**Lifted 2026-09-04.** Submissions closed and this repository is public; publishing is
+invited (`CLAUDE.md` §1). The constraint below is kept as the record of what applied while
+this review was in progress — the only rule that still binds is not vendoring the puzzle
+files (`CLAUDE.md` §3).
 
 This repository is **private until 2026-09-04**, because Jane Street asks solvers not to post
 spoilers or a writeup before submissions close. That is a commitment to a third party.
