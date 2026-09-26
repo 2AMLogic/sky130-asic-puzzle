@@ -49,6 +49,7 @@ __pycache__/
 .loom/sweep-checkpoint/
 .loom/sweep-run/
 .loom/state/ci-telemetry/
+.loom/state/fleet-captain/
 .loom/concierge/
 .loom/stats/
 .loom/diagnostics/
