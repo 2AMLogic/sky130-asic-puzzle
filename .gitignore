@@ -91,3 +91,6 @@ __pycache__/
 
 # session handoff note (/repo:handoff) — session state, never committed
 .claude/handoff.md
+
+# squad MCP registration -- machine-local absolute paths; generated per host, never committed
+.mcp.json
