@@ -86,6 +86,9 @@ __pycache__/
 .claude/skills/repo/.install-local.json
 .squad/
 
+# Repo Skills guard-hook logs (machine-local; carry absolute paths)
+.claude/skills/repo/logs/
+
 # squad machine-local install metadata (absolute source path + timestamp)
 .claude/skills/squad/.install-local.json
 
