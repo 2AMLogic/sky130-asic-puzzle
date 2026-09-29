@@ -34,22 +34,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
+from testutil import PASS, FAIL, SKIP, make_tracker
+
 INVENTORY = os.path.join(HERE, "inventory")
 WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
 PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
 
-PASS, FAIL, SKIP = "pass", "FAIL", "skip"
-results: list[tuple[str, str, str]] = []
-
-
-def record(name: str, status: str, detail: str = "") -> None:
-    results.append((name, status, detail))
-    marker = {"pass": "ok", "FAIL": "FAIL", "skip": "skip"}[status]
-    print(f"  {marker:6s} {name}" + (f" -- {detail}" if detail else ""))
-
-
-def check(name: str, condition: bool, detail: str = "") -> None:
-    record(name, PASS if condition else FAIL, detail)
+results, record, check = make_tracker()
 
 
 try:

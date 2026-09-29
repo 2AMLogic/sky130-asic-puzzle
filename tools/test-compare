@@ -40,6 +40,12 @@ PASS, FAIL, SKIP = "pass", "FAIL", "skip"
 results: list[tuple[str, str, str]] = []
 
 
+# Deliberately not shared with tools/testutil.py's record()/check(): this
+# script's print format ("[  ok  ] name — detail") predates and differs from
+# the format the other three test-* scripts settled on, and there is no
+# separate check() here (see expect() below). Keeping it local avoids
+# entangling this file's own mutation-suite reporting with the other
+# scripts' synthetic-cell self-tests.
 def record(name: str, status: str, note: str = "") -> None:
     results.append((name, status, note))
     mark = {PASS: "  ok  ", FAIL: " FAIL ", SKIP: " skip "}[status]
