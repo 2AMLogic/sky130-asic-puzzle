@@ -5,6 +5,11 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-09-29
+
+- **PR #35**: refactor: share test-* record()/check()/_box()/_label() helpers via tools/testutil.py
+- **Issue #33** (closed): Remove duplicated record/check/_box/_label helpers across tools/test-* scripts
+
 ### 2026-09-28
 
 - **PR #32**: chore: gitignore Repo Skills guard-hook logs
