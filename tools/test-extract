@@ -42,24 +42,15 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
+from testutil import PASS, FAIL, SKIP, _box, _label, make_tracker
+
 EXTRACT = os.path.join(HERE, "extract")
 COMPARE = os.path.join(HERE, "compare")
 WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
 WARMUP_NETLIST = os.path.join(ROOT, "puzzle", "warmup", "01_netlist.v")
 PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
 
-PASS, FAIL, SKIP = "pass", "FAIL", "skip"
-results: list[tuple[str, str, str]] = []
-
-
-def record(name: str, status: str, detail: str = "") -> None:
-    results.append((name, status, detail))
-    marker = {"pass": "ok", "FAIL": "FAIL", "skip": "skip"}[status]
-    print(f"  {marker:6s} {name}" + (f" -- {detail}" if detail else ""))
-
-
-def check(name: str, condition: bool, detail: str = "") -> None:
-    record(name, PASS if condition else FAIL, detail)
+results, record, check = make_tracker()
 
 
 try:
@@ -79,16 +70,6 @@ except Exception as exc:  # pragma: no cover - environment-dependent
 # ---------------------------------------------------------------------------
 
 CELL_NAME = "sky130_fd_sc_hd__synthbuf_2"
-
-
-def _box(cell, layout, layer_num, datatype, x0, y0, x1, y1):
-    li = layout.layer(layer_num, datatype)
-    cell.shapes(li).insert(db.Box(x0, y0, x1, y1))
-
-
-def _label(cell, layout, layer_num, datatype, text, x, y):
-    li = layout.layer(layer_num, datatype)
-    cell.shapes(li).insert(db.Text(text, x, y))
 
 
 def _synthbuf_cell(layout):
