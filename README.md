@@ -21,6 +21,8 @@ next Jane Street entry is the
 [Protocol Emulator ASIC Competition](https://blog.janestreet.com/protocol-emulator-asic-competition/),
 built in public at
 [`2AMLogic/sg13cmos5l-protocol-emulator`](https://github.com/2AMLogic/sg13cmos5l-protocol-emulator).
+Lessons for solving the next puzzle, and for hosting one, are in
+[`NOTES-FOR-NEXT-TIME.md`](NOTES-FOR-NEXT-TIME.md).
 
 ---
 
