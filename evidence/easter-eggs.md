@@ -611,3 +611,71 @@ Region G (rows 3–7, columns 4–6) is a block-letter S. Region A — bar on ro
 column 7, hook across rows 8–10 — reads as a J wrapped around it, with extra cells along the
 right edge. One writeup calls the map "JS", the Jane Street wordmark. The S is certain; the J
 is a fair reading, not a proof.
+
+## Addendum (2026-10-02) — against Jane Street's official list
+
+Jane Street published [Results from the ASIC puzzle](https://blog.janestreet.com/asic-puzzle-results/)
+on 2026-10-02, with the full egg list: six intended eggs, plus a seventh that started as a
+layout bug. Below, each one is checked against this record. "Submitted" means it was in the
+2026-08-10 form; "later" means it was found after that.
+
+| Official egg | Here | When |
+|---|---|---|
+| The two failed attempts in `example_inputs.vcd` decode as 7-bit ASCII to "THE NIGHT SKY AWAITS" | missed, then reproduced below | 2026-10-02 |
+| VCD `$date` is the 2016 leap second; `$version` nudges you toward a waveform viewer | header found | later (2026-09-08) |
+| Morse `PER ARENAM AD ASTRA` on an otherwise unused layer | found | submitted |
+| Failure messages `EMPTY SKY`, `BIG BANG`, `TWO NOT TOUCH`, `TRY AGAIN` | three submitted, the fourth found after | submitted + later |
+| About 1,400 isolated met2 squares form a 57×57 Jane Street logo | found, misread as a maze (our three rings hold 1,366 tiles) | submitted; identified 2026-09-08 |
+| The eleven regions spell "JSC" | read as "JS" (partly) | later (2026-09-08) |
+| A floating wire on the `TWO NOT TOUCH` path, which makes `TWO"NOT TOUCH` show up in simulation | found the floating input, but not until after we submitted | later (2026-08-11 / 2026-09-08) |
+
+### "THE NIGHT SKY AWAITS" — reproduced
+
+The post gives the plaintext but not the encoding. `evidence/easter-egg-vcd-night-sky.py`
+finds it. Each attempt is the usual 121-bit word, fed in one bit per enabled clock. Lay it
+out as an 11×11 grid in feed order, and the first seven cells of each row, read LSB first,
+make one character. In all 22 rows, columns 7–10 are zero. So the "failed attempts" are
+text written into the board.
+
+```sh
+python3 evidence/easter-egg-vcd-night-sky.py
+```
+
+```text
+attempts: 2, lengths [121, 121]
+message: 'The night sky awaits  '
+```
+
+The 2026-09-08 addendum above read these same two words as pictures ("draws no picture we
+can recognise"). They hold text, not a picture.
+
+### The regions spell "JSC" — the C was there too
+
+In `evidence/region-map.png` the orange region is a block-letter C: a bar across row 5,
+a stem down column 8, and a bar across row 9, open to the right. With region G's S and
+region A's J, the map spells "JSC". The J is now confirmed rather than a fair reading.
+
+### The ditto mark: what the 2026-09-08 correction got right and wrong
+
+According to Jane Street, the floating wire was a real layout bug. They caught it in their own LVS
+pass and left it in on purpose as an extra egg. In their words, solvers "diagnosed it down
+to the floating `a31oi` input". Ours is `net_00575`, which drives
+`a31oi_2_172770_89520.A1` (and `a311o_2_177370_89520.A1`) in `evidence/puzzle-extracted.v`.
+So:
+
+- The 2026-09-08 correction was right that the `"` comes from the floating net, and right
+  that the ROM text is `TWO NOT TOUCH`.
+- It was wrong to call the `"` an *extraction artifact*. The net is undriven in the layout
+  itself. `klt` extracted it faithfully, and seeing `TWO"NOT TOUCH` in simulation, then
+  tracing it to the floating input, was the seventh egg.
+- The 2026-08-11 "two stars, not touch" ditto reading is still wrong: the `"` carries no meaning.
+  The supplement email in `SUBMISSION.md` stays unsent, which is still correct.
+
+### Scorecard
+
+The submission carried three of the six intended eggs: Morse, the logo (found but misread),
+and three of the four failure messages. Two more (the VCD header, and two of the
+three "JSC" letters) were found after the close by reading other writeups. The VCD
+plaintext was missed until today. Jane Street reports that two entrants found all six intended
+eggs, and six found six of the seven. This writeup was not among the 15 they featured, and
+the post names no winners or prizes.

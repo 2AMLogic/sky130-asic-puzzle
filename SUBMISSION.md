@@ -162,6 +162,9 @@ recorded command and its literal output.
 - [x] Email `asic-puzzle@janestreet.com` with the repo link — the follow-up post invitation. Sent by the operator (confirmed 2026-09-08).
 - [x] Return `fleet_priority` to the canary band — moot: removed from the fleet 2026-08-11 (`2am/repos.yml`) (44 is free); `repos.yml` warns that leaving
       it at 5 starves the orchestrator for a finished contest.
+- [x] Results: Jane Street published [Results from the ASIC puzzle](https://blog.janestreet.com/asic-puzzle-results/)
+      on 2026-10-02. This submission is not among the 15 featured writeups, and no winners or
+      prizes are named. The egg reconciliation is in `evidence/easter-eggs.md` (2026-10-02 addendum).
 
 ---
 
