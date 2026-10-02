@@ -13,6 +13,17 @@ The subject is Jane Street's 2026 ASIC reverse-engineering puzzle
 distributed as GDSII with net and instance names stripped. The task is to recover the
 gate-level netlist, work out what the circuit does, and simulate it.
 
+**Closed out.** Solved and submitted on 2026-08-10. The answer is `(* TWO STARS *)`. Jane
+Street's [results post](https://blog.janestreet.com/asic-puzzle-results/) went up on
+2026-10-02 and confirms the answer, the circuit's function, and the floating net we
+extracted. It drew 400+ submissions; this one was not among the 15 writeups featured. Our
+next Jane Street entry is the
+[Protocol Emulator ASIC Competition](https://blog.janestreet.com/protocol-emulator-asic-competition/),
+built in public at
+[`2AMLogic/sg13cmos5l-protocol-emulator`](https://github.com/2AMLogic/sg13cmos5l-protocol-emulator).
+Lessons for solving the next puzzle, and for hosting one, are in
+[`NOTES-FOR-NEXT-TIME.md`](NOTES-FOR-NEXT-TIME.md).
+
 ---
 
 ## 🔓 Private until 2026-09-04 — lifted
@@ -153,15 +164,50 @@ went in 2026-08-10 (`SUBMISSION.md`). The chip is a two-star Star Battle verifie
 Stage 4 (`tools/extract`, see `tools/README.md`) is done: `warmup/04_final.gds`
 extracts to a gate-level netlist that `tools/compare` reports **equivalent** to
 `warmup/01_netlist.v` — the primary regression fixture (`CLAUDE.md` §4) is green.
-`puzzle.gds` extracts too (738 logic+sequential instances, 92 flip-flops); its
-result has no published ground truth to compare against yet — see
-`evidence/extraction-notes.md`.
+`puzzle.gds` extracts too (738 logic+sequential instances, 92 flip-flops). Jane Street
+has not published the puzzle netlist, so there is still no gate-for-gate ground truth (see
+`evidence/extraction-notes.md`). Their results post does confirm three things the
+extraction led to: the answer, the Star Battle checker structure, and one undriven `a31oi`
+input on the `TWO NOT TOUCH` path. Jane Street left that net in on purpose as an egg, and
+it is `net_00575` in `evidence/puzzle-extracted.v`.
+
+**Results, 2026-10-02.** Not featured. Of the six intended Easter eggs, the submission
+carried three. The rest, along with the floating-net bonus egg, were found after the close
+or, in one case, only once the results were out. The full reconciliation is in the 2026-10-02
+addendum of `evidence/easter-eggs.md`.
 
 ## Other solutions
 
-Submissions closed 2026-09-04 and writeups are appearing. Ours is the evidence trail in
-`evidence/`; these are the others found so far (add to this table as more surface). Every
-one that states an answer agrees with ours — `(* TWO STARS *)` from the same 121-bit word.
+Jane Street received 400+ submissions. Ours is the evidence trail in `evidence/`. Two tables
+follow: the writeups featured in Jane Street's results post, then the ones we found on our
+own before it came out.
+
+### Featured by Jane Street (2026-10-02)
+
+Approaches as the [results post](https://blog.janestreet.com/asic-puzzle-results/)
+describes them. We have not checked these writeups against our record yet.
+
+| Writeup | What the post highlights |
+|---|---|
+| [Vladislav Shapovalov](https://figurez.s-ul.eu/i6GwNvSU.pdf) | Own C++ extraction pipeline from GDS, debugged against the warm-up before running on the puzzle |
+| [Stephen Ebert](https://drive.google.com/file/d/1lmpogbV_alS9vgaNRp4DcAbzbfTtkt0a/view?usp=drive_link) | Own register-to-register evaluator rather than an existing simulator |
+| [Alejandro Soto Franco](https://www.sotofranco.dev/pdfs/asic-reverse-engineering.pdf) | A Python model that matched the supplied trace while evaluating every tie-high cell wrong, which disabled the adjacency check. He caught it by cross-checking against Icarus |
+| [Sanjay Ravishankar](https://hackmd.io/@sanrav2016/fh9_eHBIQ_upRtm6F9S4wA) | Split the schematic by floorplan "islands" (one per RTL module), then simulated each module |
+| [Aaron Shi](https://pakkachan.github.io/asic/) | Impulse response: set one input bit at a time and diff every flop against the all-zeros baseline |
+| [Lokesh Aravapalli](https://avnlk.github.io/reverse-engineering-an-ASIC.html) | SAT for a valid input, then used it to understand the circuit, with visualizations |
+| [Gabriel Taboada](https://gabbytab.github.io/blog/asic-puzzle-2026/) | Reverse-engineered the LFSR obfuscation in the output generator, including the seed it needs |
+| [Joshua Stapleton](https://js-chip-solution.vercel.app/) | Side-by-side netlist and layout viewer across modules |
+| [José Vargas](https://jlvargasme.github.io/posts/reverse-engineering-an-asic.html) | Walkthrough from PMOS/NMOS transistors to each cell's logic function |
+| [Amruth Gulawani](https://notcleo.github.io/GDS-to-RTL/TwoNotTouch-Interactive-Puzzle/) | A playable version of the puzzle, failure messages included |
+| [Kjartan van Driel](https://kjartanvandriel.github.io/asic/) | Interactive animated walkthrough (also in the table below) |
+| [Alexander Smallwood](https://raw.githubusercontent.com/alexseekingalpha/jsasicsolved/main/myjanestreetwriteup.pdf) | The extracted netlist synthesized onto an FPGA, with switches and LEDs as the I/O |
+| [Nikhil Kaniyeri](https://drive.google.com/file/d/1ZmbmW6kK7hxcqemHxb7zkxzubLMro7pP/view?usp=sharing) | The netlist compiled into Minecraft command blocks |
+| [David Garner](https://github.com/davidg351/Jane-Street-Puzzle-August-2026/blob/main/JaneStreetPuzzleWriteup_DavidGarner_FINAL.pdf) | The whole chip run as an analog SPICE simulation |
+| [Marcin Wójcik](https://synhex.com/notes/jane-street-puzzle-solution.html) | A Groth16 zero-knowledge proof of knowing the solution |
+
+### Found independently (before the results post)
+
+Every one that states an answer agrees with ours — `(* TWO STARS *)` from the same 121-bit word.
 Two presentation traps when comparing: Jagadeesh's bitstring is the same word printed
 MSB-first (his grid, not his string, is in feed order), and Dan Xie's has a trailing 122nd
 cycle bit.
@@ -175,7 +221,10 @@ cycle bit.
 | [Sunaabh](https://sunaabh.com/systems/2026/08/18/jspuzzle.html) (2026-08-18) | KLayout Python API → IR → Verilog, Yosys | Yosys `sat -seq 140 -set-at 125 success 1` | four ROM messages including `TWO NOT TOUCH`; the Jane Street logo on met2 |
 | [Hacker News thread](https://news.ycombinator.com/item?id=49200933) | — | — | a 30-year chip designer reports solving it in ~6 hours with KLayout, Surfer and Icarus; no writeup |
 
-Jane Street's promised follow-up post had not appeared on their blog as of 2026-09-08.
+Jane Street's results post, [Results from the ASIC puzzle](https://blog.janestreet.com/asic-puzzle-results/),
+went up on 2026-10-02. It features 15 writeups (this one is not among them) and lists the official eggs. The
+reconciliation against our record, including the VCD plaintext we had missed, is the 2026-10-02 addendum in
+`evidence/easter-eggs.md`.
 
 ## What the other solutions taught us
 
@@ -210,6 +259,14 @@ addenda there and are summarised here.
    unmistakable block-letter S and region A reads as a J (bar, stem, hook) wrapped around
    it. Jagadeesh reads the whole map as "JS"; we would call the S certain and the J
    plausible.
+
+**Amended 2026-10-02, after Jane Street's results post.** Two items above need updating. On (1):
+the floating net is a real layout bug that Jane Street caught in LVS and left in on purpose as an
+egg. It is not an extraction artifact. `klt` extracted it faithfully, and `TWO"NOT TOUCH` in
+simulation is the intended symptom. The ditto still carries no meaning. On (4): the map spells
+"JSC". The orange region is a C, and that settles the J. One new item: (5) the two example
+attempts in the VCD are text, not pictures. The low seven cells of each grid row, read LSB first,
+spell "The night sky awaits" (`evidence/easter-egg-vcd-night-sky.py`).
 
 Things in our record that no other writeup so far contains: the complete message map,
 *proven* — exactly two failure streams exist besides the three constant ones — the
