@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-10-02
+
+- **PR #37**: docs: reconcile against Jane Street's ASIC puzzle results post
+
 ### 2026-09-29
 
 - **PR #35**: refactor: share test-* record()/check()/_box()/_label() helpers via tools/testutil.py
