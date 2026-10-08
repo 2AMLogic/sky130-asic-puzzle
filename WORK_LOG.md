@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-10-08
+
+- **Issue #26** (closed): Guard trigger: force-op:protected on git reset/checkout inside PR worktree
+
 ### 2026-10-02
 
 - **PR #37**: docs: reconcile against Jane Street's ASIC puzzle results post
