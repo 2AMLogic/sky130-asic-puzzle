@@ -98,10 +98,7 @@
   ],
   "autonomous": {
     "roleRunner": {
-      "enabled": true,
-      "onIdle": [
-        "auditor"
-      ]
+      "enabled": true
     },
     "workFinder": {
       "enabled": true
