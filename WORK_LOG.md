@@ -5,6 +5,14 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-10-15
+
+- **PR #42**: Bump Repo Skills 0.19.5 -> 0.24.1
+
+### 2026-10-13
+
+- **PR #41**: chore(loom): drop onIdle [auditor] — follow the fleet idle-role setting
+
 ### 2026-10-08
 
 - **Issue #26** (closed): Guard trigger: force-op:protected on git reset/checkout inside PR worktree
