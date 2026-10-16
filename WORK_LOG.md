@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-10-16
+
+- **PR #44**: Bump Repo Skills 0.24.1 -> 0.24.3
+
 ### 2026-10-15
 
 - **PR #42**: Bump Repo Skills 0.19.5 -> 0.24.1
