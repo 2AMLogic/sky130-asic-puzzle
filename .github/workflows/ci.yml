@@ -20,8 +20,8 @@
 #     construction; the puzzle half is not.
 #   * No artifacts are uploaded and no external service is called, so no log or
 #     artifact can carry puzzle-derived content out of this repository.
-#   * scripts/check-embargo.sh runs on every job as the last step: it asserts the
-#     repository is still PRIVATE and that no remote points at a public repo.
+#   * scripts/check-embargo.sh runs on every job as the last step: it asserts no
+#     upstream puzzle file is tracked (CLAUDE.md §3).
 
 name: CI
 
@@ -92,14 +92,10 @@ jobs:
         # reads puzzle.gds.
         run: ./scripts/warmup-regression.sh --no-fetch --require-extract
 
-      - name: Embargo check
-        env:
-          # Read-only job token; used only for `gh repo view --json visibility`.
-          # The script degrades to a reported SKIP if it cannot read visibility.
-          GH_TOKEN: ${{ github.token }}
+      - name: Assert no upstream puzzle file is tracked
         run: ./scripts/check-embargo.sh
 
-      - name: Assert no upstream puzzle file became tracked
+      - name: Assert working tree is clean
         # Belt and braces on top of check-embargo.sh: a working tree that is not
         # clean after the run would mean the fetch or the regression wrote
         # something into version control.
