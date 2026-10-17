@@ -9,6 +9,9 @@
 # is embargoed. This script deliberately never reads puzzle/puzzle.gds and never
 # prints anything derived from it — see CLAUDE.md §1.
 #
+# (A fourth, optional half — the `klt extract` cross-check, step 5 — runs only
+# when `klt` is on PATH; see issue #46.)
+#
 # Three halves, all implemented and running today (issue #9 wired up the
 # third once tools/extract landed via #2):
 #
@@ -108,6 +111,42 @@ else
   echo "running: tools/compare $EXTRACTED $GOLDEN"
   "$ROOT/tools/compare" "$EXTRACTED" "$GOLDEN"
 fi
+
+echo
+echo "5. Second extractor: 04_final.gds -> klt extract --abstract-cells -> compare"
+hr
+# Issue #46. `klt` is optional here: absent, this step prints SKIPPED and is NOT
+# counted as a pass; present, a non-equivalent result fails the regression.
+"$ROOT/tools/test-klt-extract"
+KLT_NETLIST="$BUILD/warmup-klt.v"
+KLT_RESULT="SKIPPED (klt not on PATH)"
+if ! command -v klt >/dev/null 2>&1; then
+  echo "SKIPPED — klt is not on PATH; the klt cross-check did not run (not a pass)."
+else
+  mkdir -p "$BUILD"
+  echo "klt: $(klt --version)"
+  "$ROOT/tools/klt-extract" "$LAYOUT" -o "$KLT_NETLIST"
+  echo "running: tools/compare $KLT_NETLIST $GOLDEN"
+  "$ROOT/tools/compare" "$KLT_NETLIST" "$GOLDEN"
+  KLT_RESULT="PASSED (equivalent to 01_netlist.v)"
+  # Mutation check: the step must be able to fail. Drop one signal instance from
+  # the converted netlist and require the comparator to reject it.
+  python3 -I - "$KLT_NETLIST" "$BUILD/warmup-klt-mutated.v" "$ROOT/tools" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[3])
+import verilog_netlist as vn
+nl = vn.load(sys.argv[1])
+victim = next(i for i in nl.instances if not vn.is_fill(i.cell))
+nl.instances.remove(victim)
+open(sys.argv[2], "w").write(vn.write_verilog(nl))
+PY
+  if "$ROOT/tools/compare" "$BUILD/warmup-klt-mutated.v" "$GOLDEN" >/dev/null 2>&1; then
+    echo "FAILED — comparator accepted a netlist with an instance removed." >&2
+    exit 1
+  fi
+  echo "mutation check: comparator rejects a damaged klt netlist (ok)"
+fi
+echo "klt cross-check: $KLT_RESULT"
 
 echo
 hr

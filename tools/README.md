@@ -259,6 +259,27 @@ instances can legitimately share while occupying disjoint footprints (e.g. a
 the identical `disp`). The transformed bbox corner is unique per instance
 (no two placed instances may legally overlap) and fully deterministic.
 
+## `tools/klt-extract` — the second extractor (`klt extract --abstract-cells`)
+
+    tools/klt-extract <path.gds> -o out.v [--abstract-cells GLOB] [--abstract-cell-lef LEF]
+    tools/klt-extract --from-spice in.sp -o out.v
+
+`tools/extract` is the independent reference. `tools/klt-extract` runs the
+toolkit's own cell-level mode (`klt extract <gds> --deck sky130 --abstract-cells
+'sky130_fd_sc_hd__*'`, klayout-tools#619/#620, both closed) and converts the
+SPICE it emits (one `.SUBCKT` per cell type giving the pin order, one `X` card
+per placed instance) into the Verilog `tools/compare` reads. The conversion is
+pin-for-pin; a node-count mismatch or an undeclared cell is a hard error.
+`tools/test-klt-extract` covers it with a synthetic fixture (no `klt`, no
+puzzle files).
+
+`scripts/warmup-regression.sh` runs it as step 5: with `klt` on `PATH` the
+converted warm-up netlist must compare equivalent to `01_netlist.v` (and a
+damaged copy must be rejected); without `klt` the step prints `SKIPPED` and is
+not counted as a pass. CI installs only the `klayout` wheel, so it skips this
+step. Recorded runs, including the puzzle cross-check against
+`evidence/puzzle-extracted.v`, are in `evidence/klt-extract.md`.
+
 ## `tools/vcd` — minimal VCD reader/writer
 
 `tools/vcd/reader.py` / `tools/vcd/writer.py` parse and emit the subset of

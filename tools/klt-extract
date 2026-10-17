@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""Cell-level extraction through `klt extract --abstract-cells` (issue #46).
+
+    tools/klt-extract <path.gds> -o out.v [--abstract-cells GLOB] [--klt PATH]
+                      [--abstract-cell-lef LEF] [--spice-out out.sp]
+    tools/klt-extract --from-spice in.sp -o out.v
+
+`tools/extract` is this repo's independent reference extractor.  This driver is
+the second extractor: it runs the toolkit's own cell-level mode, then converts
+the SPICE it emits (one `.SUBCKT` per cell type with the pin order, one `X`
+card per placed instance) into the Verilog `tools/compare` reads, so the two
+extractors can be checked against each other and against published ground
+truth.  Nothing here post-processes connectivity: a card is converted pin for
+pin, and a card whose node count disagrees with its subcircuit's pin list is a
+hard error, never a guess.
+
+The converted netlist is written to the path given with -o (use build/, which
+is gitignored: it is derived from an unlicensed upstream file, CLAUDE.md §3).
+
+Exit status: 0 on success, 1 on a conversion error, 2 on a usage/tooling error
+(`klt` missing, `klt extract` failed).
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+import verilog_netlist as vn  # noqa: E402
+
+EXIT_OK = 0
+EXIT_CONVERT_ERROR = 1
+EXIT_ERROR = 2
+
+DEFAULT_ABSTRACT = "sky130_fd_sc_hd__*"
+DEFAULT_DECK = "sky130"
+
+
+class ConvertError(Exception):
+    pass
+
+
+def _logical_lines(text: str) -> list[str]:
+    """SPICE lines with `+` continuations joined and comments dropped."""
+    out: list[str] = []
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if not line or line.lstrip().startswith("*"):
+            continue
+        if line.startswith("+") and out:
+            out[-1] += " " + line[1:].strip()
+        else:
+            out.append(line.strip())
+    return out
+
+
+def _net(token: str) -> str:
+    """`\\$50` (a SPICE-escaped anonymous net) -> `$50`."""
+    return token[1:] if token.startswith("\\") else token
+
+
+def spice_to_netlist(text: str, source: str = "<spice>") -> vn.Netlist:
+    subckts: dict[str, list[str]] = {}
+    top_name: str | None = None
+    cards: list[tuple[str, list[str], str]] = []
+    current: str | None = None
+    for line in _logical_lines(text):
+        low = line.lower()
+        if low.startswith(".subckt"):
+            toks = line.split()
+            current = toks[1]
+            subckts[current] = [_net(t) for t in toks[2:]]
+            if top_name is None:
+                top_name = current
+        elif low.startswith(".ends"):
+            current = None
+        elif line[0] in "Xx" and current is not None and current == top_name:
+            toks = line.split()
+            cards.append((toks[0][1:], [_net(t) for t in toks[1:-1]], toks[-1]))
+    if top_name is None:
+        raise ConvertError(f"{source}: no .SUBCKT found")
+
+    nl = vn.Netlist(top=top_name, source=source)
+    for p in subckts[top_name]:
+        nl.ports.append(vn.Port(name=p, direction="inout" if p in vn.POWER_NETS else "input"))
+    seen = {p.name for p in nl.ports}
+    for name, nodes, cell in cards:
+        pins = subckts.get(cell)
+        if pins is None:
+            raise ConvertError(f"{source}: instance {name} uses undeclared cell {cell}")
+        if len(pins) != len(nodes):
+            raise ConvertError(
+                f"{source}: instance {name} ({cell}) has {len(nodes)} nodes, "
+                f"subcircuit declares {len(pins)} pins"
+            )
+        conns = dict(zip(pins, nodes))
+        nl.instances.append(vn.Instance(name=name, cell=cell, connections=conns))
+        for net in nodes:
+            if net not in seen:
+                seen.add(net)
+                nl.nets.append(net)
+    return nl
+
+
+def run_klt(klt: str, gds: str, abstract: str, lef: str | None, spice_out: str) -> str:
+    cmd = [klt, "extract", gds, "--deck", DEFAULT_DECK, "--abstract-cells", abstract]
+    if lef:
+        cmd += ["--abstract-cell-lef", lef]
+    cmd += ["-o", spice_out]
+    print("running: " + " ".join(cmd), file=sys.stderr)
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr)
+        raise SystemExit(EXIT_ERROR)
+    print("klt extract: ok", file=sys.stderr)
+    with open(spice_out) as fh:
+        return fh.read()
+
+
+def klt_version(klt: str) -> str:
+    proc = subprocess.run([klt, "--version"], capture_output=True, text=True)
+    return proc.stdout.strip() or "unknown"
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="tools/klt-extract", description=__doc__.split("\n\n")[0])
+    ap.add_argument("gds", nargs="?", help="layout to extract")
+    ap.add_argument("-o", "--output", required=True, help="converted Verilog netlist")
+    ap.add_argument("--from-spice", help="convert an existing klt SPICE file; do not run klt")
+    ap.add_argument("--abstract-cells", default=DEFAULT_ABSTRACT)
+    ap.add_argument("--abstract-cell-lef")
+    ap.add_argument("--spice-out", help="keep klt's raw SPICE here (default: next to -o)")
+    ap.add_argument("--klt", default=None, help="klt executable (default: first on PATH)")
+    ap.add_argument("--version", action="store_true", help="print the klt version and exit")
+    args = ap.parse_args(argv)
+
+    klt = args.klt or shutil.which("klt")
+    if args.version:
+        if not klt:
+            print("klt not found", file=sys.stderr)
+            return EXIT_ERROR
+        print(klt_version(klt))
+        return EXIT_OK
+
+    try:
+        if args.from_spice:
+            with open(args.from_spice) as fh:
+                text, source = fh.read(), args.from_spice
+        else:
+            if not args.gds:
+                ap.error("a layout path or --from-spice is required")
+            if not klt:
+                print("tools/klt-extract: klt not found on PATH", file=sys.stderr)
+                return EXIT_ERROR
+            spice_out = args.spice_out or re.sub(r"(\.v)?$", ".sp", args.output, count=1)
+            os.makedirs(os.path.dirname(os.path.abspath(spice_out)), exist_ok=True)
+            text = run_klt(klt, args.gds, args.abstract_cells, args.abstract_cell_lef, spice_out)
+            source = spice_out
+        nl = spice_to_netlist(text, source)
+    except ConvertError as exc:
+        print(f"tools/klt-extract: {exc}", file=sys.stderr)
+        return EXIT_CONVERT_ERROR
+
+    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
+    with open(args.output, "w") as fh:
+        fh.write(vn.write_verilog(nl))
+    print(f"wrote {args.output}: {len(nl.instances)} instance(s), {len(nl.ports)} port(s)")
+    return EXIT_OK
+
+
+if __name__ == "__main__":
+    sys.exit(main())
