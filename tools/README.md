@@ -638,3 +638,16 @@ not proceeding past), 2 on a usage, verification, or environment failure.
 
 The full run, the self-test output, and the answer itself are recorded in
 `evidence/puzzle-answer.md`.
+
+## `klt lvs` on the third-party warm-up layout
+
+`scripts/warmup-klt-lvs.sh` runs `klt extract --abstract-cells` then `klt lvs`
+(`gate-level-verilog` reference) on the published warm-up layout. It is separate
+from `tools/extract`/`tools/compare`, which test this repo's own extractor, not
+`klt`. Result (`evidence/warmup-klt-lvs.md`, klt `0.7.1.dev1743`): against the
+signal-only netlist it is a **match** with `power_connectivity: match`; against
+the power-rail netlist it is a **mismatch** that traces to the extractor
+dropping `VNB` from abstracted cells (klayout-tools#3749), and `klt lvs` could
+not select the sky130 PDK without `PDK=sky130A` (klayout-tools#3748). So a
+third-party layout compares cleanly through `klt lvs` once its std cells are
+abstracted, but the PG-pin Verilog form is not yet usable.

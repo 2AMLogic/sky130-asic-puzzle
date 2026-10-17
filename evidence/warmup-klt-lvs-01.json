@@ -1,0 +1,180 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "build/warmup-klt-lvs.spice",
+  "reference": "puzzle/warmup/01_netlist.v",
+  "top": "ADDER_DEMO",
+  "reference_top": "ADDER_DEMO",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "combine_devices_max_attempts": 5,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "anchor_top_level_pins": null,
+    "strict_top_level_pin_count": false,
+    "compare_mos_flavour": false,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ],
+    "finfet_bulk": null
+  },
+  "hints_applied": null,
+  "constant_nets_applied": null,
+  "status": "match",
+  "power_connectivity": {
+    "status": "match",
+    "reason": null,
+    "power_pins": [
+      "VGND",
+      "VPWR"
+    ],
+    "power_pins_derivation": {
+      "rule": "declared-by-every-instantiated-master",
+      "masters": [
+        "SKY130_FD_SC_HD__A21BOI_2",
+        "SKY130_FD_SC_HD__A21BO_2",
+        "SKY130_FD_SC_HD__A21O_2",
+        "SKY130_FD_SC_HD__A31O_2",
+        "SKY130_FD_SC_HD__AND2_2",
+        "SKY130_FD_SC_HD__AND3_2",
+        "SKY130_FD_SC_HD__AND4BB_2",
+        "SKY130_FD_SC_HD__CLKBUF_16",
+        "SKY130_FD_SC_HD__DECAP_3",
+        "SKY130_FD_SC_HD__DFRTP_2",
+        "SKY130_FD_SC_HD__MUX2_1",
+        "SKY130_FD_SC_HD__NAND2_2",
+        "SKY130_FD_SC_HD__NOR2_2",
+        "SKY130_FD_SC_HD__O21BAI_2",
+        "SKY130_FD_SC_HD__OR2_2",
+        "SKY130_FD_SC_HD__TAPVPWRVGND_1",
+        "SKY130_FD_SC_HD__XNOR2_2",
+        "SKY130_FD_SC_HD__XOR2_2"
+      ],
+      "master_count": 18,
+      "corroborated": true,
+      "reason": null
+    },
+    "instance_count": 230,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unchecked",
+    "reason": "no request.layout.deck was given (the pre-extracted request.layout.netlist form), so nothing establishes this layout's substrate/well-tap convention and no synthesized body net can be told apart from a real one -- this run verified nothing about the device bodies either way",
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "device_parameter_coverage": [],
+  "mismatch_count": 2,
+  "error_count": 0,
+  "category_counts": {
+    "topology.power_only_pruned": 1,
+    "topology.top_level_pins_anchored": 1
+  },
+  "category_error_counts": {},
+  "counts": {
+    "nets": {
+      "layout": 120,
+      "reference": 84,
+      "matched": 195
+    },
+    "devices": {
+      "layout": 0,
+      "reference": 0,
+      "matched": 0
+    },
+    "pins": {
+      "layout": 8,
+      "reference": 6,
+      "matched": 117
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "netgen_binary": null,
+    "layout_sha256": "928cef3dbd76f10fb961709ec20783891921298898826340d58e8a333ea4f7f8",
+    "reference_sha256": "32155a85c4ed9a00f3022b29a458966809a21b72c42b70fec33a70c329f763ea",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.7.1.dev1743+g7ee09483b748",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "search root: ~/.ciel",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+      "ambiguous_sources": [
+        "search root: ~/.volare"
+      ]
+    },
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:928cef3dbd76f10fb961709ec20783891921298898826340d58e8a333ea4f7f8",
+      "role": "netlist"
+    },
+    "klayout_version_mismatch": false,
+    "pin_order_sources": [
+      {
+        "library": "sky130_fd_sc_hd",
+        "path": "/home/ubuntu/.ciel/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice",
+        "cells": 437
+      }
+    ]
+  },
+  "mismatches": [
+    {
+      "category": "topology.power_only_pruned",
+      "severity": "warning",
+      "description": "removed circuit(s) whose every declared pin is a power/ground pin of the reference library, and every instance of them, from both the layout and the reference before comparing -- the reference itself instantiated a power-only master (e.g. a DEF-derived write_verilog filler/tap/endcap instance with no signal connections) -- 2 circuit(s): layout SKY130_FD_SC_HD__TAPVPWRVGND_1; reference SKY130_FD_SC_HD__TAPVPWRVGND_1 (see docs/cli/lvs.md, \"topology.power_only_pruned\")",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology.top_level_pins_anchored",
+      "severity": "warning",
+      "description": "6 top-level pin name(s) declared on both sides were anchored by name before comparing (options.anchor_top_level_pins): each one's layout net is asserted to match the reference net of the same-named pin, which the comparer's own topology-only net pairing does not otherwise require. Without it, two boundary nets with identical topology (e.g. two bits of a black-box macro's bus) are interchangeable and a swap between them compares clean -- see docs/cli/lvs.md, \"Top-level pin anchoring\"",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": {
+        "pins": [
+          "A",
+          "B",
+          "CLK",
+          "EN",
+          "RST_N",
+          "S"
+        ],
+        "pin_count": 6,
+        "pins_truncated": false
+      },
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ]
+}

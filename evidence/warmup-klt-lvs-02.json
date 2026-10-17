@@ -1,0 +1,3436 @@
+{
+  "schema_version": 1,
+  "engine": "klayout",
+  "layout": "build/warmup-klt-lvs.spice",
+  "reference": "puzzle/warmup/02_netlist_with_power_rails.v",
+  "top": "ADDER_DEMO",
+  "reference_top": "ADDER_DEMO",
+  "parameter_tolerance": null,
+  "options": {
+    "combine_devices": false,
+    "combine_devices_per_circuit": null,
+    "combine_devices_max_attempts": 5,
+    "flatten_layout": false,
+    "flatten_reference": false,
+    "netgen_setup": null,
+    "parameter_tolerance": null,
+    "compare_parameters": null,
+    "power_connectivity": null,
+    "anchor_top_level_pins": null,
+    "strict_top_level_pin_count": false,
+    "compare_mos_flavour": false,
+    "supply_nets": [
+      "GND",
+      "VCC",
+      "VDD",
+      "VGND",
+      "VPWR",
+      "VSS"
+    ],
+    "finfet_bulk": null
+  },
+  "hints_applied": null,
+  "constant_nets_applied": null,
+  "status": "mismatch",
+  "power_connectivity": {
+    "status": "unchecked",
+    "reason": "no power/ground pin universe could be derived from the reference library's own pin-order data -- nothing establishes which of this design's pins are power/ground pins",
+    "power_pins": [],
+    "power_pins_derivation": {
+      "rule": "declared-by-every-instantiated-master",
+      "masters": [
+        "SKY130_FD_SC_HD__A21BOI_2",
+        "SKY130_FD_SC_HD__A21BO_2",
+        "SKY130_FD_SC_HD__A21O_2",
+        "SKY130_FD_SC_HD__A31O_2",
+        "SKY130_FD_SC_HD__AND2_2",
+        "SKY130_FD_SC_HD__AND3_2",
+        "SKY130_FD_SC_HD__AND4BB_2",
+        "SKY130_FD_SC_HD__CLKBUF_16",
+        "SKY130_FD_SC_HD__DECAP_3",
+        "SKY130_FD_SC_HD__DFRTP_2",
+        "SKY130_FD_SC_HD__MUX2_1",
+        "SKY130_FD_SC_HD__NAND2_2",
+        "SKY130_FD_SC_HD__NOR2_2",
+        "SKY130_FD_SC_HD__O21BAI_2",
+        "SKY130_FD_SC_HD__OR2_2",
+        "SKY130_FD_SC_HD__TAPVPWRVGND_1",
+        "SKY130_FD_SC_HD__XNOR2_2",
+        "SKY130_FD_SC_HD__XOR2_2"
+      ],
+      "master_count": 18,
+      "corroborated": true,
+      "reason": null
+    },
+    "instance_count": 0,
+    "expected_nets": null,
+    "unchecked_expected_pins": [],
+    "findings": [],
+    "finding_count": 0
+  },
+  "body_verification": {
+    "status": "unchecked",
+    "reason": "no request.layout.deck was given (the pre-extracted request.layout.netlist form), so nothing establishes this layout's substrate/well-tap convention and no synthesized body net can be told apart from a real one -- this run verified nothing about the device bodies either way",
+    "device_classes": [],
+    "device_count": 0,
+    "findings": [],
+    "finding_count": 0
+  },
+  "device_parameter_coverage": [],
+  "mismatch_count": 159,
+  "error_count": 158,
+  "category_counts": {
+    "hints.rejected": 2,
+    "net.unmatched": 34,
+    "topology": 122,
+    "topology.top_level_pins_anchored": 1
+  },
+  "category_error_counts": {
+    "hints.rejected": 2,
+    "net.unmatched": 34,
+    "topology": 122
+  },
+  "counts": {
+    "nets": {
+      "layout": 120,
+      "reference": 86,
+      "matched": 212
+    },
+    "devices": {
+      "layout": 0,
+      "reference": 0,
+      "matched": 0
+    },
+    "pins": {
+      "layout": 8,
+      "reference": 8,
+      "matched": 136
+    }
+  },
+  "device_classes": null,
+  "environment": {
+    "engine": "klayout",
+    "engine_version": "0.30.12",
+    "netgen_binary": null,
+    "layout_sha256": "928cef3dbd76f10fb961709ec20783891921298898826340d58e8a333ea4f7f8",
+    "reference_sha256": "ffdbf25c8fc04f26ad24a1260a0d9304b809914e0272a78634c2d70f7e99f3f3",
+    "extracted_netlist": null
+  },
+  "provenance": {
+    "klt_version": "0.7.1.dev1743+g7ee09483b748",
+    "klayout_version": "0.30.12",
+    "pdk": {
+      "name": "sky130A",
+      "source": "search root: ~/.ciel",
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
+      "ambiguous_sources": [
+        "search root: ~/.volare"
+      ]
+    },
+    "deck": null,
+    "input": {
+      "content_hash": "sha256:928cef3dbd76f10fb961709ec20783891921298898826340d58e8a333ea4f7f8",
+      "role": "netlist"
+    },
+    "klayout_version_mismatch": false,
+    "pin_order_sources": [
+      {
+        "library": "sky130_fd_sc_hd",
+        "path": "/home/ubuntu/.ciel/sky130A/libs.ref/sky130_fd_sc_hd/spice/sky130_fd_sc_hd.spice",
+        "cells": 437
+      }
+    ]
+  },
+  "mismatches": [
+    {
+      "category": "hints.rejected",
+      "severity": "error",
+      "description": "top-level pin 'VGND' is declared on both sides, so options.anchor_top_level_pins asserted that its layout net and its reference net are the same node -- and the comparer did not confirm that pairing. The two sides disagree about what this boundary pin is wired to (a permuted bus on a black-box macro is the ordinary cause: every bit wired straight through is topologically interchangeable with its neighbours, so only the pin names can tell them apart). Set options.anchor_top_level_pins: false to compare on topology alone (see docs/cli/lvs.md, \"Top-level pin anchoring\")",
+      "side": "both",
+      "net": {
+        "layout": "VGND",
+        "reference": "VGND"
+      },
+      "device": null,
+      "property": null,
+      "details": {
+        "anchored_top_level_pin": "VGND"
+      },
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "hints.rejected",
+      "severity": "error",
+      "description": "top-level pin 'VPWR' is declared on both sides, so options.anchor_top_level_pins asserted that its layout net and its reference net are the same node -- and the comparer did not confirm that pairing. The two sides disagree about what this boundary pin is wired to (a permuted bus on a black-box macro is the ordinary cause: every bit wired straight through is topologically interchangeable with its neighbours, so only the pin names can tell them apart). Set options.anchor_top_level_pins: false to compare on topology alone (see docs/cli/lvs.md, \"Top-level pin anchoring\")",
+      "side": "both",
+      "net": {
+        "layout": "VPWR",
+        "reference": "VPWR"
+      },
+      "device": null,
+      "property": null,
+      "details": {
+        "anchored_top_level_pin": "VPWR"
+      },
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$177",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$178",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$225",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$226",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$241",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$242",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$243",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$251",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$252",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$260",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$261",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$265",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$266",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$267",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$279",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$280",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$29",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$30",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$31",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$314",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$315",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$348",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$349",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$364",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$365",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$366",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$367",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$368",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$369",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$6",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$7",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$8",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$95",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "net.unmatched",
+      "severity": "error",
+      "description": "layout net has no reference counterpart",
+      "side": "layout",
+      "net": {
+        "layout": "\\$96",
+        "reference": null
+      },
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__NOR2_2_5",
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__NOR2_2",
+        "reference": "SKY130_FD_SC_HD__NOR2_2"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__AND2_2_3",
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__AND2_2",
+        "reference": "SKY130_FD_SC_HD__AND2_2"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__MUX2_1_9",
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__MUX2_1",
+        "reference": "SKY130_FD_SC_HD__MUX2_1"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__MUX2_1_12",
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__MUX2_1",
+        "reference": "SKY130_FD_SC_HD__MUX2_1"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_0",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_1",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_2",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_3",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_4",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_5",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_6",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_7",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_8",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_9",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_10",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_11",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_12",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_13",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_14",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_15",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_16",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_17",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_18",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_19",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_20",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_21",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_22",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_23",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_24",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_25",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_26",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_27",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_28",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_29",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_30",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_31",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_32",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_33",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_34",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_35",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_36",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_37",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_38",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_39",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_40",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_41",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_42",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_43",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_44",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_45",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_46",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_47",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_48",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_49",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_50",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_51",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_52",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_53",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_54",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_55",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_56",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3_57",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__DECAP_3",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "layout",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": "ADDER_DEMO",
+        "reference": null
+      },
+      "instance": {
+        "layout": "SKY130_FD_SC_HD__OR2_2_2",
+        "reference": null
+      },
+      "subcircuit": {
+        "layout": "SKY130_FD_SC_HD__OR2_2",
+        "reference": null
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__DECAP_3"
+      }
+    },
+    {
+      "category": "topology",
+      "severity": "error",
+      "description": "subcircuit instance could not be matched to a counterpart",
+      "side": "reference",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": null,
+      "circuit": {
+        "layout": null,
+        "reference": "ADDER_DEMO"
+      },
+      "instance": {
+        "layout": null,
+        "reference": "<elided>"
+      },
+      "subcircuit": {
+        "layout": null,
+        "reference": "SKY130_FD_SC_HD__OR2_2"
+      }
+    },
+    {
+      "category": "topology.top_level_pins_anchored",
+      "severity": "warning",
+      "description": "8 top-level pin name(s) declared on both sides were anchored by name before comparing (options.anchor_top_level_pins): each one's layout net is asserted to match the reference net of the same-named pin, which the comparer's own topology-only net pairing does not otherwise require. Without it, two boundary nets with identical topology (e.g. two bits of a black-box macro's bus) are interchangeable and a swap between them compares clean -- see docs/cli/lvs.md, \"Top-level pin anchoring\"",
+      "side": "both",
+      "net": null,
+      "device": null,
+      "property": null,
+      "details": {
+        "pins": [
+          "A",
+          "B",
+          "CLK",
+          "EN",
+          "RST_N",
+          "S",
+          "VGND",
+          "VPWR"
+        ],
+        "pin_count": 8,
+        "pins_truncated": false
+      },
+      "circuit": null,
+      "instance": null,
+      "subcircuit": null
+    }
+  ]
+}
