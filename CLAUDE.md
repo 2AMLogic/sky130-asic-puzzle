@@ -29,8 +29,8 @@ What is constrained is the boundary out of this repo. Before 2026-09-04:
 - **Upstream findings must be written toolkit-first.** *"Cell-level extraction is missing
   from `klt extract`"* is a fine public `klayout-tools` issue. *"…and here is the netlist it
   failed to recover from the puzzle"* is not. Report the gap, not the subject.
-- `scripts/check-embargo.sh` checks the things a script can check — that the repo is still
-  private and that no remote here points at a public repo. It cannot judge prose. **If you
+- `scripts/check-embargo.sh` checks the one thing a script can still check — that no upstream puzzle
+  file is tracked (§3). It cannot judge prose. **If you
   are unsure whether something may leave this repo, it may not.**
 
 After submissions close this reverses: publishing is invited, and the writeup becomes the
