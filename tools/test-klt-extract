@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Self-test for `tools/klt-extract`'s SPICE -> Verilog conversion.
+
+Run with no arguments:  `tools/test-klt-extract`.  Uses a synthetic SPICE
+fixture in the shape `klt extract --abstract-cells` emits; needs neither `klt`
+nor any puzzle file.
+"""
+
+from __future__ import annotations
+
+import importlib.machinery
+import importlib.util
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+loader = importlib.machinery.SourceFileLoader("klt_extract", os.path.join(HERE, "klt-extract"))
+spec = importlib.util.spec_from_loader("klt_extract", loader)
+ke = importlib.util.module_from_spec(spec)
+loader.exec_module(ke)
+
+FIXTURE = r"""* extracted by klt extract --deck sky130
+
+.SUBCKT top A B Y VGND VPWR
+* cell instance g0 r0 *1 0,0
+Xg0 A B VGND VPWR VPWR \$7
++ sky130_fd_sc_hd__nand2_2
+Xg1 \$7 VGND VPWR VPWR Y sky130_fd_sc_hd__clkbuf_1
+Xt0 VGND VPWR sky130_fd_sc_hd__tapvpwrvgnd_1
+.ENDS top
+
+.SUBCKT sky130_fd_sc_hd__nand2_2 A B VGND VPB VPWR Y
+.ENDS sky130_fd_sc_hd__nand2_2
+
+.SUBCKT sky130_fd_sc_hd__clkbuf_1 A VGND VPB VPWR X
+.ENDS sky130_fd_sc_hd__clkbuf_1
+
+.SUBCKT sky130_fd_sc_hd__tapvpwrvgnd_1 VGND VPWR
+.ENDS sky130_fd_sc_hd__tapvpwrvgnd_1
+"""
+
+
+def check(cond: bool, msg: str) -> None:
+    print(("  ok    " if cond else "  FAIL  ") + msg)
+    if not cond:
+        sys.exit(1)
+
+
+def main() -> int:
+    nl = ke.spice_to_netlist(FIXTURE)
+    check(nl.top == "top", "top is the first subcircuit")
+    check(nl.port_names() == ["A", "B", "Y", "VGND", "VPWR"], "top ports keep klt's order")
+    check(len(nl.instances) == 3, "three X cards converted (continuations joined)")
+    g0 = nl.instance("g0")
+    check(g0.cell == "sky130_fd_sc_hd__nand2_2", "cell name taken from the last token")
+    check(g0.connections["Y"] == "$7" and g0.connections["B"] == "B", "nodes bound pin for pin")
+    check(nl.instance("g1").connections["A"] == "$7", "escaped anonymous net unescaped")
+
+    bad = FIXTURE.replace("Xg0 A B VGND VPWR VPWR", "Xg0 A B VGND VPWR")
+    try:
+        ke.spice_to_netlist(bad)
+        check(False, "node-count mismatch is rejected")
+    except ke.ConvertError:
+        check(True, "node-count mismatch is a hard error")
+
+    try:
+        ke.spice_to_netlist(FIXTURE.replace("clkbuf_1\n", "mystery_1\n", 1))
+        check(False, "undeclared cell is rejected")
+    except ke.ConvertError:
+        check(True, "undeclared cell is a hard error")
+
+    print("klt-extract self-test passed")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

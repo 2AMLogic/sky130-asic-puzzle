@@ -42,7 +42,7 @@ done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
 
 # 3. Everything meant to be run is executable.
 for f in tools/compare tools/rename tools/test-compare tools/inventory tools/pins \
-         tools/test-inventory tools/test-pins tools/extract tools/test-extract \
+         tools/test-inventory tools/test-pins tools/extract tools/test-extract tools/klt-extract tools/test-klt-extract \
          scripts/*.sh; do
   [ -e "$f" ] || continue
   if [ -x "$f" ]; then
