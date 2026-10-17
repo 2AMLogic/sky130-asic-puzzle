@@ -12,26 +12,20 @@
 # (A fourth, optional half — the `klt extract` cross-check, step 5 — runs only
 # when `klt` is on PATH; see issue #46.)
 #
-# Three halves, all implemented and running today (issue #9 wired up the
-# third once tools/extract landed via #2):
+# Three halves, all running:
 #
 #   1. The comparator's own correctness — tools/test-compare, which renames
 #      01_netlist.v and checks that the comparator says "equivalent", then
 #      damages it three ways and checks that the comparator says "not
-#      equivalent" AND localises the damage. Runs now.
+#      equivalent" AND localises the damage.
 #   2. The inventory/pins layer's own correctness — tools/test-inventory and
 #      tools/test-pins (issue #10), covering GDS cell classification and
 #      label-to-shape pin association. Their real-file smoke-test sections
 #      run for free here since fetch-puzzle.sh has already populated puzzle/
-#      by this point. Runs now.
-#   3. The end-to-end gate — extract 04_final.gds and compare the result against
-#      01_netlist.v. Runs `tools/extract` (issue #2, cell-level extraction) and
-#      feeds its output straight into `tools/compare`. If `tools/extract` is
-#      ever missing or not executable again (e.g. a regression, or a stripped-
-#      down checkout), this half reports a loud SKIPPED instead of silently
-#      passing; pass --require-extract to turn that skip into a hard failure
-#      (CI always passes this flag, so a missing/broken extractor turns CI red
-#      there, not yellow).
+#      by this point.
+#   3. The end-to-end gate — extract 04_final.gds with tools/extract and feed
+#      its output straight into tools/compare against 01_netlist.v. A missing
+#      or broken extractor is a hard failure.
 #
 # Extraction output is written to build/ (gitignored) and never committed: it is
 # a derived representation of an upstream file that carries no license
@@ -41,11 +35,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-REQUIRE_EXTRACT=0
 FETCH=1
 for arg in "$@"; do
   case "$arg" in
-    --require-extract) REQUIRE_EXTRACT=1 ;;
     --no-fetch) FETCH=0 ;;
     -h|--help)
       sed -n '2,30p' "${BASH_SOURCE[0]}"
@@ -95,22 +87,11 @@ hr
 echo
 echo "4. End-to-end: 04_final.gds -> extract -> compare against 01_netlist.v"
 hr
-if [ ! -x "$ROOT/tools/extract" ]; then
-  echo "SKIPPED — tools/extract does not exist yet."
-  echo "  Cell-level extraction is issue #2 (blocked on #1). Until it lands, the"
-  echo "  end-to-end half of this regression cannot run; the comparator half above"
-  echo "  is the part that is green today."
-  if [ "$REQUIRE_EXTRACT" -eq 1 ]; then
-    echo "FAILED — --require-extract was given but tools/extract is absent." >&2
-    exit 1
-  fi
-else
-  mkdir -p "$BUILD"
-  echo "running: tools/extract $LAYOUT -o $EXTRACTED"
-  "$ROOT/tools/extract" "$LAYOUT" -o "$EXTRACTED"
-  echo "running: tools/compare $EXTRACTED $GOLDEN"
-  "$ROOT/tools/compare" "$EXTRACTED" "$GOLDEN"
-fi
+mkdir -p "$BUILD"
+echo "running: tools/extract $LAYOUT -o $EXTRACTED"
+"$ROOT/tools/extract" "$LAYOUT" -o "$EXTRACTED"
+echo "running: tools/compare $EXTRACTED $GOLDEN"
+"$ROOT/tools/compare" "$EXTRACTED" "$GOLDEN"
 
 echo
 echo "5. Second extractor: 04_final.gds -> klt extract --abstract-cells -> compare"
