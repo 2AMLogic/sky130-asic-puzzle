@@ -7,6 +7,8 @@ updated.
 
 ### 2026-10-17
 
+- **PR #54**: refactor: drop stale extract skip path and --require-extract from warmup regression
+- **Issue #53** (closed): Remove stale tools/extract skip path and --require-extract flag from warmup-regression
 - **PR #51**: refactor: reduce check-embargo.sh to the tracked-puzzle-files guard
 - **PR #49**: feat: run klt lvs on the warm-up layout against its published netlists
 - **PR #48**: feat: cross-check extraction with klt extract --abstract-cells
