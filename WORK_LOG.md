@@ -5,6 +5,15 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-10-17
+
+- **PR #51**: refactor: reduce check-embargo.sh to the tracked-puzzle-files guard
+- **PR #49**: feat: run klt lvs on the warm-up layout against its published netlists
+- **PR #48**: feat: cross-check extraction with klt extract --abstract-cells
+- **Issue #50** (closed): Trim check-embargo.sh: privacy checks are unreachable since the embargo lifted
+- **Issue #47** (closed): Run klt lvs on the warm-up GDS against its published gate-level netlist (third-party layout, ground truth)
+- **Issue #46** (closed): Close the loop: extract the warm-up and puzzle GDS with klt extract --abstract-cells and compare with tools/extract
+
 ### 2026-10-16
 
 - **PR #44**: Bump Repo Skills 0.24.1 -> 0.24.3
