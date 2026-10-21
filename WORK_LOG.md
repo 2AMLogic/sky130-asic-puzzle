@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-10-21
+
+- **PR #56**: Bump Repo Skills 0.24.3 -> 0.24.7
+
 ### 2026-10-17
 
 - **PR #54**: refactor: drop stale extract skip path and --require-extract from warmup regression
