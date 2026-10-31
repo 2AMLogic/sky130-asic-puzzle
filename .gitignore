@@ -113,3 +113,6 @@ __pycache__/
 
 # squad MCP registration -- machine-local absolute paths; generated per host, never committed
 .mcp.json
+
+# Repo Skills Codex-side machine-local install metadata (never committed)
+.agents/skills/repo/.install-local.json
