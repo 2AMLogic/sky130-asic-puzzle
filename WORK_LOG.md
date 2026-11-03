@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-03
+
+- **PR #61**: chore: reinstall squad 0.19.24 (from 0.2.x)
+
 ### 2026-10-31
 
 - **PR #59**: Bump Repo Skills 0.24.7 -> 0.25.1
