@@ -5,6 +5,11 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-06
+
+- **PR #64**: ci: install pinned klt and add --require-klt to the warm-up regression
+- **Issue #63** (closed): CI: install a pinned klt so warm-up regression step 5 (klt extract cross-check) runs
+
 ### 2026-11-03
 
 - **PR #61**: chore: reinstall squad 0.19.24 (from 0.2.x)
