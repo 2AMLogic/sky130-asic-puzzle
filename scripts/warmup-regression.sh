@@ -10,7 +10,8 @@
 # prints anything derived from it — see CLAUDE.md §1.
 #
 # (A fourth, optional half — the `klt extract` cross-check, step 5 — runs only
-# when `klt` is on PATH; see issue #46.)
+# when `klt` is on PATH; see issue #46. CI passes `--require-klt`, which turns
+# a missing `klt` into a failure instead of a skip; see issue #63.)
 #
 # Three halves, all running:
 #
@@ -36,11 +37,13 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 FETCH=1
+REQUIRE_KLT=0
 for arg in "$@"; do
   case "$arg" in
     --no-fetch) FETCH=0 ;;
+    --require-klt) REQUIRE_KLT=1 ;;
     -h|--help)
-      sed -n '2,30p' "${BASH_SOURCE[0]}"
+      sed -n '2,32p' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *) echo "warmup-regression: unknown argument $arg" >&2; exit 2 ;;
@@ -98,10 +101,15 @@ echo "5. Second extractor: 04_final.gds -> klt extract --abstract-cells -> compa
 hr
 # Issue #46. `klt` is optional here: absent, this step prints SKIPPED and is NOT
 # counted as a pass; present, a non-equivalent result fails the regression.
+# With --require-klt (CI), absent klt is a failure.
 "$ROOT/tools/test-klt-extract"
 KLT_NETLIST="$BUILD/warmup-klt.v"
 KLT_RESULT="SKIPPED (klt not on PATH)"
 if ! command -v klt >/dev/null 2>&1; then
+  if [ "$REQUIRE_KLT" -eq 1 ]; then
+    echo "FAILED — --require-klt was given but klt is not on PATH." >&2
+    exit 1
+  fi
   echo "SKIPPED — klt is not on PATH; the klt cross-check did not run (not a pass)."
 else
   mkdir -p "$BUILD"

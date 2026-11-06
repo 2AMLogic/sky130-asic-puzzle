@@ -46,3 +46,32 @@ the `klt` netlist, each feeding the `A1` pins of one `a31oi_2` and one
   docs say so); the comparison is topological, so this does not matter here.
 - Live CI verification not performed: CI installs only the `klayout` wheel, so
   step 5 is SKIPPED there. Out of scope per #46.
+
+## Run 2 — 2026-11-06
+
+- Toolkit: `klt` 0.9.1 (`klayout-tools==0.9.1` from PyPI, the version pinned in
+  `.github/workflows/ci.yml`), installed into a throwaway venv, on Linux 7.0.0
+  (aws). Same command and `tools/klt-extract` conversion as Run 1.
+- Command: `PATH=<venv>/bin:$PATH ./scripts/warmup-regression.sh --no-fetch --require-klt`.
+
+### Warm-up: `04_final.gds` vs published `01_netlist.v`
+
+Step 5 reports `klt cross-check: PASSED (equivalent to 01_netlist.v)`:
+`tools/compare` **EQUIVALENT**, 6 ports, 79 signal cells matched 1:1, 84 nets,
+151 fill cells by count (58 decap, 93 tap), independent re-check passed, and
+the mutation check (instance removed) was rejected. No disagreement, so nothing
+filed upstream.
+
+### `--require-klt` failure mode
+
+With `klayout` importable but `klt` off `PATH`, `--require-klt` prints
+`FAILED — --require-klt was given but klt is not on PATH.` and exits 1; without
+the flag the same environment prints `SKIPPED` and exits 0.
+
+### CI status
+
+CI now installs the pinned klt and passes `--require-klt`, so this step is a
+live signal there and the Run 1 caveat "Live CI verification not performed" is
+superseded. The CI log itself is not yet observed by this entry: the first CI
+run on the PR carrying this change is the evidence, and this line should be
+amended by a later run entry if it differs.
