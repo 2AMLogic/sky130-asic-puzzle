@@ -56,15 +56,20 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install klayout (Python package)
-        # tools/extract (issue #2) reads GDS geometry directly via KLayout's
-        # Python API. klayout_env.py's fast path is "already importable in
-        # the running interpreter" -- installing the standalone `klayout`
-        # wheel here satisfies that without needing the full `klt` binary
-        # (klayout-tools) on the runner. Without this, the warm-up
-        # regression step below fails outright (not a skip) once
-        # tools/extract exists, since it is invoked unconditionally.
-        run: pip install klayout
+      - name: Install klayout-tools (pinned) and klayout
+        # Two consumers, both needed on the runner:
+        #   * tools/extract (issue #2) reads GDS geometry directly via
+        #     KLayout's Python API; the standalone `klayout` wheel satisfies
+        #     klayout_env.py's "already importable" fast path.
+        #   * warmup-regression.sh step 5 (issues #46, #63) cross-checks with
+        #     `klt extract --abstract-cells`. klt is pinned to an exact version
+        #     so a klayout-tools release that breaks extraction of this
+        #     third-party layout is noticed when the pin is bumped, not
+        #     silently. The regression step passes --require-klt so a missing
+        #     klt fails the job rather than skipping.
+        run: |
+          pip install klayout "klayout-tools==0.9.1"
+          klt --version
 
       - name: Install ruff
         # scripts/lint.sh's ruff check is opt-in: it runs only when `ruff` is
@@ -86,9 +91,9 @@ jobs:
         # Runs tools/test-compare (comparator self-test + three mutation tests),
         # tools/test-inventory and tools/test-pins (inventory/pins self-tests,
         # issue #10), and the end-to-end 04_final.gds -> extract -> compare gate.
-        # A missing/non-functional tools/extract is a hard failure. Never reads
-        # puzzle.gds.
-        run: ./scripts/warmup-regression.sh --no-fetch
+        # A missing/non-functional tools/extract is a hard failure, and so is a
+        # missing klt (--require-klt, issue #63). Never reads puzzle.gds.
+        run: ./scripts/warmup-regression.sh --no-fetch --require-klt
 
       - name: Assert no upstream puzzle file is tracked
         run: ./scripts/check-embargo.sh
