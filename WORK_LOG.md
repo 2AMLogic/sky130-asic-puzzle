@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-07
+
+- **PR #66**: Bump Repo Skills 0.25.1 -> 0.25.10
+
 ### 2026-11-06
 
 - **PR #64**: ci: install pinned klt and add --require-klt to the warm-up regression
