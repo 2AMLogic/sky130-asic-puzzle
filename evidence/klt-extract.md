@@ -75,3 +75,28 @@ live signal there and the Run 1 caveat "Live CI verification not performed" is
 superseded. The CI log itself is not yet observed by this entry: the first CI
 run on the PR carrying this change is the evidence, and this line should be
 amended by a later run entry if it differs.
+
+## Run 3 — 2026-11-07
+
+- Toolkit: `klt 0.9.1` (`klayout-tools==0.9.1`, the version pinned in
+  `.github/workflows/ci.yml`), installed into a throwaway venv, on Linux 7.0.0
+  (aws).
+- Command: `PATH=<venv>/bin:$PATH ./scripts/puzzle-regression.sh --no-fetch --require-klt`
+  (new in #68; ~30 s). Outputs went to gitignored `build/`.
+
+### Puzzle: both extractors vs `evidence/puzzle-extracted.v`
+
+`tools/extract` and `tools/klt-extract` each reported **EQUIVALENT** from
+`tools/compare`: 13 ports, 728 signal cells matched 1:1, 739 nets, 890 fill
+cells by count. `tools/floating-nets` found exactly one non-port, loaded,
+undriven net in each netlist (two load pins), as in Run 1. The mutation check
+(an instance removed from the klt netlist) was rejected. Exit 0.
+
+### Failure modes exercised
+
+- With `klt` off `PATH`, `--require-klt` prints `FAILED — --require-klt was
+  given but klt is not on PATH.` and exits 1.
+- A local `klt 0.9.2.dev244+g92e2b15a66f2` gave the same results.
+
+No disagreement between extractors, so nothing filed upstream. Live CI
+verification not performed: the first CI run on the PR is the evidence.

@@ -5,9 +5,10 @@
 #   puzzle/warmup/04_final.gds --extract--> gate-level netlist
 #                              --compare--> puzzle/warmup/01_netlist.v
 #
-# Ground truth is published, so pass/fail needs no judgement, and nothing here
-# is embargoed. This script deliberately never reads puzzle/puzzle.gds and never
-# prints anything derived from it — see CLAUDE.md §1.
+# Ground truth is published, so pass/fail needs no judgement. This script
+# deliberately never reads puzzle/puzzle.gds: the puzzle layout has its own
+# regression, scripts/puzzle-regression.sh (issue #68), so the warm-up stays
+# green independently of it (CLAUDE.md §4).
 #
 # (A fourth, optional half — the `klt extract` cross-check, step 5 — runs only
 # when `klt` is on PATH; see issue #46. CI passes `--require-klt`, which turns
@@ -59,7 +60,7 @@ EXTRACTED="$BUILD/warmup-extracted.v"
 hr() { printf '%s\n' "------------------------------------------------------------"; }
 
 hr
-echo "Warm-up regression (warm-up files only; puzzle.gds is never read here)"
+echo "Warm-up regression (warm-up files only; see puzzle-regression.sh for puzzle.gds)"
 hr
 
 if [ ! -f "$GOLDEN" ]; then
