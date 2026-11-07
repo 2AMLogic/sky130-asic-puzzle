@@ -7,6 +7,8 @@ updated.
 
 ### 2026-11-07
 
+- **PR #69**: test: add puzzle.gds extraction regression to CI
+- **Issue #68** (closed): Add a puzzle.gds extraction regression to CI: tools/extract and klt vs puzzle-extracted.v
 - **PR #66**: Bump Repo Skills 0.25.1 -> 0.25.10
 
 ### 2026-11-06
