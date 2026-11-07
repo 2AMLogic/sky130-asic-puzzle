@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Count floating nets in a gate-level Verilog netlist (issue #68).
+
+    tools/floating-nets <netlist.v> [--expect N]
+
+A floating net is a net that is not a top-level port, feeds at least one
+cell input pin, and is driven by no cell output pin. sky130_fd_sc_hd's driven
+pins are X, Y, Q, HI and LO (see OUTPUT_PIN_NAMES in tools/gds_extract.py);
+every other signal pin is an input. Fill cells are ignored.
+
+Prints the count and exits 0 when it equals --expect (default 1), else 1.
+Net names are printed only as counts of load pins, never layout content.
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import verilog_netlist as vn  # noqa: E402
+
+OUTPUT_PINS = frozenset({"X", "Y", "Q", "HI", "LO"})
+SUPPLY = frozenset({"VPWR", "VGND", "VPB", "VNB"})
+
+
+def floating(nl: vn.Netlist) -> dict[str, int]:
+    ports = set(nl.port_names())
+    driven: set[str] = set()
+    loads: dict[str, int] = {}
+    for inst in nl.instances:
+        if vn.is_fill(inst.cell):
+            continue
+        for pin, net in inst.connections.items():
+            if pin in SUPPLY:
+                continue
+            if pin in OUTPUT_PINS:
+                driven.add(net)
+            else:
+                loads[net] = loads.get(net, 0) + 1
+    return {n: c for n, c in loads.items() if n not in ports and n not in driven and n not in SUPPLY}
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("netlist")
+    ap.add_argument("--expect", type=int, default=1)
+    args = ap.parse_args()
+    fl = floating(vn.load(args.netlist))
+    print(f"floating nets in {args.netlist}: {len(fl)} (load pins: {sorted(fl.values())})")
+    if len(fl) != args.expect:
+        print(f"FAILED — expected exactly {args.expect} floating net(s).", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

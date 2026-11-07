@@ -2,9 +2,11 @@
 #
 # What this runs, and nothing else:
 #   lint -> comparator self-test + mutation suite -> warm-up regression
-#        -> embargo check
+#        -> puzzle extraction regression -> tracked-file check
 #
-# Embargo obligations this workflow is written against (CLAUDE.md §1):
+# Publishing constraints this workflow is written against. The §1 embargo was
+# lifted 2026-09-04; what still binds is §3 (do not vendor the unlicensed
+# puzzle files), and the read-only posture below is kept as a safeguard:
 #
 #   * `permissions:` is read-only and explicit. No job requests `administration`
 #     or `contents: write`, so no step here is *capable* of flipping repository
@@ -13,13 +15,11 @@
 #     third party.
 #   * The checkout does not persist credentials, so nothing downstream can use
 #     the job token to push.
-#   * Only warm-up files are touched. `puzzle/puzzle.gds` and
-#     `example_inputs.vcd` are fetched by scripts/fetch-puzzle.sh (which
-#     verifies them) but nothing in this workflow reads them, derives anything
-#     from them, or prints them. The warm-up half is unembargoed by
-#     construction; the puzzle half is not.
+#   * `puzzle/puzzle.gds` is fetched by scripts/fetch-puzzle.sh (which verifies
+#     it) and read by scripts/puzzle-regression.sh (issue #68), which writes
+#     only into gitignored build/. Nothing derived from it is committed.
 #   * No artifacts are uploaded and no external service is called, so no log or
-#     artifact can carry puzzle-derived content out of this repository.
+#     artifact leaves this repository.
 #   * scripts/check-embargo.sh runs on every job as the last step: it asserts no
 #     upstream puzzle file is tracked (CLAUDE.md §3).
 
@@ -92,8 +92,14 @@ jobs:
         # tools/test-inventory and tools/test-pins (inventory/pins self-tests,
         # issue #10), and the end-to-end 04_final.gds -> extract -> compare gate.
         # A missing/non-functional tools/extract is a hard failure, and so is a
-        # missing klt (--require-klt, issue #63). Never reads puzzle.gds.
+        # missing klt (--require-klt, issue #63). Warm-up files only.
         run: ./scripts/warmup-regression.sh --no-fetch --require-klt
+
+      - name: Puzzle extraction regression
+        # issue #68: puzzle.gds -> tools/extract and klt extract -> compare
+        # against evidence/puzzle-extracted.v, the one-floating-net invariant,
+        # and a mutation check. Outputs land in gitignored build/.
+        run: ./scripts/puzzle-regression.sh --no-fetch --require-klt
 
       - name: Assert no upstream puzzle file is tracked
         run: ./scripts/check-embargo.sh
