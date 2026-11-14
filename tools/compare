@@ -756,11 +756,6 @@ def main(argv: list[str] | None = None) -> int:
         default=DEFAULT_BRANCH_BUDGET,
         help="maximum backtracking guesses before giving up (default: %(default)s)",
     )
-    parser.add_argument(
-        "--emit-json-netlist",
-        metavar="DIR",
-        help="also write both netlists to DIR in the canonical JSON form",
-    )
     args = parser.parse_args(argv)
 
     fill_prefixes = tuple(args.fill_prefix) if args.fill_prefix else vn.FILL_PREFIXES
@@ -770,13 +765,6 @@ def main(argv: list[str] | None = None) -> int:
     except (vn.ParseError, OSError, json.JSONDecodeError) as exc:
         print(f"tools/compare: {exc}", file=sys.stderr)
         return EXIT_ERROR
-
-    if args.emit_json_netlist:
-        os.makedirs(args.emit_json_netlist, exist_ok=True)
-        for tag, nl in (("a", nl_a), ("b", nl_b)):
-            out = os.path.join(args.emit_json_netlist, f"netlist_{tag}.json")
-            with open(out, "w", encoding="utf-8") as fh:
-                fh.write(nl.to_json_text())
 
     try:
         side_a = Side(nl_a, ignore_power=not args.keep_power, fill_prefixes=fill_prefixes)
