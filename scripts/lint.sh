@@ -41,16 +41,29 @@ while IFS= read -r f; do
 done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
 
 # 3. Everything meant to be run is executable.
-for f in tools/compare tools/rename tools/test-compare tools/inventory tools/pins \
-         tools/test-inventory tools/test-pins tools/extract tools/test-extract tools/klt-extract tools/test-klt-extract \
-         scripts/*.sh; do
+#
+# Enumerated with find rather than hand-listed (issue #79): a hardcoded list is
+# the only one of this script's three enumerations that can silently fall behind
+# the directory, and it had — tools/floating-nets was missing from it while
+# scripts/puzzle-regression.sh invoked it directly, so a lost +x bit would have
+# passed lint and failed later as a confusing exec error.
+#
+# The set is "a top-level entry point": every tools/ file that is not a Python
+# module (*.py, imported) or documentation (*.md), plus every scripts/*.sh.
+# tools/sim/ and tools/vcd/ are import-only packages, so -maxdepth 1 excludes
+# them deliberately.
+while IFS= read -r f; do
+  [ -n "${f:-}" ] || continue
   [ -e "$f" ] || continue
   if [ -x "$f" ]; then
     note "ok" "$f is executable"
   else
     note "FAIL" "$f is not executable (chmod +x)"; fail=1
   fi
-done
+done < <(
+  { find tools -maxdepth 1 -type f ! -name '*.py' ! -name '*.md'; \
+    find scripts -maxdepth 1 -type f -name '*.sh'; } 2>/dev/null | sort
+)
 
 # 4. Optional linters.
 if command -v shellcheck >/dev/null 2>&1; then

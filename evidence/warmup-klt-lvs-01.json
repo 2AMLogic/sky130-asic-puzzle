@@ -1,10 +1,23 @@
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "engine": "klayout",
-  "layout": "build/warmup-klt-lvs.spice",
-  "reference": "puzzle/warmup/01_netlist.v",
+  "layout": {
+    "path": "build/warmup-klt-lvs.spice",
+    "scope": "repo"
+  },
+  "reference": {
+    "path": "warmup/01_netlist.v",
+    "scope": "repo"
+  },
   "top": "ADDER_DEMO",
   "reference_top": "ADDER_DEMO",
+  "reference_conversion": {
+    "form": "gate-level-verilog",
+    "library": "sky130_fd_sc_hd",
+    "pdk": "sky130A",
+    "pdk_root": null,
+    "pin_order_files": null
+  },
   "parameter_tolerance": null,
   "options": {
     "combine_devices": false,
@@ -19,6 +32,7 @@
     "anchor_top_level_pins": null,
     "strict_top_level_pin_count": false,
     "compare_mos_flavour": false,
+    "ignore_mos_bulk": false,
     "supply_nets": [
       "GND",
       "VCC",
@@ -68,6 +82,7 @@
     "instance_count": 230,
     "expected_nets": null,
     "unchecked_expected_pins": [],
+    "excluded_pins": [],
     "findings": [],
     "finding_count": 0
   },
@@ -89,9 +104,9 @@
   "category_error_counts": {},
   "counts": {
     "nets": {
-      "layout": 120,
+      "layout": 121,
       "reference": 84,
-      "matched": 195
+      "matched": 212
     },
     "devices": {
       "layout": 0,
@@ -101,21 +116,23 @@
     "pins": {
       "layout": 8,
       "reference": 6,
-      "matched": 117
+      "matched": 134
     }
   },
   "device_classes": null,
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.12",
+    "engine_version": "0.30.13",
     "netgen_binary": null,
-    "layout_sha256": "928cef3dbd76f10fb961709ec20783891921298898826340d58e8a333ea4f7f8",
+    "layout_sha256": "9e7223ccfa2a3b1c116a3a0eafcd45e73a5cf9a57e188cbf3a3d0341a46c1b2b",
     "reference_sha256": "32155a85c4ed9a00f3022b29a458966809a21b72c42b70fec33a70c329f763ea",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.7.1.dev1743+g7ee09483b748",
-    "klayout_version": "0.30.12",
+    "klt_version": "0.9.2.dev1022+g2a9c52b27ce7",
+    "klt_git_commit": "2a9c52b27ce7986b4372ae5d73129dac4773e02c",
+    "klt_reinstall_spec": "klayout-tools @ git+https://github.com/2AMLogic/klayout-tools@2a9c52b27ce7986b4372ae5d73129dac4773e02c",
+    "klayout_version": "0.30.13",
     "pdk": {
       "name": "sky130A",
       "source": "search root: ~/.ciel",
@@ -126,10 +143,10 @@
     },
     "deck": null,
     "input": {
-      "content_hash": "sha256:928cef3dbd76f10fb961709ec20783891921298898826340d58e8a333ea4f7f8",
+      "content_hash": "sha256:9e7223ccfa2a3b1c116a3a0eafcd45e73a5cf9a57e188cbf3a3d0341a46c1b2b",
       "role": "netlist"
     },
-    "klayout_version_mismatch": false,
+    "klayout_version_mismatch": true,
     "pin_order_sources": [
       {
         "library": "sky130_fd_sc_hd",
@@ -170,7 +187,13 @@
           "S"
         ],
         "pin_count": 6,
-        "pins_truncated": false
+        "pins_truncated": false,
+        "layout_only_pins": [
+          "VGND",
+          "VPWR"
+        ],
+        "layout_only_pin_count": 2,
+        "layout_only_pins_truncated": false
       },
       "circuit": null,
       "instance": null,
