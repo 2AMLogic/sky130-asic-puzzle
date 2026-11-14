@@ -32,9 +32,13 @@ Two more lessons:
 - **When the data looks odd, ask whether it's the design or the tool** before explaining it
   away. We read the floating net's `"` first as a pun, then as an extraction artifact. It was a
   real layout bug, left in on purpose. Our extractor had it right both times.
-- **Matching the example waveform doesn't make a model correct.** A featured writeup's
-  simulator reproduced the trace with every tie-high cell wrong. Cross-check against a second
-  simulator on inputs the example never exercises.
+- **Matching the example waveform doesn't make a model correct.** Alejandro Soto Franco's
+  simulator reproduced the trace with every tie-high cell wrong — the supplied trace exercises
+  no path through a tie cell, so replay passed throughout while the adjacency term could never
+  assert, and his solver returned sixteen accepted inputs instead of one. Cross-check against a
+  second simulator on inputs the example never exercises. José Vargas published the same
+  sixteen-solution artifact, so this failure has two featured witnesses, not one
+  (`evidence/easter-eggs.md`, 2026-11-14 addendum).
 
 ## As a host: what Jane Street got right
 
@@ -47,8 +51,12 @@ If we ever run our own competition, these are worth copying:
   the puzzle was about connectivity rather than cell recognition. The floorplan "islands"
   matched RTL modules: a hint for people who look, invisible to people who don't.
 - **An answer that can't be extracted by shortcut.** The answer string was XORed with an LFSR
-  keyed on the board, so forcing `success` printed garbage. Even so, someone reverse-engineered
-  the LFSR, and that's worth expecting.
+  keyed on the board, so forcing `success` printed garbage. Even so, Gabriel Taboada
+  reverse-engineered the LFSR, and that's worth expecting. As of 2026-11-14 the mechanism is in
+  our record too, reproduced against our own netlist: eight flops, four feedback taps XORed with
+  the incoming bit, characteristic polynomial x⁸+x⁴+x³+x²+1 (`0x1d`, CRC-8 SAE-J1850), and the
+  15 keystream bytes that decrypt the stored ROM row (`evidence/easter-eggs.md`, 2026-11-14
+  addendum; `evidence/featured-writeups-netlist.py`).
 - **Eggs in layers of difficulty.** Some come straight out of the solve (the failure messages),
   some need you to look (the logo, "JSC", Morse), and some sit in files people skim (the VCD
   header and inputs). Two of 400+ entrants found all six, which looks about right.

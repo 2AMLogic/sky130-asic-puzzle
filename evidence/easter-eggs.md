@@ -679,3 +679,503 @@ three "JSC" letters) were found after the close by reading other writeups. The V
 plaintext was missed until today. Jane Street reports that two entrants found all six intended
 eggs, and six found six of the seven. This writeup was not among the 15 they featured, and
 the post names no winners or prizes.
+
+## Addendum (2026-11-14) — the 15 featured writeups, one by one
+
+Jane Street's results post featured 15 writeups (README §"Featured by Jane Street"), and
+until today this record had not checked any of them against itself. This addendum does
+that, one entry per writeup, in the post's order. Each entry has the same four fields:
+
+- **Reached** — what was actually parsed, with type and size or page/word count. A 200 on
+  the table URL is not evidence a writeup was read, and two of the 15 URLs serve a viewer
+  page rather than the document.
+- **Method** — one line, as the writeup presents it.
+- **Against our record** — `nothing new`, `addition`, or `contradiction`, with the claim.
+- **Status** — `reproduced` (naming the command), `already recorded` (citing file and
+  line), or `unverified` (saying why not).
+
+Three reproducers were added for this pass, and every `reproduced` below is one of their
+printed lines:
+
+```sh
+# needs the sky130 cell models and Icarus; no puzzle file (the netlist is committed)
+PDK_ROOT="$HOME/.volare" PYTHONPATH=. python3 evidence/featured-writeups-netlist.py
+# pure Python, no inputs at all
+python3 evidence/featured-writeups-grids.py
+# the only one that reads puzzle/ — run ./scripts/fetch-puzzle.sh first
+PYTHONPATH=. python3 evidence/featured-writeups-warmup-logo.py
+```
+
+The `PDK_ROOT` override is not cosmetic: `tools/sim/celltable.py` cannot parse the
+`input wire X;` port declarations that current open_pdks emits, so on this host
+`load_design()` fails against the `klt`-resolved PDK and the whole `tools/sim` stack is
+unusable without it. That is our own defect, not `klt`'s, and is filed as #98. The pinned
+root is open_pdks `c6d73a35`, the same one `evidence/puzzle-answer.md` recorded.
+
+Most of these 15 differ from us in *method*, not in findings — an own C++ pipeline, an
+FPGA, Minecraft, analog SPICE, a Groth16 proof. A method difference asserts nothing about
+this record, so it needs no reproducer; the entries that do carry a claim are the ones
+with commands attached.
+
+### What this pass changed in our record
+
+Two corrections and six additions. They are summarised here and carried into `README.md`;
+the per-writeup entries below are the evidence.
+
+**Correction 1 — README's "no other writeup contains" sentence was wrong on all three
+counts.** README §"What the other solutions taught us" closed with: *"Things in our record
+that no other writeup so far contains: the complete message map, proven … the
+31,197,434-grid enumeration … and the SAT-independent uniqueness check from the recovered
+rules alone."* Every one of the three is in the featured set:
+
+- **31,197,434** is David Garner's number too, derived independently from a Perl generator,
+  and he then simulated all ~31M boards through his netlist (about 6 hours on 16 cores),
+  finding the one hit at line 29,300,056. `featured-writeups-grids.py` re-derives
+  `31,197,434` and confirms the two counts are of the same thing.
+- **The complete message map, proven** is Soto Franco's too: he enumerated the output
+  generator's readable messages by solver until unsatisfiable and got exactly five. Amruth
+  Gulawani's playable version reproduces all five, `TWO NOT TOUCH` included.
+- **The SAT-independent uniqueness check** is Stephen Ebert's (backtracking that visits
+  8,989 states, run with site packages disabled so it cannot import Z3) and Soto Franco's
+  (solving the four recovered rules directly). `featured-writeups-grids.py` re-derives it
+  here as well: exactly 1 board.
+
+That sentence should not be replaced with a narrower boast. What is genuinely unusual in
+this record is nothing on that list; it is the per-cell `klt` extraction trail and the
+warm-up regression, which is the repo's actual purpose.
+
+**Correction 2 — the floating net reaches `O[1]` *and* `O[4]`.** The 2026-10-02 addendum
+above, and README item (1), name `O[1]` alone: *"Icarus … reports bit `O[1]` as `x` at
+exactly that byte — and again at three cycles around the final `H`."* Ebert and Soto
+Franco both say the cone reaches `O[1]` and `O[4]`, and they are right. The structural
+cone of `net_00575` is 11 nets wide, touches no flip-flop D input, cannot reach `success`,
+and lands on exactly `O[1]` and `O[4]`. The `O[4]` effect is invisible in the earlier
+reading because it only shows on one cycle, 140 — the second trailing zero byte after the
+message, not inside it:
+
+```text
+top-level outputs reached: ['O[1]', 'O[4]']
+reaches success: False
+  cycle 129: O[7:0]=001000x0  x on bits [1]
+  cycle 138: O[7:0]=010010x0  x on bits [1]
+  cycle 139: O[7:0]=000000x0  x on bits [1]
+  cycle 140: O[7:0]=000x00x0  x on bits [1, 4]
+```
+
+Everything the earlier addendum concluded from this still holds — the net is a real layout
+bug, the `"` carries no meaning, and the supplement email in `SUBMISSION.md` stays unsent.
+Only the list of affected output bits was short by one.
+
+**Addition 1 — the output generator's stream cipher, in full.** This is the largest thing
+the featured set adds, and `NOTES-FOR-NEXT-TIME.md` line 49 already leans on it
+(*"The answer string was XORed with an LFSR keyed on the board … someone reverse-engineered
+the LFSR"*) without attribution and without any of the mechanism. It is Gabriel Taboada's,
+and all of it reproduces against `evidence/puzzle-extracted.v`:
+
+```text
+shift chain: 8 flops, head (feedback + I) first
+  b0 dfstp_2_172770_198320              dfstp_2   reset=1
+  b1 dfrtp_2_167710_195600              dfrtp_2   reset=0
+  b2 dfstp_2_167710_190160              dfstp_2   reset=1
+  b3 dfrtp_2_173690_192880              dfrtp_2   reset=0
+  b4 dfrtp_2_174610_182000              dfrtp_2   reset=0
+  b5 dfstp_2_166790_187440              dfstp_2   reset=1
+  b6 dfrtp_2_168630_176560              dfrtp_2   reset=0
+  b7 dfstp_2_167710_179280              dfstp_2   reset=1
+reset state b0..b7: 10100101 (weight 4)
+feedback taps: (3, 4, 5, 7) -> b0(t+1) = I(t) XOR b3 XOR b4 XOR b5 XOR b7
+characteristic polynomial: x^8 + x^4 + x^3 + x^2 + 1  (= 0x1d)
+keystream: 65 87 db d7 44 36 3c e6 2d 22 95 3b b3 df a6   match: True
+stored   : 4d ad fb 83 13 79 1c b5 79 63 c7 68 93 f5 8f   match: True
+stored XOR keystream = '(* TWO STARS *)'  -> match: True
+```
+
+Read as a recurrence, taps at b3/b4/b5/b7 give `s(t+1) = s(t-3) ^ s(t-4) ^ s(t-5) ^ s(t-7)`,
+whose characteristic polynomial is `x^8 + x^4 + x^3 + x^2 + 1` — `0x1d`, the CRC-8
+SAE-J1850 polynomial, exactly as Taboada says. The register's eight flops are the only
+four `dfstp_2` in the design (which reset high) plus four `dfrtp_2` (which reset low), so
+the seed is four ones and four zeros. The keystream byte emitted on message cycle `126+j`
+is those eight bits read LSB-first in chain order; searching all 8! bit orders against all
+offsets in ±7 cycles finds that reading **uniquely** (1 match out of 564,480 candidates),
+and it yields Taboada's 15 keystream bytes exactly. XORing them with the message this
+record independently decoded recovers his 15 stored ROM bytes exactly. So the success row
+is not stored as plaintext at all: it is a ROM row XORed with a CRC-8 of the board, which
+is why forcing `success` on a wrong board prints garbage, and why no constant-address
+probe of the printer ever reveals it. The four failure rows are plaintext and leak through
+any cut; the winning row's address is the whole 121-bit board.
+
+One caveat, stated rather than smoothed over: Taboada writes the seed as `00001111` and
+the post-load register as `00101110`. Ours are `10100101` and `10100110` in chain order.
+These are the same two states under a permutation of the flop-to-bit assignment — the
+multiset of (reset, post-load) bit pairs matches — but it is *not* the assignment his own
+keystream readout uses, which is the identity on our chain order. His bit labelling is
+internally inconsistent between those two places in his writeup; the substance, and every
+one of the 30 bytes, is right.
+
+**Addition 2 — the Jane Street logo is in the warm-up layout too, bit for bit.** Sanjay
+Ravishankar and David Garner both mention it in passing. This record had only ever looked
+at `puzzle.gds` (`evidence/easter-egg-met2-ring.py`, 1,366 tiles). Both layouts carry the
+*same* glyph:
+
+```text
+puzzle:  met2 shapes: 8517; isolated square tiles: 1366; tile side(s) um: [0.3]
+         glyph bbox um: x[34.9, 51.7] y[35.2, 52.0];  position on the die: lower-left
+warm-up: met2 shapes: 2104; isolated square tiles: 1366; tile side(s) um: [0.3]
+         glyph bbox um: x[65.9, 82.7] y[66.2, 83.0];  position on the die: upper-right
+offset warm-up -> puzzle: dx=+31.000 um dy=+31.000 um
+symmetric difference: 0
+identical glyph: True
+```
+
+1,366 tiles in each, the two tile sets equal once normalised to their own lower-left
+corner, and the offset exactly 31.000 µm in both axes. Garner's "lower-left in the puzzle,
+upper-right in the warm-up" is right as stated. Worth noting for the repo's own purposes:
+the warm-up is not embargoed, so this is a non-embargoed instance of the same glyph.
+
+**Addition 3 — the exact size of the `TWO NOT TOUCH` preimage.** Ravishankar reports
+113,758,569 boards behind that message. Counting boards with two stars in every row,
+column and region, with touching allowed, gives 113,758,570 — his number plus the one
+clean board. So his figure is precisely the set of boards that satisfy every count and
+break only the no-touch rule, which is exactly the message's precondition. This sharpens
+the 2026-08-11 "complete message map" result from "exactly two failure streams exist
+besides the three constant ones" to a cardinality, and the `-1` is an independent
+restatement of our uniqueness claim.
+
+**Addition 4 — the total-star counter is five bits, not eight.** Lokesh Aravapalli says
+five and worries about what happens at 54 stars (54 mod 32 = 22); Shapovalov names eight
+flops (`q57..q64`) and Ebert says "8 track total population". Our record says nothing, so
+this is an addition rather than a correction, and the netlist settles it for Aravapalli.
+Driving 0..31 stars under two unrelated placement patterns pins one flop per bit for bits
+0–4 and finds no sixth bit, and the counter does wrap:
+
+```text
+  bit 0: ['dfrtp_2_80770_54160']   bit 1: ['dfrtp_2_80770_37840']
+  bit 2: ['dfrtp_2_82610_43280']   bit 3: ['dfrtp_2_81690_48720']
+  bit 4: ['dfrtp_2_77550_35120']
+=> the counter is 5 bits wide (Aravapalli: 5; Shapovalov/Ebert: 8)
+  22 contiguous stars -> counter reads 22 (22 mod 32 = 22)
+  54 contiguous stars -> counter reads 22 (54 mod 32 = 22)
+```
+
+Aravapalli's worry is real and harmless: a 54-star board does set the "total is 22" wire,
+but two stars per row caps an accepted board at 22 anyway, so the row and column checks
+reject it long before the total matters. Five bits are sufficient *because* of the other
+constraints, which is a design economy worth recording.
+
+**Addition 5 — Smallwood's row combinatorics.** All of it checks out, and it is a cheaper
+route to the search-space shape than the full enumeration: 45 legal rows out of
+C(11,2) = 55, 420 of the 2,025 ordered legal row pairs survive the no-touch rule between
+rows, and the surviving-prefix counts within a row are Fibonacci (2, 3, 5, 8, … 144 — the
+count of length-*n* rows with no two consecutive stars).
+
+**Addition 6 — no static tie of the floating net produces a clean `TWO NOT TOUCH`.**
+Ebert's observation, reproduced exactly, including the two trailing bytes:
+
+```text
+Vargas    tie=0 '.TWO"NOT TOUCH'
+          tie=1 '.TWO NOT TOUCJ'
+          success@None  byte diffs=[(129, '22', '20'), (138, '48', '4a'), (139, '00', '02'), (140, '00', '10')]
+```
+
+Tie low gives the ditto; tie high gives `TOUCJ` followed by `0x02` and `0x10`. The clean
+phrase is what the ROM holds, which is how Sunaabh read it, not what any static tie
+prints. README item (1) is right that the ROM text is `TWO NOT TOUCH`; it is worth being
+explicit that this is a ROM reading rather than a reachable simulation output.
+
+### Two attributions this record owes
+
+`NOTES-FOR-NEXT-TIME.md` already absorbed two lessons from this set without naming either
+source. Both are now attributable:
+
+- Line 36, *"A featured writeup's simulator reproduced the trace with every tie-high cell
+  wrong"* — that is **Soto Franco** (his §3.2 and §7.2). His constant cells were classified
+  apart from the combinational ones and never evaluated, so every tie-high read as zero,
+  the adjacency term could never assert, and a solver run returned sixteen accepted inputs.
+  The supplied trace exercises no path through a tie cell, so replay passed throughout.
+- Line 49, *"someone reverse-engineered the LFSR"* — that is **Taboada**, and as of this
+  addendum the mechanism is ours too (Addition 1).
+
+### The 15, in the post's order
+
+**1. Vladislav Shapovalov** — [PDF](https://figurez.s-ul.eu/i6GwNvSU.pdf)
+- **Reached**: PDF v1.7, 674,613 bytes, 10 pages, 6,687 words.
+- **Method**: own 7.1 kLOC C++20 extractor with no EDA dependencies; each flip-flop's
+  next-state function expanded symbolically until written in terms of other flops and the
+  primary inputs; five escalating warm-up checks run before `puzzle.gds` was opened at all.
+- **Against our record**: **contradiction**. His Table III lists four output strings and
+  states "No fifth message is reachable", from enumerating all 2^12 states of the character
+  generator "against each of the four end states of the checker". There are five, and
+  `TWO NOT TOUCH` is the one he misses — it is on Jane Street's own egg list. His four end
+  states are the gap: the state where every count is right and only the no-touch rule is
+  broken is not among them.
+- **Status**: our record stands, **reproduced**. `featured-writeups-netlist.py` prints
+  `TWO"NOT TOUCH` for a counts-correct touching board under the same netlist, and
+  `featured-writeups-grids.py` gives 113,758,569 boards that reach it. Independently
+  corroborated by Soto Franco's solver enumeration (exactly five) and Gulawani's app.
+  His flop census (92, with 84 asynchronously reset), 728 logic cells and 739 signal nets
+  all agree with ours; his `total` width does not (Addition 4).
+
+**2. Stephen Ebert** — [PDF](https://drive.google.com/file/d/1lmpogbV_alS9vgaNRp4DcAbzbfTtkt0a/view?usp=drive_link)
+- **Reached**: the table URL is a Drive viewer page; the document is at the download
+  endpoint — PDF v1.4, 1,425,324 bytes, 13 pages, 3,405 words.
+- **Method**: gdstk + Shapely extraction, cross-checked against an independent KLayout
+  extraction (same 728 instances, 13 ports, 739 endpoint partitions); three-valued
+  zero-delay simulator; then two independent solving paths — backtracking with no Z3, and
+  Z3 over the unrolled circuit — plus a circuit-versus-rules equivalence proof over all
+  2^121 boards.
+- **Against our record**: **addition**, three of them. (a) The floating net reaches `O[1]`
+  and `O[4]`; we named `O[1]` alone (Correction 2). (b) No static tie yields a clean
+  `TWO NOT TOUCH`; tie high gives `TWO NOT TOUCJ` then `0x02 0x10` (Addition 6). (c) His
+  no-Z3 backtracking is the SAT-independent uniqueness check we claimed was ours alone
+  (Correction 1). His board matches ours bit for bit.
+- **Status**: **reproduced** — all three, by `featured-writeups-netlist.py` (cone and tie
+  bytes, quoted above) and `featured-writeups-grids.py` (uniqueness = 1, board identical).
+  His 636 combinational cells and 92 flops agree with ours exactly; his "8 track total
+  population" does not (Addition 4).
+
+**3. Alejandro Soto Franco** — [PDF](https://www.sotofranco.dev/pdfs/asic-reverse-engineering.pdf)
+- **Reached**: PDF v1.7 (zip deflate), 92,583 bytes, 8 pages, 3,075 words.
+- **Method**: KLayout connectivity with the device layers deliberately excluded; extraction
+  proved isomorphic to the published warm-up netlist by iterated colour refinement to a
+  discrete partition; two independent simulators required to agree on every verdict;
+  solver run to exhaustion rather than stopping at the first answer.
+- **Against our record**: **addition**, and the most useful entry in the set.
+  (a) Region sizes 4, 5, 6, 7, 8, 8, 9, 11, 14, 21, 28. (b) The floating net's cone reaches
+  `O[1]` and `O[4]` (Correction 2). (c) He enumerated the readable messages by solver until
+  unsatisfiable and got exactly five — the "complete message map, proven" we claimed was
+  ours alone (Correction 1). (d) He solved the four recovered rules directly for a second,
+  SAT-independent uniqueness result (Correction 1). (e) He ran both simulators over all 16
+  power-up states of the four unresettable flops and got identical verdict and reply in
+  every one. (f) His §7.2 is the source of `NOTES-FOR-NEXT-TIME.md` line 36.
+- **Status**: **reproduced** for (a)–(d). `featured-writeups-grids.py`:
+  `ours: [4, 5, 6, 7, 8, 8, 9, 11, 14, 21, 28]  Soto Franco: [...] -> match: True`, and
+  uniqueness = 1. Cone reproduced as above. (e) is **unverified** here — it needs 16 Icarus
+  runs this pass did not do, and it supports rather than challenges the 2026-10-02
+  correction that re-attributed those `x` cycles from the unresettable flops to the
+  floating net, so nothing in our record turns on it. His 725-net count differs from
+  Ebert's and Shapovalov's 739 by convention, not substance. His board matches ours.
+
+**4. Sanjay Ravishankar** — [HackMD](https://hackmd.io/@sanrav2016/fh9_eHBIQ_upRtm6F9S4wA)
+- **Reached**: HTML, 75,759 bytes, 2,884 words of static text.
+- **Method**: Magic `ext2spice` to SPICE, then to Verilog; Yosys to simplify 9,876 cells to
+  696; DEF coordinates merged into a GraphViz view so the netlist graph could be drawn in
+  die position; floorplan islands excised into 11 submodules and analysed one at a time.
+- **Against our record**: **addition**, two. (a) "the Jane Street logo inscribed into both
+  the warmup and puzzle layouts" — we had only ever checked the puzzle (Addition 2).
+  (b) 113,758,569 boards satisfy two-per-row/column/region with some stars touching
+  (Addition 3).
+- **Status**: **reproduced**, both. `featured-writeups-warmup-logo.py` shows the warm-up
+  glyph is bit-identical to the puzzle's (1,366 tiles, symmetric difference 0);
+  `featured-writeups-grids.py` gives 113,758,570 total, his figure plus the one clean board.
+
+**5. Aaron Shi** — [site](https://pakkachan.github.io/asic/)
+- **Reached**: HTML, 28,889 bytes, 3,861 words.
+- **Method**: impulse response — hold every input at zero, set a single 1, clock, and diff
+  every flop against the all-zeros baseline; then push `success = 1` backwards through 47
+  gates to a required state over 56 flops and check the two derivations against each other
+  (56 of 56 agreeing, 0 disagreements).
+- **Against our record**: **nothing new**. His Bank D region map is our
+  `region-map-render.py` `REGIONS` under a letter relabelling (ours H↔his A, C↔B, K↔C,
+  F↔D, A↔E, I↔F, G↔G, E↔H, B↔I, D↔J, J↔K), and his solution grid is ours bit for bit. His
+  "there is not a single adder anywhere in the design" agrees with the reasoning in
+  `NOTES-FOR-NEXT-TIME.md`'s Crypto-1 comparison.
+- **Status**: **reproduced** as agreement — `featured-writeups-grids.py` prints
+  `Shi 121 bits identical to ours`.
+
+**6. Lokesh Aravapalli** — [site](https://avnlk.github.io/reverse-engineering-an-ASIC.html)
+- **Reached**: HTML, 151,724 bytes, 9,146 words.
+- **Method**: gdstk + Shapely union-find extraction (lost substantial time to gdstk
+  returning rotations in radians where GDSII stores degrees); Z3 on the unrolled netlist;
+  then regions recovered twice — once by fixing a reference cell and pairing it with every
+  other, once by symbolic dependency tracing — with both agreeing cell for cell.
+- **Against our record**: **addition**. The total-star counter is five bits, not eight
+  (Addition 4). Two further claims are interpretive rather than factual: that
+  `INTERNAL_3`/`INTERNAL_7` are named for Morse timing ratios, and that the string `EGG'`
+  in `layout.png` is an egg.
+- **Status**: counter width **reproduced** (quoted above). The Morse geometry is
+  **already recorded** — `evidence/easter-eggs.md` lines 165–179 already have the 36
+  `INTERNAL_3`/`INTERNAL_7` placements, the 1.38/4.14 µm 1:3 widths and the 1/3/7-unit
+  gaps — so only his *naming* reading is new, and it is **unverified**: the ratios 3 and 7
+  are indeed the Morse dash and word-gap units, but the 1.38 µm **dot** cell is the one
+  named `INTERNAL_3`, so the names do not encode their own widths and the mapping is a
+  guess. `EGG'` is **unverified and almost certainly coincidental**, which is his own
+  conclusion: it sits at offset 21,028 inside the PNG's compressed IDAT bytes, it
+  disappears when that section is decompressed, and the file holds 202 other runs of four
+  or more ASCII letters — so one three-letter run carries no information.
+
+**7. Gabriel Taboada** — [site](https://gabbytab.github.io/blog/asic-puzzle-2026/)
+- **Reached**: HTML, 22,077 bytes, 2,818 words.
+- **Method**: KLayout `LayoutToNetlist` plus custom pin-attach; MST clustering by physical
+  locality with the hatched output generator seeded as its own cluster; small clusters
+  brute-forced, then SAT over all 695 cells; afterwards the printer cut out and driven with
+  the exact bus the rest of the chip feeds it, and its Boolean pieces checked with BooFun.
+- **Against our record**: **addition**, and the biggest in the set — the whole output-
+  generator stream cipher: an 8-bit LFSR, 4-tap feedback plus the incoming `I` bit,
+  characteristic polynomial `0x1d`, a 15-byte stored ROM row, and the keystream that
+  decrypts it (Addition 1). `NOTES-FOR-NEXT-TIME.md` line 49 has the existence of the LFSR
+  from him, unattributed, and none of the mechanism.
+- **Status**: **reproduced**, completely — the eight flops, the shift chain, the four taps,
+  the polynomial, all 15 keystream bytes and all 15 stored bytes, by
+  `featured-writeups-netlist.py` (quoted above). His 147-cell region lookup also matches
+  van Driel's independent count. His `g9`/`g6`/`g7` decomposition is consistent with ours.
+
+**8. Joshua Stapleton** — [site](https://js-chip-solution.vercel.app/)
+- **Reached**: HTML, 147,207 bytes, 3,425 words of static text. Worth correcting the
+  expectation set at curation: this is a substantive technical note, not merely a
+  side-by-side viewer with identifiers — the interactive panes sit inside real prose.
+- **Method**: gdstk + Shapely; one-hot intervention to cluster response signatures into
+  regions; the 79-of-92 flop slice that can influence `success` normalised with Yosys and
+  translated into Z3 (490 ANDs, 341 ORs, 181 NOTs), then blocked and re-solved to UNSAT.
+- **Against our record**: **nothing new**. His 79-of-92 success cone agrees with Ebert's;
+  his board, extracted from the star grid rendered in the page, is ours bit for bit.
+- **Status**: **reproduced** as agreement — `Stapleton 121 bits identical to ours`.
+
+**9. José Vargas** — [site](https://jlvargasme.github.io/posts/reverse-engineering-an-asic.html)
+- **Reached**: HTML, 133,116 bytes, 5,980 words.
+- **Method**: genuinely transistor-level — poly ∩ diff to locate gates, nwell overlap to
+  classify PMOS/NMOS, diffusion partitioned into source/drain nodes, then each cell
+  simulated with both PySpice and Z3 rather than pattern-matched to a named gate. The one
+  writeup in the set that does not lean on the surviving cell names.
+- **Against our record**: **contradiction**. He reports "16 valid inputs in total" from
+  blocking and re-solving in Z3, and publishes a different winning board; he also reports
+  `BBIG BANG` and `EEMPTY SKY` (nine characters, first letter doubled) and never recovered
+  the regions.
+- **Status**: our record stands, **reproduced**, and the cause is diagnosable. His
+  published board satisfies every count — rows, columns *and* regions — but has five
+  touching pairs, so it is a `TWO NOT TOUCH` board, not an accepted one:
+
+  ```text
+    Vargas       121 bits  DIFFERENT
+      22 stars; rows=True cols=True regions=True; touching pairs=5
+      touching: [((1, 7), (2, 7)), ((4, 2), (5, 2)), ((4, 6), (5, 6)), ((7, 8), (8, 8)), ((9, 3), (10, 3))]
+  ```
+
+  Driven through our netlist it prints `TWO"NOT TOUCH` and `success` never asserts
+  (`success@None`, quoted in Addition 6). That is exactly the signature Soto Franco
+  diagnosed in his own earlier run: with tie-high cells mis-evaluated the adjacency term
+  can never assert, and the accepted set inflates to sixteen — fifteen of them carrying
+  touching stars. Vargas appears to have shipped the artifact Soto Franco caught, which
+  makes `NOTES-FOR-NEXT-TIME.md` line 36 a lesson with two featured witnesses rather than
+  one. His doubled first letters point the same way, at an output decode off by a cycle.
+
+**10. Amruth Gulawani** — [app](https://notcleo.github.io/GDS-to-RTL/TwoNotTouch-Interactive-Puzzle/)
+- **Reached**: HTML, 14,039 bytes, but only 235 words of static text — the content is the
+  app's behaviour, not prose. Reachable, not prose-checkable; the claims below are from
+  its visible copy.
+- **Method**: the recovered puzzle rebuilt as a playable 11×11 two-star Star Battle, with
+  the chip's own output line reproduced for whatever grid is placed.
+- **Against our record**: **nothing new**, but a useful corroboration: the page states it
+  reproduces all five messages "including `TWO NOT TOUCH`, which only appears when every
+  count is right and the only rule broken is the no-touch one", and that exactly one grid
+  out of 2^121 is accepted, "proved unique at the gate level".
+- **Status**: **already recorded** — that is the 2026-08-11 addendum's message map and the
+  stage-7 uniqueness result. It also independently contradicts Shapovalov's "no fifth
+  message", and its `TWO NOT TOUCH` precondition is Addition 3's 113,758,569 boards.
+
+**11. Kjartan van Driel** — [site](https://kjartanvandriel.github.io/asic/)
+- **Reached**: HTML, 55,376 bytes, 5,740 words.
+- **Method**: li1/metal tracing from pin labels and an own cycle simulator; regions ordered
+  by "trophic level" to decide which to attack first, then read one at a time.
+- **Against our record**: **nothing new** — and this is the one entry of the 15 that was
+  already in our record before this pass. It is the same URL as README §"Found
+  independently" line 219 (Kjartan van Driel & Leander Post), and it fed the 2026-09-08
+  reconciliation. Listed here for completeness only. His "eleven patches … from four cells
+  to twenty-eight, with rather odd outlines" is already quoted there, and his 147-gate
+  patch map matches Taboada's independent count.
+- **Status**: **already recorded** — README line 219 and the 2026-09-08 addendum above. The
+  genuinely unchecked set this pass covered was therefore 14, not 15.
+
+**12. Alexander Smallwood** — [PDF](https://raw.githubusercontent.com/alexseekingalpha/jsasicsolved/main/myjanestreetwriteup.pdf)
+- **Reached**: PDF v1.7, 1,290,702 bytes, 14 pages, 4,089 words.
+- **Method**: KLayout Python macros, built up one question at a time from pin geometry to a
+  full netlist; then Z3; then the recovered gate graph transplanted onto a Basys 3 FPGA
+  (Artix-7), where the 121 bits were sent over USB-UART and the 15 output bytes read off
+  the LEDs by hand.
+- **Against our record**: **addition**. His row combinatorics — 45 legal rows, 420 legal
+  ordered row pairs, Fibonacci surviving-prefix counts (Addition 5). Independently, his
+  eight output-stage registers reset to `00001111` (bits 0–3 SET, 4–7 RESET), which is a
+  second, independent sighting of Taboada's LFSR seed.
+- **Status**: **reproduced**. `featured-writeups-grids.py`: 45 of 55, `ordered legal row
+  pairs: 420 of 2025 -> match: True`, and `[2, 3, 5, 8, 13, 21, 34, 55, 89, 144]`. The
+  seed corroboration is **reproduced** too — `featured-writeups-netlist.py` shows the
+  LFSR's four `dfstp_2` reset high and four `dfrtp_2` reset low. His board matches ours.
+  He is admirably explicit that his `dfxtp` zero-initial-state assumption is shared by his
+  solver and his verifier, so their agreement does not independently establish it — Soto
+  Franco's 16-power-up-state sweep is the check that would.
+
+**13. Nikhil Kaniyeri** — [Drive](https://drive.google.com/file/d/1ZmbmW6kK7hxcqemHxb7zkxzubLMro7pP/view?usp=sharing)
+- **Reached**: reachable, but **not text-checkable**. The table URL serves a Drive viewer
+  page; the download endpoint returns `video/mp4`, 33,729,270 bytes, which `file` reports
+  as `ISO Media, MP4 Base Media v1`. There is no text to extract.
+- **Method**: as the results post describes it — the extracted netlist compiled into
+  Minecraft command blocks.
+- **Against our record**: **unknown**. Nothing is claimed here either way.
+- **Status**: **unverified**, and listed as such rather than folded in. Watching or
+  transcribing the video was explicitly out of scope for this pass. A method difference of
+  this kind asserts nothing about our record, so the gap is recorded, not a loose end that
+  changes any conclusion above.
+
+**14. David Garner** — [PDF](https://github.com/davidg351/Jane-Street-Puzzle-August-2026/blob/main/JaneStreetPuzzleWriteup_DavidGarner_FINAL.pdf)
+- **Reached**: the table URL is a GitHub blob page (166,991 bytes of UI); the document is
+  on `raw.githubusercontent.com` — PDF v1.7, 3,436,836 bytes, 22 pages, 5,187 words.
+- **Method**: entirely Cadence — Virtuoso stream-in, PVS LVS in extraction-only mode to a
+  SPICE/CDL netlist, a Perl converter to Verilog, Xcelium for digital simulation, and then
+  a full-transistor Spectre analog simulation of the whole chip as a cross-check.
+- **Against our record**: **addition** and **contradiction**. (a) His Perl generator
+  produced 31,197,434 regionless two-star boards — our number, independently — and he
+  simulated all of them, which retires our "no other writeup contains" claim
+  (Correction 1). (b) The logo is in the warm-up layout, upper-right (Addition 2).
+  (c) His analog run found large glitches on `O[7:0]` between successive bits, harmless if
+  the bus is sampled on falling clock edges — something no simulation in this record could
+  have seen. (d) He reports 5,296,794 regionless one-star boards; the true count is
+  5,296,790.
+- **Status**: (a), (b) **reproduced** — `31,197,434 -> match: True`, and the warm-up glyph
+  identity above. (d) **reproduced as a correction to him**: a one-star board is a
+  permutation `s` with `|s(i+1) - s(i)| >= 2`, i.e. Hertzsprung's problem, OEIS A002464;
+  `featured-writeups-grids.py` computes 5,296,790, validates the method against brute force
+  for n ≤ 8 and against the published values to n = 11, and shows his figure is high by 4.
+  His conclusion is untouched — no one-star board is accepted on either count. (c) is
+  **unverified** and will stay so: it needs a transistor-level analog simulation of the
+  whole chip, which this record has no path to and which `~/.claude/CLAUDE.md`'s host rules
+  would route to the batch fleet rather than run here. Recorded as a real finding of his,
+  not adopted as ours. His input vector matches ours.
+
+**15. Marcin Wójcik** — [site](https://synhex.com/notes/jane-street-puzzle-solution.html)
+- **Reached**: HTML, 27,213 bytes, 2,462 words.
+- **Method**: a Rust GDS-to-netlist pipeline built with coding agents against the warm-up
+  as oracle; Yosys BMC (one run, about seven seconds); then a Groth16 proof over BN254,
+  via a Rust checker inside the SP1 RISC-V zkVM, that he possesses a winning trace without
+  revealing it — 36 public bytes, being the model hash and `PASS = 1`.
+- **Against our record**: **contradiction**, though he half-retracts it himself. He writes
+  that "in the layout, all 84 resettable dfrtp cells were disconnected from the top-level
+  `rst_n` net", and that he reconnected them. That is a property of his extractor, not of
+  the layout.
+- **Status**: our record stands, **reproduced**:
+
+  ```text
+  async nets: {'rst_n': 88, None: 4}
+  resettable flops: 88; of those on rst_n: 88
+  Wojcik's 'all 84 dfrtp disconnected from rst_n': NOT reproduced
+  ```
+
+  All 88 flops with an asynchronous pin — 84 `dfrtp_2` reset pins and 4 `dfstp_2` set pins
+  — reach `rst_n` in `evidence/puzzle-extracted.v`; only the 4 `dfxtp_2` have no async pin,
+  which is the real and separate fact. His own account of why BMC first returned garbage
+  (26 undriven input pins left free for the solver to choose) is a genuinely useful warning
+  and is consistent with Vargas's and Soto Franco's experience. His remaining driverless
+  pin, `u_a311o_2_3326.A1`, is our `net_00575`'s load on `a311o_2_177370_89520.A1`; his
+  finding that tying it 0, 1 or free does not change the winning behaviour agrees with the
+  cone result above — it cannot reach `success`. He is also candid that his proof binds a
+  witness to the model's hash without establishing that the model came from the public GDS,
+  which is the honest limitation.
+
+### Scorecard for this pass
+
+14 of the 15 were genuinely unchecked (van Driel was already in the record). 13 of those 14
+were read as text; Kaniyeri is a video and Gulawani is an app whose 235 words of copy were
+all that could be read. Two corrections to our record, six additions, four contradictions
+in which our record held, and two attributions paid. The single largest gain is Taboada's
+stream cipher, which turns `NOTES-FOR-NEXT-TIME.md` line 49 from a borrowed sentence into
+30 reproduced bytes. The most useful correction is the least flattering one: all three
+things README claimed no other writeup contained were in this set, two of them in more
+than one writeup.
