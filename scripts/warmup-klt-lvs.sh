@@ -7,8 +7,11 @@
 #   build/warmup-klt-lvs.spice --klt lvs--> puzzle/warmup/01_netlist.v                 (signal-only)
 #   build/warmup-klt-lvs.spice --klt lvs--> puzzle/warmup/02_netlist_with_power_rails.v (PG pins)
 #
-# Writes the klt lvs envelopes to evidence/warmup-klt-lvs-{01,02}.json (committed;
-# re-verify with `klt lvs --check`), with reference-side net/instance names elided. The extracted netlist stays in build/
+# Writes the klt lvs envelopes to evidence/warmup-klt-lvs-{01,02}.json (committed,
+# with reference-side net/instance names elided). `klt lvs --check` cannot re-verify
+# them today: puzzle/ is a git clone, so klt anchors the recorded reference path on
+# *that* repo while --check resolves it against this one (klayout-tools#5631) -- see
+# evidence/warmup-klt-lvs.md, Run 2. The extracted netlist stays in build/
 # (gitignored): it is derived from a file that carries no license (CLAUDE.md §3).
 # Never reads puzzle/puzzle.gds.
 #
