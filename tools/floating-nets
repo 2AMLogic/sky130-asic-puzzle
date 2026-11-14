@@ -5,8 +5,8 @@
 
 A floating net is a net that is not a top-level port, feeds at least one
 cell input pin, and is driven by no cell output pin. sky130_fd_sc_hd's driven
-pins are X, Y, Q, HI and LO (see OUTPUT_PIN_NAMES in tools/gds_extract.py);
-every other signal pin is an input. Fill cells are ignored.
+pins are X, Y, Q, HI and LO (`verilog_netlist.DRIVEN_PINS`, the one shared
+definition); every other signal pin is an input. Fill cells are ignored.
 
 Prints the count and exits 0 when it equals --expect (default 1), else 1.
 Net names are printed only as counts of load pins, never layout content.
@@ -20,9 +20,6 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verilog_netlist as vn  # noqa: E402
 
-OUTPUT_PINS = frozenset({"X", "Y", "Q", "HI", "LO"})
-SUPPLY = frozenset({"VPWR", "VGND", "VPB", "VNB"})
-
 
 def floating(nl: vn.Netlist) -> dict[str, int]:
     ports = set(nl.port_names())
@@ -32,13 +29,20 @@ def floating(nl: vn.Netlist) -> dict[str, int]:
         if vn.is_fill(inst.cell):
             continue
         for pin, net in inst.connections.items():
-            if pin in SUPPLY:
+            if pin in vn.POWER_PINS:
                 continue
-            if pin in OUTPUT_PINS:
+            if pin in vn.DRIVEN_PINS:
                 driven.add(net)
             else:
                 loads[net] = loads.get(net, 0) + 1
-    return {n: c for n, c in loads.items() if n not in ports and n not in driven and n not in SUPPLY}
+    # `vn.POWER_NETS` (not POWER_PINS) is the right set for the last test: it
+    # filters nets *named* like a supply rail, e.g. an input pin tied straight
+    # to VGND, which no cell output drives and which is not floating either.
+    return {
+        n: c
+        for n, c in loads.items()
+        if n not in ports and n not in driven and n not in vn.POWER_NETS
+    }
 
 
 def main() -> int:
