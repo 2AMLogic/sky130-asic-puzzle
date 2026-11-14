@@ -121,15 +121,8 @@ else
   KLT_RESULT="PASSED (equivalent to 01_netlist.v)"
   # Mutation check: the step must be able to fail. Drop one signal instance from
   # the converted netlist and require the comparator to reject it.
-  python3 -I - "$KLT_NETLIST" "$BUILD/warmup-klt-mutated.v" "$ROOT/tools" <<'PY'
-import sys
-sys.path.insert(0, sys.argv[3])
-import verilog_netlist as vn
-nl = vn.load(sys.argv[1])
-victim = next(i for i in nl.instances if not vn.is_fill(i.cell))
-nl.instances.remove(victim)
-open(sys.argv[2], "w").write(vn.write_verilog(nl))
-PY
+  "$ROOT/tools/rename" --no-rename --mutate drop-instance \
+      "$KLT_NETLIST" -o "$BUILD/warmup-klt-mutated.v"
   if "$ROOT/tools/compare" "$BUILD/warmup-klt-mutated.v" "$GOLDEN" >/dev/null 2>&1; then
     echo "FAILED — comparator accepted a netlist with an instance removed." >&2
     exit 1
