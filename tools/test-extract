@@ -42,7 +42,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from testutil import PASS, FAIL, SKIP, _box, _label, make_tracker
+from testutil import SKIP, _box, _label, make_tracker, summarize
 
 EXTRACT = os.path.join(HERE, "extract")
 COMPARE = os.path.join(HERE, "compare")
@@ -377,11 +377,7 @@ def main() -> int:
     _smoke_puzzle()
 
     print("=" * 60)
-    failed = [r for r in results if r[1] == FAIL]
-    skipped = [r for r in results if r[1] == SKIP]
-    passed = [r for r in results if r[1] == PASS]
-    print(f"{len(passed)} passed, {len(failed)} failed, {len(skipped)} skipped")
-    return 1 if failed else 0
+    return summarize(results)
 
 
 if __name__ == "__main__":
