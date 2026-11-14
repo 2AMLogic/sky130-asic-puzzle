@@ -119,8 +119,11 @@ Four extraction advisories, all expected, none a finding:
 
 ### Stage 2 — `evidence/puzzle-extracted.v` as committed: no report produced
 
-`klt lvs` exits **1** and writes an error envelope instead of a report. Verbatim
-(`error.message` from the JSON on stdout):
+`klt lvs` exits **1** and writes an `{"error": ...}` envelope instead of a
+report — on **stderr**. Stdout stays empty, so the file the script stages under
+`build/` for a refused run is zero bytes, not an error envelope. Verbatim
+(`error.message`, as the JSON decodes it — `klt` doubles the backslash in the
+raw JSON string):
 
 ```
 could not convert gate-level-verilog reference netlist
