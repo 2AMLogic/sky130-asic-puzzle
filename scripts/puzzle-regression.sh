@@ -5,6 +5,10 @@
 #   puzzle/puzzle.gds --tools/extract--------> build/puzzle-extract.v --compare--> evidence/puzzle-extracted.v
 #                     --tools/klt-extract----> build/puzzle-klt.v     --compare--> evidence/puzzle-extracted.v
 #
+# Runs tools/test-extract first (the self-test for tools/gds_extract.py, issue
+# #79) — it lives here rather than in the warm-up regression because its step 5
+# reads puzzle/puzzle.gds, which the warm-up deliberately never does.
+#
 # Also asserts the floating-net invariant (exactly one non-port net with loads
 # and no driver, in each netlist) and runs one mutation check (a dropped
 # instance must be rejected). All outputs go to build/ (gitignored); nothing
@@ -23,7 +27,7 @@ for arg in "$@"; do
   case "$arg" in
     --no-fetch) FETCH=0 ;;
     --require-klt) REQUIRE_KLT=1 ;;
-    -h|--help) sed -n '2,15p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,18p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "puzzle-regression: unknown argument $arg" >&2; exit 2 ;;
   esac
 done
@@ -53,21 +57,31 @@ if ! command -v klt >/dev/null 2>&1; then
   echo "NOTE — klt is not on PATH; the klt half will be skipped (not a pass)."
 fi
 
-echo; echo "1. tools/extract -> compare against evidence/puzzle-extracted.v"; hr
+echo; echo "1. Extractor self-test (tools/gds_extract.py)"; hr
+# Issue #79. This self-test belongs here and NOT in scripts/warmup-regression.sh:
+# its step 5 reads puzzle/puzzle.gds, and the warm-up regression deliberately
+# never does so the warm-up stays green independently of the puzzle (CLAUDE.md
+# §4, scripts/warmup-regression.sh:9-11). Before #79 it was listed only in
+# package.json's `npm test`, which no CI step invokes, so the synthetic
+# unconnected-pin and supply-short hard-error cases — covered by nothing else —
+# ran in no CI path.
+"$ROOT/tools/test-extract"
+
+echo; echo "2. tools/extract -> compare against evidence/puzzle-extracted.v"; hr
 "$ROOT/tools/extract" "$LAYOUT" -o "$BUILD/puzzle-extract.v"
 "$ROOT/tools/compare" "$BUILD/puzzle-extract.v" "$GOLDEN"
 "$ROOT/tools/floating-nets" "$BUILD/puzzle-extract.v"
 
 KLT_RESULT="SKIPPED (klt not on PATH)"
 if command -v klt >/dev/null 2>&1; then
-  echo; echo "2. klt extract --abstract-cells -> compare against evidence/puzzle-extracted.v"; hr
+  echo; echo "3. klt extract --abstract-cells -> compare against evidence/puzzle-extracted.v"; hr
   echo "klt: $(klt --version)"
   "$ROOT/tools/klt-extract" "$LAYOUT" -o "$BUILD/puzzle-klt.v"
   "$ROOT/tools/compare" "$BUILD/puzzle-klt.v" "$GOLDEN"
   "$ROOT/tools/floating-nets" "$BUILD/puzzle-klt.v"
   KLT_RESULT="PASSED (equivalent to puzzle-extracted.v)"
 
-  echo; echo "3. Mutation check: a dropped instance must be rejected"; hr
+  echo; echo "4. Mutation check: a dropped instance must be rejected"; hr
   python3 -I - "$BUILD/puzzle-klt.v" "$BUILD/puzzle-klt-mutated.v" "$ROOT/tools" <<'PY'
 import sys
 sys.path.insert(0, sys.argv[3])
