@@ -22,14 +22,16 @@ is a proof that the first answer is the only one within the bound.
 
 from __future__ import annotations
 
+import argparse
 import re
+import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from tools.sim import bmc
 from tools.sim.celltable import CellTable, derive_cell_tables, load_tables, save_tables
-from tools.sim.icarus import SimResult, compile_and_run
+from tools.sim.icarus import IcarusNotFoundError, SimResult, compile_and_run
 from tools.sim.pdk import ResolvedModels, resolve_sky130_models
 from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model, simulate
 from tools.sim.testbench import SequenceExpectation, build_sequence_testbench
@@ -72,6 +74,103 @@ def load_design(
             save_tables(tables, table_cache, pdk)
     model = build_model(nl, tables, clock_port=clock_port)
     return LoadedDesign(netlist=nl, model=model, tables=tables, pdk=pdk, source=netlist_path)
+
+
+EXIT_ERROR = 2
+
+
+def load_design_for_cli(args: argparse.Namespace) -> tuple[LoadedDesign, list[str]] | int:
+    """Shared preamble of the run_solve/run_answer CLIs: checks, load, banner.
+
+    Checks the netlist exists, guards on python-sat being importable, runs
+    load_design with the CLI's four design arguments, prints the
+    PDK/netlist/truth-table banner, and picks the default free ports (every
+    input that is not the clock, reset or enable port, unless --free says
+    otherwise). Returns (design, free_ports), or EXIT_ERROR after printing
+    the problem to stderr — callers return that code directly. A missing
+    Icarus (deriving cell tables compiles the PDK models) is reported the
+    same way, so a solver CLI never tracebacks on an environment error.
+
+    Prints no trailing blank line after the banner; each CLI emits its own
+    where its layout wants one.
+    """
+    if not args.netlist.exists():
+        print(f"no such netlist: {args.netlist}", file=sys.stderr)
+        return EXIT_ERROR
+    try:
+        import pysat  # noqa: F401
+    except ImportError:
+        print("python-sat is not installed — `pip install python-sat`", file=sys.stderr)
+        return EXIT_ERROR
+
+    try:
+        design = load_design(
+            args.netlist,
+            work_dir=args.work_dir,
+            table_cache=args.table_cache,
+            clock_port=args.clock_port,
+        )
+    except IcarusNotFoundError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return EXIT_ERROR
+    print(design.pdk.describe())
+    print()
+    print(f"Netlist: {args.netlist} (top `{design.netlist.top}`)")
+    print(f"Cell truth tables: {len(design.tables)} cell types, measured from the models above")
+    free_ports = args.free or [
+        p for p in design.model.inputs
+        if p not in (args.clock_port, args.reset_port, args.enable_port)
+    ]
+    return design, free_ports
+
+
+def add_design_args(
+    ap: argparse.ArgumentParser, *, work_dir_default: Path, goal_help: str
+) -> None:
+    """Register the design options shared by the run_solve/run_answer CLIs.
+
+    Byte-identical between the two CLIs as they stood; --goal's help text
+    and --work-dir's default are the two deliberate differences and arrive
+    as parameters. Each CLI adds its own remaining options after this call.
+    """
+    ap.add_argument("--netlist", required=True, type=Path)
+    ap.add_argument("--clock-port", default="clk")
+    ap.add_argument("--reset-port", default="rst_n")
+    ap.add_argument("--enable-port", default="enable")
+    ap.add_argument("--goal", default="success", help=goal_help)
+    ap.add_argument("--free", action="append", default=None,
+                    help="input port the solver may choose (repeatable)")
+    ap.add_argument("--reset-cycles", type=int, default=3)
+    ap.add_argument("--idle-cycles", type=int, default=1)
+    ap.add_argument("--active-cycles", type=int, default=121)
+    ap.add_argument("--solver", default="cadical195")
+    ap.add_argument("--clock-period-ns", type=int, default=10)
+    ap.add_argument("--work-dir", type=Path, default=work_dir_default)
+    ap.add_argument("--table-cache", type=Path, default=None)
+
+
+def report_solver_sim_failure(sim: SimResult) -> int | None:
+    """The solver CLIs' own compile-failure report, distinct from report_sim_failure.
+
+    run_solve/run_answer print a lowercase `compile FAILED` to stdout with
+    the compiler stderr after it, and fold a did-not-run into their
+    VerifyResult.ok check rather than a separate branch — both deliberate,
+    and both quoted in committed evidence records, so this must not be
+    "upgraded" to icarus.report_sim_failure's stderr form. Returns
+    EXIT_ERROR, or None when the simulation compiled.
+    """
+    if not sim.compiled:
+        print("compile FAILED")
+        print(sim.compile_stderr)
+        return EXIT_ERROR
+    return None
+
+
+def print_sim_result_lines(sim: SimResult) -> None:
+    """Echo the testbench's own RESULT / EXPECT FAIL lines from sim stdout."""
+    for line in sim.run_stdout.splitlines():
+        if line.startswith(("RESULT ", "EXPECT FAIL")):
+            print(line)
 
 
 # --------------------------------------------------------------------------

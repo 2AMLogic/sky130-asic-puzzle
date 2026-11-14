@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -43,6 +44,27 @@ class SimResult:
     run_stderr: str
     compile_returncode: int
     run_returncode: int | None
+
+
+def report_sim_failure(sim: SimResult) -> int | None:
+    """Print the CLI sim-failure report for `sim`, or return None if it ran.
+
+    The shared tail of the CLI `main()` preambles: `COMPILE FAILED` /
+    `SIMULATION DID NOT RUN` on stderr with the underlying compiler output
+    underneath, and the design-failure exit code (1) — the same text and
+    stream each CLI printed before this helper existed. Returns the code the
+    caller should return from main(), or None when the simulation compiled
+    and ran.
+    """
+    if not sim.compiled:
+        print("COMPILE FAILED", file=sys.stderr)
+        print(sim.compile_stderr, file=sys.stderr)
+        return 1
+    if not sim.ran:
+        print("SIMULATION DID NOT RUN", file=sys.stderr)
+        print(sim.run_stderr, file=sys.stderr)
+        return 1
+    return None
 
 
 def require_icarus() -> tuple[str, str]:
