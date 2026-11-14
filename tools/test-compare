@@ -31,21 +31,29 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(0, HERE)
+
+from testutil import PASS, FAIL, SKIP, summarize
+
 COMPARE = os.path.join(HERE, "compare")
 RENAME = os.path.join(HERE, "rename")
 WARMUP = os.path.join(ROOT, "puzzle", "warmup", "01_netlist.v")
 WARMUP_POWER = os.path.join(ROOT, "puzzle", "warmup", "02_netlist_with_power_rails.v")
 
-PASS, FAIL, SKIP = "pass", "FAIL", "skip"
 results: list[tuple[str, str, str]] = []
 
 
 # Deliberately not shared with tools/testutil.py's record()/check(): this
 # script's print format ("[  ok  ] name — detail") predates and differs from
-# the format the other three test-* scripts settled on, and there is no
+# the format the other four test-* scripts settled on, and there is no
 # separate check() here (see expect() below). Keeping it local avoids
 # entangling this file's own mutation-suite reporting with the other
 # scripts' synthetic-cell self-tests.
+#
+# The divergence is scoped to this function. The status constants and the
+# trailing summary line never differed, so both come from testutil -- keeping
+# local copies of those would let them drift out of agreement with the
+# summarize() that reads them.
 def record(name: str, status: str, note: str = "") -> None:
     results.append((name, status, note))
     mark = {PASS: "  ok  ", FAIL: " FAIL ", SKIP: " skip "}[status]
@@ -318,16 +326,12 @@ def main() -> int:
         synthetic_checks(tmp)
         print()
         warmup_checks(tmp)
-    failures = [r for r in results if r[1] == FAIL]
-    skipped = [r for r in results if r[1] == SKIP]
     print()
-    print(
-        f"{len(results) - len(failures) - len(skipped)} passed, "
-        f"{len(failures)} failed, {len(skipped)} skipped"
-    )
-    for name, _status, note in failures:
-        print(f"\nFAILED: {name}\n{note}")
-    return 1 if failures else 0
+    rc = summarize(results)
+    for name, status, note in results:
+        if status == FAIL:
+            print(f"\nFAILED: {name}\n{note}")
+    return rc
 
 
 if __name__ == "__main__":

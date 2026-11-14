@@ -34,7 +34,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from testutil import PASS, FAIL, SKIP, make_tracker
+from testutil import SKIP, make_tracker, summarize
 
 INVENTORY = os.path.join(HERE, "inventory")
 WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
@@ -224,11 +224,7 @@ def main() -> int:
     test_puzzle_counts()
 
     print("=" * 60)
-    failed = [r for r in results if r[1] == FAIL]
-    skipped = [r for r in results if r[1] == SKIP]
-    passed = [r for r in results if r[1] == PASS]
-    print(f"{len(passed)} passed, {len(failed)} failed, {len(skipped)} skipped")
-    return 1 if failed else 0
+    return summarize(results)
 
 
 if __name__ == "__main__":

@@ -46,6 +46,7 @@ from pathlib import Path
 from tools.sim.icarus import compile_and_run
 from tools.sim.pdk import PdkResolutionError, resolve_sky130_models
 from tools.sim.replay import run_vcd_replay
+from tools.testutil import report_checks
 from tools.vcd.model import ValueChange
 from tools.vcd.reader import read_vcd
 from tools.vcd.writer import document_to_vcd
@@ -210,15 +211,7 @@ def main() -> int:
         print(f"PDK resolution failed: {e}")
     checks.append((f"corrupted bit at t={flip_time} detected at the right (time, signal)", detected))
 
-    print()
-    passed = True
-    for label, ok in checks:
-        status = "PASS" if ok else "FAIL"
-        print(f"[{status}] {label}")
-        passed = passed and ok
-
-    print(f"\nSELF-TEST {'PASS' if passed else 'FAIL'} ({sum(1 for _, ok in checks if ok)}/{len(checks)} checks passed)")
-    return 0 if passed else 1
+    return report_checks(checks)
 
 
 if __name__ == "__main__":
