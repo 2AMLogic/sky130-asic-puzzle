@@ -92,7 +92,31 @@ stripped is net and instance names. So the puzzle is a **connectivity** problem,
 pattern-recognition or pin-geometry problem — and connectivity extraction from a
 placed-and-routed layout is exactly the capability under test.
 
-## The capability gap this exercises
+## The capability gap this exercises — closed upstream
+
+**Closed.** The device-level-only extraction gap this canary was built to exercise is
+closed: `klt extract --abstract-cells` (landed upstream 2026-08-08) does cell-level
+extraction, and it is verified here against published ground truth — `warmup/04_final.gds`
+extracts to a gate-level netlist that `tools/compare` reports **equivalent** to
+`warmup/01_netlist.v`, with the exact commands recorded in
+[`evidence/klt-extract.md`](evidence/klt-extract.md). CI runs that same extraction as a
+regression gate on the warm-up and on `puzzle.gds` (`scripts/warmup-regression.sh
+--require-klt`, `scripts/puzzle-regression.sh`). Both upstream gaps behind the premise are
+closed — [#619](https://github.com/2AMLogic/klayout-tools/issues/619) and
+[#620](https://github.com/2AMLogic/klayout-tools/issues/620), checked
+`closed/completed` via the GitHub API 2026-11-14 — and five further findings closed
+upstream (#673, #674, #675, #3748, #3749) are **not yet re-verified from this side**: that
+is the work in #74 and #76, and [`WORK_PLAN.md`](WORK_PLAN.md) holds what remains (the
+prioritized roadmap lands in #73). The gate-level-LVS seam this puzzle also exercised was
+flagged in [`2AMLogic/sky130-modexp#8`](https://github.com/2AMLogic/sky130-modexp/issues/8);
+that issue closed completed on 2026-08-15, with the deck's coverage gaps stated in its
+verdict. Findings against the toolkit are still filed **upstream on `klayout-tools`**, not
+here; this repo holds the harness and the evidence, and
+[`evidence/upstream.md`](evidence/upstream.md) is the full traceability record.
+
+The original premise is kept below as the record, the way the lifted-embargo section above
+keeps its record: it described the toolkit before both gaps closed and is stale in the
+present tense.
 
 `klt extract` produces a **device-level** SPICE netlist — transistors and nets. This puzzle
 needs **cell-level** extraction: treat each standard cell as a black box with known pins,
@@ -149,7 +173,7 @@ repository. Fetch them locally:
 ```
 spec/       what "solved" means, and the staged plan
 tools/      extraction / recognition / solving harness
-scripts/    fetch + embargo check
+scripts/    fetch + embargo check, warm-up & puzzle regression gates, klt LVS, lint
 evidence/   extraction results, simulation logs, the solve, the writeup draft
 puzzle/     upstream files, gitignored, never committed
 ```
