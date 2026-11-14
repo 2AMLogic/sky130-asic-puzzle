@@ -13,8 +13,16 @@
 # Never reads puzzle/puzzle.gds.
 #
 # Needs a sky130 PDK. Set PDK_ROOT to one, or have it under ~/.ciel. klt lvs has
-# no --pdk flag (see evidence/upstream.md), so the variant is exported as $PDK.
-# A missing PDK is a hard error: this never silently skips.
+# no --pdk CLI flag, but its request carries `reference.pdk`/`reference.pdk_root`
+# (documented since before Run 1, and what klayout-tools#3748's fix points at in
+# its error text), so the variant is named in the request rather than exported.
+# $PDK here is only this script's own default, passed explicitly to the two
+# commands that take it. A missing PDK is a hard error: this never silently skips.
+#
+# `klt extract --abstract-cells` is given the PDK's own sky130_fd_sc_hd.lef via
+# --abstract-cell-lef: without it the std-cell black boxes carry no VNB pin, and
+# the fix for klayout-tools#3749 (which merges the LEF's pins into a labelled
+# cell's pin list) never engages. See evidence/warmup-klt-lvs.md, Run 2.
 #
 # Exit 0 means the runs completed and envelopes were written, NOT that the compare
 # matched; the verdicts are printed and live in the envelopes.
@@ -27,7 +35,7 @@ TOP="adder_demo"
 WARMUP="puzzle/warmup"
 BUILD="build"
 LAYOUT_NETLIST="$BUILD/warmup-klt-lvs.spice"
-export PDK="${PDK:-sky130A}"
+PDK="${PDK:-sky130A}"
 
 command -v klt >/dev/null || { echo "warmup-klt-lvs: klt not found on PATH" >&2; exit 2; }
 
@@ -35,9 +43,21 @@ if [ ! -f "$WARMUP/04_final.gds" ]; then
   ./scripts/fetch-puzzle.sh
 fi
 
-if ! klt pdk find --pdk "$PDK" >/dev/null 2>&1; then
+if ! PDK_JSON="$(klt pdk find --pdk "$PDK" --format json 2>/dev/null)"; then
   echo "warmup-klt-lvs: no '$PDK' PDK found. Point PDK_ROOT at a sky130 install" >&2
   echo "(keep it inside your worktree; do not install into shared host paths)." >&2
+  exit 2
+fi
+
+# The std-cell LEF --abstract-cell-lef needs, derived from the PDK this run
+# actually resolved rather than hardcoded to ~/.ciel.
+LIBS_REF="$(printf '%s' "$PDK_JSON" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["assets"]["libs_ref"])')"
+CELL_LEF="$LIBS_REF/sky130_fd_sc_hd/lef/sky130_fd_sc_hd.lef"
+if [ ! -f "$CELL_LEF" ]; then
+  echo "warmup-klt-lvs: '$PDK' resolved to libs_ref '$LIBS_REF' but its" >&2
+  echo "sky130_fd_sc_hd/lef/sky130_fd_sc_hd.lef is missing. --abstract-cells" >&2
+  echo "cannot resolve the std cells' VNB/VPB pins without it, which silently" >&2
+  echo "changes the verdict; install the libs.ref assets and re-run." >&2
   exit 2
 fi
 
@@ -45,7 +65,8 @@ mkdir -p "$BUILD" evidence
 klt --version
 
 klt extract "$WARMUP/04_final.gds" --deck sky130 --pdk "$PDK" --top "$TOP" \
-  --abstract-cells 'sky130_fd_sc_hd__*' --def-pins "$WARMUP/03_post_place_and_route.def" \
+  --abstract-cells 'sky130_fd_sc_hd__*' --abstract-cell-lef "$CELL_LEF" \
+  --def-pins "$WARMUP/03_post_place_and_route.def" \
   -o "$LAYOUT_NETLIST" --format json > "$BUILD/warmup-klt-lvs-extract.json"
 
 for ref in 01:01_netlist 02:02_netlist_with_power_rails; do
@@ -57,7 +78,8 @@ for ref in 01:01_netlist 02:02_netlist_with_power_rails; do
   klt lvs - --format json > "$out" <<JSON || rc=$?
 {"layout": {"netlist": "$LAYOUT_NETLIST", "top": "$TOP"},
  "reference": {"netlist": "$WARMUP/$name.v", "top": "$TOP",
-               "form": "gate-level-verilog", "library": "sky130_fd_sc_hd"}}
+               "form": "gate-level-verilog", "library": "sky130_fd_sc_hd",
+               "pdk": "$PDK"}}
 JSON
   # exit 3 is a mismatch verdict, not a failure to run
   [ "$rc" -le 3 ] || { echo "warmup-klt-lvs: klt lvs crashed (rc=$rc) on $name" >&2; exit "$rc"; }
