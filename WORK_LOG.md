@@ -5,6 +5,19 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-15
+
+- **PR #105**: test: add CLI main() return-contract selftest for the five tools/sim CLIs
+- **PR #103**: README: close the capability-gap section, keep the premise as history
+- **PR #95**: refactor(tools): share one driven/supply pin definition, widening it to HI/LO
+- **PR #99**: docs(evidence): check the 15 featured writeups against our record
+- **PR #90**: feat(puzzle-lvs): run klt lvs on puzzle.gds, file the port-name reader defect
+- **Issue #102** (closed): No test exercises any tools/sim CLI main(): a return-contract regression reached review undetected
+- **Issue #93** (closed): One source of truth for driven/supply pin names: tools/floating-nets re-rolls both, and its copy disagrees with the gds_extract.py constant it cites
+- **Issue #75** (closed): README: the "capability gap" section still describes klt extract as device-level only
+- **Issue #77** (closed): Check the 15 featured writeups against our record and append the result to evidence/easter-eggs.md
+- **Issue #76** (closed): Run klt lvs on puzzle.gds against evidence/puzzle-extracted.v (scope item 3 of #47)
+
 ### 2026-11-14
 
 - **PR #88**: refactor(regressions): call tools/rename for the drop-instance mutation check
