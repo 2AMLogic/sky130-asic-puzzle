@@ -324,17 +324,17 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_solve.py` | known-answer self-test of the whole solver stack against the warm-up |
 
 Which of these run in CI: `scripts/sim-selftests.sh` (issue #108) gates
-`selftest_pdk`, `selftest_answer`, `selftest_portmap` and `selftest_replay`,
-plus the directed `run_warmup_directed` run — the shift-load protocol's
-semantic gate, whose cases carry `expected_s` from `A + B == 496`
-(`selftest_replay` alone cannot catch a protocol mutation: it records and
-replays against the same netlist, so both sides move together). CI runs it
-with `--require-pdk` after the fetch step, so a missing `iverilog` or PDK
-fails the job rather than skipping. `selftest_solve` is reported as a skip
-naming #98 (`celltable.py`'s port-direction parser does not match this
-open_pdks build's `output wire X ;` declarations), keeping that coverage gap
-visible in the CI log; `selftest_cli` runs separately, ahead of the fetch, on
-purpose (#102: embargo-trivial).
+`selftest_pdk`, `selftest_answer`, `selftest_portmap`, `selftest_replay` and
+`selftest_solve` (gated in by issue #118), plus the directed
+`run_warmup_directed` run — the shift-load protocol's semantic gate, whose
+cases carry `expected_s` from `A + B == 496` (`selftest_replay` alone cannot
+catch a protocol mutation: it records and replays against the same netlist,
+so both sides move together). CI runs the gate with `--require-pdk` after
+the fetch step, so a missing `iverilog`, PDK or `python-sat` fails the job
+rather than skipping — `selftest_solve` additionally needs `python-sat`,
+pinned in CI because the package publishes no stable release;
+`selftest_cli` runs separately, ahead of the fetch, on purpose (#102:
+embargo-trivial).
 
 ### Where the behavioural models come from, and how to install them
 
@@ -494,7 +494,8 @@ python3 -m tools.sim.selftest_celltable
 All of the above except `selftest_cli` run in CI via
 `scripts/sim-selftests.sh --require-pdk` (issue #108), together with the
 directed `run_warmup_directed` run that gates the shift-load protocol's
-semantics; `selftest_solve` (below) is a reported skip held on #98.
+semantics and `selftest_solve` (below), which needs `python-sat` besides
+`iverilog` and the models (issue #118).
 `selftest_cli` runs as its own earlier CI step, ahead of the puzzle fetch
 (issue #102: embargo-trivial). `selftest_celltable` runs there too — its
 fixture and negative control need nothing — and runs again in the gate once
@@ -556,11 +557,12 @@ pip install python-sat          # the solver back end; not needed by anything el
 python3 -m tools.sim.selftest_solve
 ```
 
-`selftest_solve` is currently held on #98: `celltable.py`'s port-direction
-parser does not match the `output wire X ;` form this open_pdks build's model
-files declare, so `derive_cell_tables()` cannot enumerate the cells. Until
-that parser fix lands, `scripts/sim-selftests.sh` reports the module as a
-visible skip naming #98 rather than running it.
+`selftest_solve` runs in CI's gate (gated in by issue #118): besides
+`iverilog`, the behavioural models and `puzzle/warmup/01_netlist.v` it needs
+`python-sat`, which CI installs pinned because the package publishes no
+stable release. On a host without it, `scripts/sim-selftests.sh` reports
+the module as a visible skip naming the missing prerequisite rather than
+running it.
 
 ```sh
 # structural report + solve + uniqueness + Icarus verification, in one run

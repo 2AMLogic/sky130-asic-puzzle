@@ -13,6 +13,11 @@ cd "$ROOT" || exit 1
 fail=0
 note() { printf '  %-8s %s\n' "$1" "$2"; }
 
+# Scratch file for compiler/parser stderr (issue #121): a fixed /tmp path let two
+# concurrent lint runs print each other's error text under the wrong filename.
+ERR="$(mktemp)"
+trap 'rm -f "$ERR"' EXIT
+
 echo "Lint"
 echo "------------------------------------------------------------"
 
@@ -24,19 +29,19 @@ while IFS= read -r f; do py_files+=("$f"); done < <(
 for f in "${py_files[@]:-}"; do
   [ -z "${f:-}" ] && continue
   head -n1 "$f" | grep -q 'python3' || [[ "$f" == *.py ]] || continue
-  if python3 -m py_compile "$f" 2>/tmp/lint-py-err; then
+  if python3 -m py_compile "$f" 2>"$ERR"; then
     note "ok" "$f compiles"
   else
-    note "FAIL" "$f does not compile:"; sed 's/^/           /' /tmp/lint-py-err; fail=1
+    note "FAIL" "$f does not compile:"; sed 's/^/           /' "$ERR"; fail=1
   fi
 done
 
 # 2. Shell scripts parse.
 while IFS= read -r f; do
-  if bash -n "$f" 2>/tmp/lint-sh-err; then
+  if bash -n "$f" 2>"$ERR"; then
     note "ok" "$f parses"
   else
-    note "FAIL" "$f does not parse:"; sed 's/^/           /' /tmp/lint-sh-err; fail=1
+    note "FAIL" "$f does not parse:"; sed 's/^/           /' "$ERR"; fail=1
   fi
 done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
 
