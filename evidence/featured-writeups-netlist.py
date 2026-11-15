@@ -25,16 +25,12 @@ about *this* record's netlist, so they share one load of the design:
 Run from the repo root. No puzzle file is needed: the netlist is committed,
 and the only external inputs are the sky130 cell models and Icarus.
 
-    PDK_ROOT="$HOME/.volare" PYTHONPATH=. \
-        python3 evidence/featured-writeups-netlist.py
+    PYTHONPATH=. python3 evidence/featured-writeups-netlist.py
 
-`PDK_ROOT` is set here on purpose. `tools/sim/celltable.py` parses port
-directions with a regex that matches `input A1;` but not `input wire A1;`,
-and open_pdks switched to the latter, so on a host where `klt pdk find`
-resolves the newer install the whole cycle model fails to build. Pinning the
-older root (open_pdks c6d73a35, the one `evidence/puzzle-answer.md` used)
-side-steps it. The parser gap is this repo's own, not `klt`'s, and is
-tracked as #98; drop the override once that lands.
+No `PDK_ROOT` override: this script used to pin `PDK_ROOT="$HOME/.volare"`
+because `tools/sim/celltable.py` could not parse the `input wire A1;`
+declarations current open_pdks emits (tracked as #98); the parser has been
+fixed, so the plain command above works against any resolvable install.
 """
 
 import itertools

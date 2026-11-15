@@ -311,6 +311,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
 | `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, and the `run_solve` `return rc` tail with collaborators mocked (no PDK, no `iverilog`, no `python-sat`) |
+| `tools/sim/selftest_celltable.py` | self-tests `celltable.py`'s port-direction parsing against inline fixtures: both open_pdks declaration styles (`input wire A1;` and bare `input A1;`), the `reg`/`logic` type keywords, power-only cells staying absent from the map, and the two distinct `CellTableError` messages (no PDK, no `iverilog`) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
