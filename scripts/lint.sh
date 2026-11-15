@@ -36,14 +36,16 @@ for f in "${py_files[@]:-}"; do
   fi
 done
 
-# 2. Shell scripts parse.
+# 2. Shell scripts parse. Recursive over scripts/ (unlike enumeration 3 below):
+# scripts/lib/ carries sourced helpers (e.g. klt-lvs-preamble.sh, #131) that are
+# never executed directly but must parse, or every caller dies at source time.
 while IFS= read -r f; do
   if bash -n "$f" 2>"$ERR"; then
     note "ok" "$f parses"
   else
     note "FAIL" "$f does not parse:"; sed 's/^/           /' "$ERR"; fail=1
   fi
-done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
+done < <(find scripts -type f -name '*.sh' | sort)
 
 # 3. Everything meant to be run is executable.
 #
@@ -56,7 +58,9 @@ done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
 # The set is "a top-level entry point": every tools/ file that is not a Python
 # module (*.py, imported) or documentation (*.md), plus every scripts/*.sh.
 # tools/sim/ and tools/vcd/ are import-only packages, so -maxdepth 1 excludes
-# them deliberately.
+# them deliberately. On scripts/ the same non-recursion is also deliberate, for
+# a different reason (#131): sourced helpers under scripts/lib/ carry no +x by
+# design, so the executable check must keep applying to entry points only.
 while IFS= read -r f; do
   [ -n "${f:-}" ] || continue
   [ -e "$f" ] || continue
@@ -72,7 +76,9 @@ done < <(
 
 # 4. Optional linters.
 if command -v shellcheck >/dev/null 2>&1; then
-  if shellcheck -S warning scripts/*.sh; then
+  # scripts/lib/ included (enumeration 2's rationale, #131): the sourced helper
+  # is lint-owned even though nothing executes it directly.
+  if shellcheck -S warning scripts/*.sh scripts/lib/*.sh; then
     note "ok" "shellcheck clean"
   else
     note "FAIL" "shellcheck reported problems"; fail=1
