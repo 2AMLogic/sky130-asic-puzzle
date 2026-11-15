@@ -104,10 +104,23 @@ regression gate on the warm-up and on `puzzle.gds` (`scripts/warmup-regression.s
 --require-klt`, `scripts/puzzle-regression.sh`). Both upstream gaps behind the premise are
 closed — [#619](https://github.com/2AMLogic/klayout-tools/issues/619) and
 [#620](https://github.com/2AMLogic/klayout-tools/issues/620), checked
-`closed/completed` via the GitHub API 2026-11-14 — and five further findings closed
-upstream (#673, #674, #675, #3748, #3749) are **not yet re-verified from this side**: that
-is the work in #74 and #76, and [`WORK_PLAN.md`](WORK_PLAN.md) holds what remains (the
-prioritized roadmap lands in #73). The gate-level-LVS seam this puzzle also exercised was
+`closed/completed` via the GitHub API 2026-11-14. Of five further findings closed
+upstream, [#3748](https://github.com/2AMLogic/klayout-tools/issues/3748) and
+[#3749](https://github.com/2AMLogic/klayout-tools/issues/3749) were re-verified from this
+side on 2026-11-14 under closed #74 — the result is recorded in
+[`evidence/warmup-klt-lvs.md`](evidence/warmup-klt-lvs.md) Run 2 and the rows for both are
+corrected in [`evidence/upstream.md`](evidence/upstream.md) — while
+[#673](https://github.com/2AMLogic/klayout-tools/issues/673),
+[#674](https://github.com/2AMLogic/klayout-tools/issues/674) and
+[#675](https://github.com/2AMLogic/klayout-tools/issues/675) are closed upstream but not
+yet re-checked here (no tracking issue exists for that yet). One finding filed from this
+side is still **open** upstream:
+[klayout-tools#5632](https://github.com/2AMLogic/klayout-tools/issues/5632): with
+`--abstract-cell-lef`, the merged substrate pin binds to the deck's synthesized `vsubs`
+global, which no abstracted cell ties to the ground rail, so a PG-pin gate-level reference
+still cannot match — Run 2 leaves `02_netlist_with_power_rails.v` at mismatch (243
+mismatches). [`WORK_PLAN.md`](WORK_PLAN.md) holds what remains (the prioritized roadmap
+lands in #73). The gate-level-LVS seam this puzzle also exercised was
 flagged in [`2AMLogic/sky130-modexp#8`](https://github.com/2AMLogic/sky130-modexp/issues/8);
 that issue closed completed on 2026-08-15, with the deck's coverage gaps stated in its
 verdict. Findings against the toolkit are still filed **upstream on `klayout-tools`**, not
