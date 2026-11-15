@@ -5,6 +5,19 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-14
+
+- **PR #88**: refactor(regressions): call tools/rename for the drop-instance mutation check
+- **PR #87**: refactor: share the self-test summary line via testutil.summarize()/report_checks()
+- **PR #86**: refactor: drop tools/compare --emit-json-netlist write side-channel
+- **PR #84**: ci: run tools/test-extract in the puzzle regression, find-enumerate lint's exec check
+- **PR #81**: warmup-lvs: pass --abstract-cell-lef, name the PDK in the request, record Run 2
+- **Issue #85** (closed): Remove tools/compare --emit-json-netlist: a dead, undocumented flag superseded by tools/extract --json
+- **Issue #83** (closed): Stop re-rolling drop-instance in shell: both regression scripts inline a mutation tools/rename already implements
+- **Issue #80** (closed): Finish the tools/testutil.py consolidation: triplicated summary block and test-klt-extract's re-rolled tracker
+- **Issue #79** (closed): Stop hand-maintaining three tool inventories: tools/test-extract runs in no CI path
+- **Issue #74** (closed): Re-run the warm-up klt lvs on a klt that contains the fixes for klayout-tools #3748 and #3749
+
 ### 2026-11-12
 
 - **PR #71**: Bump Repo Skills 0.25.10 -> 0.26.1

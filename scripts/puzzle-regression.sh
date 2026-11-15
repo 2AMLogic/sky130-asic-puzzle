@@ -82,15 +82,8 @@ if command -v klt >/dev/null 2>&1; then
   KLT_RESULT="PASSED (equivalent to puzzle-extracted.v)"
 
   echo; echo "4. Mutation check: a dropped instance must be rejected"; hr
-  python3 -I - "$BUILD/puzzle-klt.v" "$BUILD/puzzle-klt-mutated.v" "$ROOT/tools" <<'PY'
-import sys
-sys.path.insert(0, sys.argv[3])
-import verilog_netlist as vn
-nl = vn.load(sys.argv[1])
-victim = next(i for i in nl.instances if not vn.is_fill(i.cell))
-nl.instances.remove(victim)
-open(sys.argv[2], "w").write(vn.write_verilog(nl))
-PY
+  "$ROOT/tools/rename" --no-rename --mutate drop-instance \
+      "$BUILD/puzzle-klt.v" -o "$BUILD/puzzle-klt-mutated.v"
   if "$ROOT/tools/compare" "$BUILD/puzzle-klt-mutated.v" "$GOLDEN" >/dev/null 2>&1; then
     echo "FAILED — comparator accepted a netlist with an instance removed." >&2
     exit 1

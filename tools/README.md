@@ -308,6 +308,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
+| `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, and the `run_solve` `return rc` tail with collaborators mocked (no PDK, no `iverilog`, no `python-sat`) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
@@ -450,6 +451,15 @@ path; no PDK, `klt` or simulator required):
 
 ```sh
 python3 -m tools.sim.selftest_pdk
+```
+
+CLI `main()` self-test (the five `run_*` entry points' return contracts —
+exact `int` return values rather than just the shell exit status, plus the
+`run_solve` `--verify` success/failure paths with its collaborators mocked;
+no PDK, `iverilog` or `python-sat` required):
+
+```sh
+python3 -m tools.sim.selftest_cli
 ```
 
 See `evidence/warmup-sim.md`, `evidence/puzzle-replay.md` and

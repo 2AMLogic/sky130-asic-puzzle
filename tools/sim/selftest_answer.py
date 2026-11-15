@@ -33,6 +33,7 @@ from pathlib import Path
 from tools.sim.answer import decode_output_cycles, select_order
 from tools.sim.icarus import compile_and_run
 from tools.sim.testbench import build_sequence_testbench
+from tools.testutil import report_checks
 
 MESSAGE = "STAGE8 OK"
 WIDTH = 8
@@ -139,16 +140,7 @@ def main() -> int:
           f"(must NOT equal {MESSAGE!r})")
     checks.append(("scrambled wiring does not falsely decode to the known message", ok_c))
 
-    print()
-    passed = True
-    for label, ok in checks:
-        status = "PASS" if ok else "FAIL"
-        print(f"[{status}] {label}")
-        passed = passed and ok
-
-    print(f"\nSELF-TEST {'PASS' if passed else 'FAIL'} "
-          f"({sum(1 for _, ok in checks if ok)}/{len(checks)} checks passed)")
-    return 0 if passed else 1
+    return report_checks(checks)
 
 
 if __name__ == "__main__":

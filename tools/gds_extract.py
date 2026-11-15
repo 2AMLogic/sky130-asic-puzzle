@@ -80,15 +80,11 @@ VIA_NAME = {67: "mcon", 68: "via", 69: "via2", 70: "via3", 71: "via4"}
 SUPPLY_PIN_NET = {"VPWR": "VPWR", "VPB": "VPWR", "VGND": "VGND", "VNB": "VGND"}
 SUPPLY_NET_NAMES = frozenset(SUPPLY_PIN_NET.values())
 
-# sky130_fd_sc_hd's only *driven* (output) pin names, derived empirically
-# from every pin name across all 69 cells `puzzle.gds` uses
-# (`evidence/pins-sky130_fd_sc_hd.json`): X/Y for combinational cells, Q for
-# flip-flops/latches. Every other pin name in the library (A*, B*, C, D, S,
-# CLK, RESET_B, SET_B, ...) is an input. Used only to guess a top-level
-# port's direction for the emitted Verilog `input`/`output` declaration --
-# `tools/compare` does not use direction at all (net *names* are what it
-# matches), so a wrong guess here cannot cause a false equivalence failure.
-OUTPUT_PIN_NAMES = frozenset({"X", "Y", "Q"})
+# The driven (output) pin names are `verilog_netlist.DRIVEN_PINS` -- one shared
+# definition (issue #93), because `tools/floating-nets` needs exactly the same
+# set and `verilog_netlist` is the module both can import (this one pulls in
+# `gds_pins`, which needs `klayout.db` at import time). Used at the port
+# direction guess in `extract()` below.
 
 # The (layer, datatype) pairs that carry a top-level net's name as GDS text
 # (`gds_layers.TOP_PORT_LABEL_SOURCES`): met3 for signal port names, met4 and
@@ -592,12 +588,16 @@ def extract(layout, source: str, top_name: str | None = None) -> ExtractionResul
                 seen_ports.add(nm)
                 port_order.append(nm)
 
+    # Guess each port's direction from the pin names on its net: driven by a
+    # cell output -> `output`, otherwise `input`. `tools/compare` does not use
+    # direction at all (net *names* are what it matches), so a wrong guess
+    # here cannot cause a false equivalence failure.
     ports: list[vn.Port] = []
     for nm in port_order:
         pins_on_net = net_signal_pins.get(nm, [])
         direction = "input"
         for _inst_name, pin_name in pins_on_net:
-            if pin_name in OUTPUT_PIN_NAMES:
+            if pin_name in vn.DRIVEN_PINS:
                 direction = "output"
                 break
         ports.append(vn.Port(name=nm, direction=direction))
