@@ -15,7 +15,10 @@ about *this* record's netlist, so they share one load of the design:
    one of sixteen accepted inputs.
 6. Gabriel Taboada's output-generator LFSR: 8 flops, 4-tap feedback plus the
    incoming `I` bit, characteristic polynomial x^8+x^4+x^3+x^2+1 (0x1D), and
-   the keystream / stored-byte pair that decrypts to the answer.
+   the keystream / stored-byte pair that decrypts to the answer — plus the
+   8! bit-order x +/-7 cycle-offset search that pins the LSB-first
+   chain-order readout as the only combination matching his published
+   keystream.
 7. The total-star counter's width (Aravapalli says 5 bits; Shapovalov and
    Ebert say 8).
 
@@ -290,6 +293,34 @@ def main():
           "-> match:", stored == TABOADA_STORED)
     decoded = "".join(chr(s ^ k) for s, k in zip(stored, keystream))
     print(f"stored XOR keystream = {decoded!r}  -> match: {decoded == MESSAGE}")
+
+    # The LSB-first chain-order readout was not assumed: sweep every bit
+    # order (bit k taken from chain index perm[k]) against every cycle offset
+    # in ±7 around the nominal message cycles, and count the combinations
+    # that reproduce Taboada's published keystream. The first byte acts as a
+    # cheap filter: a wrong (perm, offset) pair passes it only 1/256 of the
+    # time, so the sweep stays in seconds.
+    lo, hi = -7, 7
+    offsets = list(range(lo, hi + 1))
+    bits_at = {off: [[state(c + off)[k] for k in range(8)]
+                     for c in msg_cycles] for off in offsets}
+    perms = list(itertools.permutations(range(8)))
+    matches, candidates = [], 0
+    for perm in perms:
+        for off in offsets:
+            candidates += 1
+            if sum(bits_at[off][0][perm[k]] << k for k in range(8)) \
+                    != TABOADA_KEYSTREAM[0]:
+                continue
+            ks = [sum(bits_at[off][j][perm[k]] << k for k in range(8))
+                  for j in range(len(msg_cycles))]
+            if ks == TABOADA_KEYSTREAM:
+                matches.append((off, perm))
+    print(f"readout search: offsets {lo}..{hi} ({len(offsets)}); "
+          f"perms {len(perms)}; candidates {candidates}; matches: {len(matches)}")
+    for off, perm in matches:
+        tag = " identity" if perm == tuple(range(8)) else ""
+        print(f"  offset {off} perm {perm}{tag}")
 
     # ------------------------------------------------------------------- 7
     rule("7. width of the total-star counter")

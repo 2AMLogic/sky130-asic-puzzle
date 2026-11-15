@@ -795,10 +795,17 @@ whose characteristic polynomial is `x^8 + x^4 + x^3 + x^2 + 1` — `0x1d`, the C
 SAE-J1850 polynomial, exactly as Taboada says. The register's eight flops are the only
 four `dfstp_2` in the design (which reset high) plus four `dfrtp_2` (which reset low), so
 the seed is four ones and four zeros. The keystream byte emitted on message cycle `126+j`
-is those eight bits read LSB-first in chain order; searching all 8! bit orders against all
-offsets in ±7 cycles finds that reading **uniquely** (1 match out of 564,480 candidates),
-and it yields Taboada's 15 keystream bytes exactly. XORing them with the message this
-record independently decoded recovers his 15 stored ROM bytes exactly. So the success row
+is those eight bits read LSB-first in chain order. That reading was not assumed:
+`featured-writeups-netlist.py` §6 sweeps all 8! bit orders against all offsets in ±7
+cycles against his published keystream, and it finds that reading **uniquely**:
+
+```text
+readout search: offsets -7..7 (15); perms 40320; candidates 604800; matches: 1
+  offset 0 perm (0, 1, 2, 3, 4, 5, 6, 7) identity
+```
+
+The identity readout yields Taboada's 15 keystream bytes exactly. XORing them with the
+message this record independently decoded recovers his 15 stored ROM bytes exactly. So the success row
 is not stored as plaintext at all: it is a ROM row XORed with a CRC-8 of the board, which
 is why forcing `success` on a wrong board prints garbage, and why no constant-address
 probe of the printer ever reveals it. The four failure rows are plaintext and leak through
@@ -999,9 +1006,10 @@ source. Both are now attributable:
   are indeed the Morse dash and word-gap units, but the 1.38 µm **dot** cell is the one
   named `INTERNAL_3`, so the names do not encode their own widths and the mapping is a
   guess. `EGG'` is **unverified and almost certainly coincidental**, which is his own
-  conclusion: it sits at offset 21,028 inside the PNG's compressed IDAT bytes, it
-  disappears when that section is decompressed, and the file holds 202 other runs of four
-  or more ASCII letters — so one three-letter run carries no information.
+  conclusion: `featured-writeups-layout-png.py` finds it at offset 21,028 of the raw
+  file, inside the compressed IDAT bytes; it disappears when that section is
+  decompressed (3,521,000 inflated bytes, zero matches); and the file holds 202 other
+  runs of four or more ASCII letters — so one three-letter run carries no information.
 
 **7. Gabriel Taboada** — [site](https://gabbytab.github.io/blog/asic-puzzle-2026/)
 - **Reached**: HTML, 22,077 bytes, 2,818 words.
