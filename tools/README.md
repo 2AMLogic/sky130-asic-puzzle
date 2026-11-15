@@ -304,7 +304,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/testbench.py` | generates directed-test and VCD-replay Verilog testbenches |
 | `tools/sim/directed.py` | the `A + B == 496` directed test (stage 5) |
 | `tools/sim/replay.py` | general VCD replay + trace diff (stage 6) |
-| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (shared by the replay self-test and the cross-netlist check below) |
+| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (protocol shared with `testbench.py`; used by the replay self-test and the cross-netlist check below) |
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
