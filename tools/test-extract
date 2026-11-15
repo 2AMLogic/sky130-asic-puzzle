@@ -47,6 +47,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -327,101 +328,104 @@ def _smoke_warmup() -> None:
     if not os.path.isfile(WARMUP_GDS):
         record("warmup smoke test", SKIP, f"{WARMUP_GDS} missing -- run scripts/fetch-puzzle.sh")
         return
-    out_v = "/tmp/test-extract-warmup.v"
-    out_json = "/tmp/test-extract-warmup.json"
-    code, _out, err = _run([sys.executable, EXTRACT, WARMUP_GDS, "-o", out_v, "--json", out_json])
-    check("warmup: tools/extract exits 0", code == 0, err.strip()[:400])
-    if code != 0:
-        return
-    with open(out_json, encoding="utf-8") as fh:
-        doc = json.load(fh)
-    from collections import Counter
+    with tempfile.TemporaryDirectory(prefix="test-extract-smoke-") as tmp:
+        out_v = os.path.join(tmp, "warmup.v")
+        out_json = os.path.join(tmp, "warmup.json")
+        code, _out, err = _run([sys.executable, EXTRACT, WARMUP_GDS, "-o", out_v, "--json", out_json])
+        check("warmup: tools/extract exits 0", code == 0, err.strip()[:400])
+        if code != 0:
+            return
+        with open(out_json, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        from collections import Counter
 
-    histogram = Counter(
-        i["cell"] for i in doc["instances"] if not i["cell"].split("__", 1)[-1].startswith(("tapvpwrvgnd", "decap"))
-    )
-    expected = {
-        "sky130_fd_sc_hd__dfrtp_2": 16,
-        "sky130_fd_sc_hd__mux2_1": 16,
-        "sky130_fd_sc_hd__nor2_2": 8,
-        "sky130_fd_sc_hd__and2_2": 7,
-        "sky130_fd_sc_hd__xor2_2": 5,
-        "sky130_fd_sc_hd__or2_2": 5,
-        "sky130_fd_sc_hd__a31o_2": 5,
-        "sky130_fd_sc_hd__nand2_2": 4,
-        "sky130_fd_sc_hd__xnor2_2": 3,
-        "sky130_fd_sc_hd__clkbuf_16": 3,
-        "sky130_fd_sc_hd__and4bb_2": 2,
-        "sky130_fd_sc_hd__o21bai_2": 1,
-        "sky130_fd_sc_hd__and3_2": 1,
-        "sky130_fd_sc_hd__a21o_2": 1,
-        "sky130_fd_sc_hd__a21boi_2": 1,
-        "sky130_fd_sc_hd__a21bo_2": 1,
-    }
-    check(
-        "warmup: cell-type histogram matches 01_netlist.v exactly (79 cells)",
-        dict(histogram) == expected,
-        json.dumps({k: v for k, v in histogram.items() if expected.get(k) != v}),
-    )
-    check("warmup: ports are A B S clk en rst_n", sorted(p["name"] for p in doc["ports"]) == sorted(
-        ["A", "B", "S", "clk", "en", "rst_n"]
-    ))
+        histogram = Counter(
+            i["cell"] for i in doc["instances"] if not i["cell"].split("__", 1)[-1].startswith(("tapvpwrvgnd", "decap"))
+        )
+        expected = {
+            "sky130_fd_sc_hd__dfrtp_2": 16,
+            "sky130_fd_sc_hd__mux2_1": 16,
+            "sky130_fd_sc_hd__nor2_2": 8,
+            "sky130_fd_sc_hd__and2_2": 7,
+            "sky130_fd_sc_hd__xor2_2": 5,
+            "sky130_fd_sc_hd__or2_2": 5,
+            "sky130_fd_sc_hd__a31o_2": 5,
+            "sky130_fd_sc_hd__nand2_2": 4,
+            "sky130_fd_sc_hd__xnor2_2": 3,
+            "sky130_fd_sc_hd__clkbuf_16": 3,
+            "sky130_fd_sc_hd__and4bb_2": 2,
+            "sky130_fd_sc_hd__o21bai_2": 1,
+            "sky130_fd_sc_hd__and3_2": 1,
+            "sky130_fd_sc_hd__a21o_2": 1,
+            "sky130_fd_sc_hd__a21boi_2": 1,
+            "sky130_fd_sc_hd__a21bo_2": 1,
+        }
+        check(
+            "warmup: cell-type histogram matches 01_netlist.v exactly (79 cells)",
+            dict(histogram) == expected,
+            json.dumps({k: v for k, v in histogram.items() if expected.get(k) != v}),
+        )
+        check("warmup: ports are A B S clk en rst_n", sorted(p["name"] for p in doc["ports"]) == sorted(
+            ["A", "B", "S", "clk", "en", "rst_n"]
+        ))
 
-    if not os.path.isfile(WARMUP_NETLIST):
-        record("warmup: tools/compare", SKIP, f"{WARMUP_NETLIST} missing")
-        return
-    code, out, err = _run([sys.executable, COMPARE, out_v, WARMUP_NETLIST])
-    check("warmup: tools/compare reports EQUIVALENT", code == 0, (out + err).strip()[:600])
+        if not os.path.isfile(WARMUP_NETLIST):
+            record("warmup: tools/compare", SKIP, f"{WARMUP_NETLIST} missing")
+            return
+        code, out, err = _run([sys.executable, COMPARE, out_v, WARMUP_NETLIST])
+        check("warmup: tools/compare reports EQUIVALENT", code == 0, (out + err).strip()[:600])
 
 
 def _smoke_puzzle() -> None:
     if not os.path.isfile(PUZZLE_GDS):
         record("puzzle smoke test", SKIP, f"{PUZZLE_GDS} missing -- run scripts/fetch-puzzle.sh")
         return
-    out_json = "/tmp/test-extract-puzzle.json"
-    code, _out, err = _run([sys.executable, EXTRACT, PUZZLE_GDS, "--json", out_json, "-o", "/tmp/test-extract-puzzle.v"])
-    check("puzzle: tools/extract exits 0", code == 0, err.strip()[:400])
-    if code != 0:
-        return
-    with open(out_json, encoding="utf-8") as fh:
-        doc = json.load(fh)
-    from collections import Counter
+    with tempfile.TemporaryDirectory(prefix="test-extract-smoke-") as tmp:
+        out_v = os.path.join(tmp, "puzzle.v")
+        out_json = os.path.join(tmp, "puzzle.json")
+        code, _out, err = _run([sys.executable, EXTRACT, PUZZLE_GDS, "--json", out_json, "-o", out_v])
+        check("puzzle: tools/extract exits 0", code == 0, err.strip()[:400])
+        if code != 0:
+            return
+        with open(out_json, encoding="utf-8") as fh:
+            doc = json.load(fh)
+        from collections import Counter
 
-    non_fill = [
-        i
-        for i in doc["instances"]
-        if not i["cell"].split("__", 1)[-1].startswith(("tapvpwrvgnd", "decap"))
-    ]
-    check("puzzle: 738 logic+sequential instances", len(non_fill) == 738, str(len(non_fill)))
-    ff_counts = Counter(
-        i["cell"] for i in non_fill if i["cell"].split("__", 1)[-1].startswith(("dfrtp", "dfstp", "dfxtp"))
-    )
-    check(
-        "puzzle: 92 flip-flops (84 dfrtp_2, 4 dfstp_2, 4 dfxtp_2)",
-        dict(ff_counts)
-        == {
-            "sky130_fd_sc_hd__dfrtp_2": 84,
-            "sky130_fd_sc_hd__dfstp_2": 4,
-            "sky130_fd_sc_hd__dfxtp_2": 4,
-        },
-        str(dict(ff_counts)),
-    )
-    expected_ports = ["I"] + [f"O[{i}]" for i in range(8)] + ["clk", "enable", "rst_n", "success"]
-    check(
-        "puzzle: ports are I O[0..7] clk enable rst_n success",
-        sorted(p["name"] for p in doc["ports"]) == sorted(expected_ports),
-        str(sorted(p["name"] for p in doc["ports"])),
-    )
-    for inst in doc["instances"]:
-        for pin, net in inst["connections"].items():
-            if pin in ("VPWR", "VGND", "VPB", "VNB"):
-                check(
-                    f"puzzle: no supply pin ({pin}) emitted in output connections",
-                    False,
-                    f"{inst['name']}.{pin} -> {net}",
-                )
-                return
-    check("puzzle: no supply pins (VPWR/VGND/VPB/VNB) emitted in any instance's connections", True)
+        non_fill = [
+            i
+            for i in doc["instances"]
+            if not i["cell"].split("__", 1)[-1].startswith(("tapvpwrvgnd", "decap"))
+        ]
+        check("puzzle: 738 logic+sequential instances", len(non_fill) == 738, str(len(non_fill)))
+        ff_counts = Counter(
+            i["cell"] for i in non_fill if i["cell"].split("__", 1)[-1].startswith(("dfrtp", "dfstp", "dfxtp"))
+        )
+        check(
+            "puzzle: 92 flip-flops (84 dfrtp_2, 4 dfstp_2, 4 dfxtp_2)",
+            dict(ff_counts)
+            == {
+                "sky130_fd_sc_hd__dfrtp_2": 84,
+                "sky130_fd_sc_hd__dfstp_2": 4,
+                "sky130_fd_sc_hd__dfxtp_2": 4,
+            },
+            str(dict(ff_counts)),
+        )
+        expected_ports = ["I"] + [f"O[{i}]" for i in range(8)] + ["clk", "enable", "rst_n", "success"]
+        check(
+            "puzzle: ports are I O[0..7] clk enable rst_n success",
+            sorted(p["name"] for p in doc["ports"]) == sorted(expected_ports),
+            str(sorted(p["name"] for p in doc["ports"])),
+        )
+        for inst in doc["instances"]:
+            for pin, net in inst["connections"].items():
+                if pin in ("VPWR", "VGND", "VPB", "VNB"):
+                    check(
+                        f"puzzle: no supply pin ({pin}) emitted in output connections",
+                        False,
+                        f"{inst['name']}.{pin} -> {net}",
+                    )
+                    return
+        check("puzzle: no supply pins (VPWR/VGND/VPB/VNB) emitted in any instance's connections", True)
 
 
 # ---------------------------------------------------------------------------
