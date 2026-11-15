@@ -7,6 +7,16 @@ updated.
 
 ### 2026-11-15
 
+- **PR #130**: ci: gate selftest_solve into the sim self-tests with a pinned python-sat
+- **PR #127**: test-extract, lint: give every scratch path a per-run temp file
+- **PR #126**: fix(sim): solver CLIs exit 2 on an unresolvable PDK, not a traceback
+- **PR #124**: ci: pin klayout, ruff and ciel installs in ci.yml
+- **PR #120**: fix: isolate CLI open-failure probes in per-run temp dirs
+- **Issue #121** (closed): Test hygiene: tools/test-extract's remaining fixed /tmp paths are also write-then-read-back, not write-only
+- **Issue #119** (closed): ci.yml pins the open_pdks commit but installs ciel unpinned
+- **Issue #118** (closed): sim-selftests.sh still skips selftest_solve 'blocked on #98' after #98 landed — decide whether to gate it
+- **Issue #112** (closed): Test hygiene: the GDS-open failure-path tests use fixed /tmp paths with a create-read-delete lifecycle
+- **Issue #100** (closed): run_solve/run_answer still escape PdkResolutionError as a traceback, despite docstrings promising exit 2
 - **PR #116**: ci: gate the tools/sim self-tests and the shift-load protocol in CI
 - **PR #115**: refactor: read celltable's supply-pin filter from verilog_netlist.POWER_PINS
 - **PR #114**: fix: parse 'input wire X;' cell ports so load_design() works on current open_pdks
