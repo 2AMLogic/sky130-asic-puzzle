@@ -306,12 +306,12 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/testbench.py` | generates directed-test and VCD-replay Verilog testbenches |
 | `tools/sim/directed.py` | the `A + B == 496` directed test (stage 5) |
 | `tools/sim/replay.py` | general VCD replay + trace diff (stage 6) |
-| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (shared by the replay self-test and the cross-netlist check below) |
+| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (protocol shared with `testbench.py`; used by the replay self-test and the cross-netlist check below) |
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
 | `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, and the `run_solve` `return rc` tail with collaborators mocked (no PDK, no `iverilog`, no `python-sat`) |
-| `tools/sim/selftest_celltable.py` | self-tests `celltable.parse_port_directions`'s supply-pin filter: a no-PDK fixture check plus a negative control, and a golden check that the 69-cell port map is unchanged vs `evidence/portmap-sky130_fd_sc_hd.json` (issue #106) |
+| `tools/sim/selftest_celltable.py` | self-tests `celltable.py`'s port-direction parsing: the #98 declaration-style contracts (`input wire A1;` vs bare `input A1;`, `reg`/`logic` keywords, power-only cells staying absent, the two distinct `CellTableError` messages) plus issue #106's supply-pin filter (a no-PDK fixture check, a negative control, and a golden check that the 69-cell port map is unchanged vs `evidence/portmap-sky130_fd_sc_hd.json`) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |

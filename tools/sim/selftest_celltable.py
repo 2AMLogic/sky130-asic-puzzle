@@ -1,27 +1,53 @@
-"""Self-test `tools/sim/celltable.parse_port_directions`'s supply-pin filter.
+"""Self-test `tools/sim/celltable.py`'s port-direction parsing and supply-pin filter.
 
-`parse_port_directions` reads port directions for every `sky130_fd_sc_hd__*`
-module in the PDK's behavioural Verilog with raw-text regexes.  The regexes
-ignore `` `ifdef `` boundaries, so the `` `ifdef USE_POWER_PINS `` branch's
-supply-port declarations are visible regardless of the compile defines
-(`ICARUS_DEFINES` leaves `USE_POWER_PINS` undefined — `tools/sim/icarus.py`),
-and the filter that drops them is load-bearing: unfiltered, a supply pin is
-classified as an `input` and would be swept as one.  The filter is
-`verilog_netlist.POWER_PINS` (issue #106 — previously a narrower local copy
-of the same four names).
+`parse_port_directions()` reads each cell's port directions off the PDK's
+behavioural models with raw-text regexes, and `derive_cell_tables()` turns a
+missing direction entry into a `CellTableError`.
 
-Two checks:
+Two regression families live here:
 
-  1. [fixture, no PDK] a synthetic slice of the model file — signal pins
+**#98 — declaration-style parsing.** open_pdks switched its port declarations
+from the bare `input A1;` form to `input wire A1;`, the regex matched only the
+former, and every signal pin on a current install parsed as nothing — so
+load_design() failed out of the box on hosts resolving the newer vintage, and
+the error said the module was "not defined" about a module defined four times
+behind ifdefs.  Five contracts asserted against inline fixtures:
+
+1. The typed declaration style (`input wire A1;` / `output wire X;`) parses to
+   the same direction map as the bare style — the #98 fix.
+2. The reg/logic variants parse too (forward cover; neither appears in either
+   open_pdks install today, so no grammar beyond the optional type keyword is
+   assumed).
+3. A module whose entire port list is supply rails produces no direction
+   entry — the decap/fill/tap behaviour must not change (14 physical-only
+   cells are legitimately absent on both installs).
+4. The optional type keyword does not eat a net whose name merely *starts*
+   with a type word (`input wire_sel;` still parses, pin `wire_sel` — the
+   failure mode that made the normalise-the-text alternative to the regex
+   widening a non-starter).
+5. `derive_cell_tables()` raises two textually distinct `CellTableError`s:
+   "defined ... port declaration style is not recognised" for a module whose
+   ports it cannot read, and "not defined" for a name absent from the model
+   file — the misleading-message half of #98.
+
+**#106 — the supply-pin filter.**  The regexes ignore `` `ifdef `` boundaries,
+so the `` `ifdef USE_POWER_PINS `` branch's supply-port declarations are
+visible regardless of the compile defines (`ICARUS_DEFINES` leaves
+`USE_POWER_PINS` undefined — `tools/sim/icarus.py`), and the filter that drops
+them is load-bearing: unfiltered, a supply pin is classified as an `input` and
+would be swept as one.  The filter is `verilog_netlist.POWER_PINS` (issue
+#106 — previously a narrower local copy of four of the same names).  Checks:
+
+  a. [fixture, no PDK] a synthetic slice of the model file — signal pins
      survive, all of `verilog_netlist.POWER_PINS` (including `KAPWR`, which
      the pre-#106 local copy missed) is dropped, a supply-only cell is
      omitted from the map entirely, and the first module definition wins
      across the power-pin/no-power-pin variants.
-  2. [control, no PDK] the same fixture parsed with the pre-#106 narrow set
-     patched back in keeps `KAPWR` — proving check 1 is sensitive to
-     exactly the change issue #106 made rather than passing for any filter
-     (the positive/negative-control discipline `selftest_portmap.py` uses).
-  3. [golden, needs the PDK install the baseline names] re-parses the exact
+  b. [control, no PDK] the same fixture parsed with the pre-#106 narrow set
+     patched back in keeps `KAPWR` — proving check a is sensitive to exactly
+     the change issue #106 made rather than passing for any filter (the
+     positive/negative-control discipline `selftest_portmap.py` uses).
+  c. [golden, needs the PDK install the baseline names] re-parses the exact
      model file `evidence/portmap-sky130_fd_sc_hd.json` was recorded from
      and asserts the port map for the 69 cells `puzzle.gds` uses
      (`evidence/pins-sky130_fd_sc_hd.json`) is unchanged.  The baseline was
@@ -29,18 +55,17 @@ Two checks:
      proves the swap to `verilog_netlist.POWER_PINS` did not move it.
 
 The golden check pins the baseline's own provenance path rather than
-`resolve_sky130_models()`: on a `~/.ciel` open_pdks install the models
-declare ports as ``input wire X;``, which `_DIR_RE` does not parse at all
-(issue #98), so no cell parses there under either filter and a resolved-
-path comparison would only report #98's regex gap back as a failure here.
+`resolve_sky130_models()`: on a `~/.ciel` open_pdks install the models declare
+ports as ``input wire X;`` — parsed since #98, but pinning the recorded path
+keeps the check independent of whichever install the host happens to resolve.
+
+Contracts 1–5 need no PDK, no iverilog and no fetched upstream file; checks
+a–b likewise, and check c needs the volare install named in the baseline's
+`source` (skipped with an explanatory line when that file is not present).
 
 Run it with:
 
     python3 -m tools.sim.selftest_celltable
-
-Check 1 needs no PDK and no simulator; check 3 needs the volare install
-named in the baseline's `source` (skipped with an explanatory line when
-that file is not present).
 """
 
 from __future__ import annotations
@@ -48,11 +73,17 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
+import unittest
 from pathlib import Path
 from unittest import mock
 
 from tools import verilog_netlist as vn
-from tools.sim.celltable import parse_port_directions
+from tools.sim.celltable import (
+    CellTableError,
+    derive_cell_tables,
+    parse_port_directions,
+)
+from tools.sim.pdk import ResolvedModels
 from tools.testutil import report_checks
 
 # The pre-#106 local copy — exactly the four names it carried.  Used only by
@@ -61,6 +92,144 @@ PRE_106_NARROW_SET = frozenset({"VPWR", "VGND", "VPB", "VNB"})
 
 BASELINE = Path(__file__).resolve().parents[2] / "evidence" / "portmap-sky130_fd_sc_hd.json"
 PINS_EVIDENCE = Path(__file__).resolve().parents[2] / "evidence" / "pins-sky130_fd_sc_hd.json"
+
+MODULE_HEADER = "module {name} ("
+MODULE_FOOTER = ");\nendmodule\n"
+
+
+def _fixture_model(*bodies: str) -> Path:
+    """Write a minimal behavioural-model file with the given module bodies."""
+    tmp = tempfile.mkdtemp(prefix="celltable-selftest-")
+    path = Path(tmp) / "sky130_fd_sc_hd.v"
+    path.write_text("".join(bodies), encoding="utf-8")
+    return path
+
+
+def _module(name: str, decls: str) -> str:
+    return MODULE_HEADER.format(name=name) + MODULE_FOOTER + decls
+
+
+TYPED_BODY = _module(
+    "sky130_fd_sc_hd__a2111oi_2",
+    "input wire A1;\ninput wire A2;\ninput wire B1;\n"
+    "input wire C1;\ninput wire D1;\noutput wire Y;\n"
+    "input wire VPWR;\ninput wire VGND;\n"
+    "input wire VPB;\ninput wire VNB;\n",
+)
+BARE_BODY = _module(
+    "sky130_fd_sc_hd__a2111oi_2",
+    "input A1;\ninput A2;\ninput B1;\ninput C1;\ninput D1;\noutput Y;\n"
+    "input VPWR;\ninput VGND;\ninput VPB;\ninput VNB;\n",
+)
+POWER_ONLY_BODY = _module(
+    "sky130_fd_sc_hd__decap_3",
+    "input VPWR;\ninput VGND;\n",
+)
+A2111OI_2_DIRS = {
+    "Y": "output",
+    "A1": "input",
+    "A2": "input",
+    "B1": "input",
+    "C1": "input",
+    "D1": "input",
+}
+
+
+class ParseTypedDeclarationTest(unittest.TestCase):
+    """Contract 1: `input wire A1;` parses to the map the bare form gives."""
+
+    def test_typed_and_bare_styles_parse_identically(self):
+        for label, body in (("typed", TYPED_BODY), ("bare", BARE_BODY)):
+            with self.subTest(style=label):
+                directions, defined = parse_port_directions(_fixture_model(body))
+                self.assertEqual(defined, {"sky130_fd_sc_hd__a2111oi_2"})
+                self.assertEqual(directions["sky130_fd_sc_hd__a2111oi_2"], A2111OI_2_DIRS)
+
+
+class ParseRegLogicVariantsTest(unittest.TestCase):
+    """Contract 2: the reg/logic type keywords parse as the type token."""
+
+    def test_reg_and_logic_typed_declarations_parse(self):
+        body = (
+            _module("sky130_fd_sc_hd__regform_1", "input reg D;\n")
+            + _module("sky130_fd_sc_hd__logicform_1", "input logic EN;\noutput logic Q;\n")
+        )
+        directions, _ = parse_port_directions(_fixture_model(body))
+        self.assertEqual(directions["sky130_fd_sc_hd__regform_1"], {"D": "input"})
+        self.assertEqual(
+            directions["sky130_fd_sc_hd__logicform_1"], {"EN": "input", "Q": "output"}
+        )
+
+
+class PowerOnlyCellAbsentTest(unittest.TestCase):
+    """Contract 3: a supply-rails-only module yields no direction entry."""
+
+    def test_power_only_module_is_absent_from_direction_map(self):
+        directions, defined = parse_port_directions(_fixture_model(POWER_ONLY_BODY))
+        self.assertEqual(defined, {"sky130_fd_sc_hd__decap_3"})
+        self.assertNotIn("sky130_fd_sc_hd__decap_3", directions)
+
+
+class TypeKeywordDoesNotEatNetNamesTest(unittest.TestCase):
+    """Contract 4: `input wire_sel;` parses pin `wire_sel`, not nothing."""
+
+    def test_net_named_wire_sel_parses_as_a_pin(self):
+        body = _module("sky130_fd_sc_hd__wiresel_1", "input wire_sel;\noutput wire_out;\n")
+        directions, _ = parse_port_directions(_fixture_model(body))
+        self.assertEqual(
+            directions["sky130_fd_sc_hd__wiresel_1"],
+            {"wire_sel": "input", "wire_out": "output"},
+        )
+
+
+class DeriveCellTablesErrorDiscriminationTest(unittest.TestCase):
+    """Contract 5: "defined but unparseable" and "not defined" differ."""
+
+    def _models(self, behavioural_v: Path) -> ResolvedModels:
+        return ResolvedModels(
+            variant="sky130A (selftest_celltable fixture)",
+            version="fixture",
+            resolved_via="selftest",
+            libs_ref=behavioural_v.parent,
+            primitives_v=behavioural_v,
+            behavioural_v=behavioural_v,
+        )
+
+    def _assert_raises_with_message(self, cells, fixture_body) -> str:
+        with tempfile.TemporaryDirectory(prefix="celltable-selftest-") as tmp:
+            models = self._models(_fixture_model(fixture_body))
+            with self.assertRaises(CellTableError) as ctx:
+                derive_cell_tables(
+                    cells, models, work_dir=Path(tmp) / "work"
+                )
+        return str(ctx.exception)
+
+    def test_defined_but_unparseable_message(self):
+        message = self._assert_raises_with_message(
+            {"sky130_fd_sc_hd__decap_3": {"VPWR"}}, POWER_ONLY_BODY
+        )
+        self.assertIn("sky130_fd_sc_hd__decap_3 is defined in", message)
+        self.assertIn("port declaration style is not recognised", message)
+
+    def test_absent_cell_message(self):
+        message = self._assert_raises_with_message(
+            {"sky130_fd_sc_hd__not_a_cell": {"A1"}}, TYPED_BODY
+        )
+        self.assertIn("sky130_fd_sc_hd__not_a_cell is not defined in", message)
+
+    def test_the_two_messages_differ(self):
+        unparseable = self._assert_raises_with_message(
+            {"sky130_fd_sc_hd__decap_3": {"VPWR"}}, POWER_ONLY_BODY
+        )
+        absent = self._assert_raises_with_message(
+            {"sky130_fd_sc_hd__not_a_cell": {"A1"}}, TYPED_BODY
+        )
+        self.assertNotEqual(unparseable, absent)
+
+
+# --------------------------------------------------------------------------
+# issue #106: the supply-pin filter reads verilog_netlist.POWER_PINS
+# --------------------------------------------------------------------------
 
 
 def _fixture_v() -> str:
@@ -146,7 +315,7 @@ def _run_fixture_check(checks: list[tuple[str, bool]]) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "fixture_models.v"
         path.write_text(_fixture_v(), encoding="utf-8")
-        got = parse_port_directions(path)
+        got, _defined = parse_port_directions(path)
 
     expected = {
         # first definition wins, and the raw-text regex sees the `ifdef
@@ -178,7 +347,7 @@ def _run_golden_check(checks: list[tuple[str, bool]]) -> None:
         )
         return
 
-    got = parse_port_directions(models_v)
+    got, _defined = parse_port_directions(models_v)
     expected = baseline["cells"]
     absent_expected = sorted(baseline["cells_absent_after_filter"])
     absent_now = sorted(c for c in cells69 if c not in got)
@@ -202,7 +371,7 @@ def _run_golden_check(checks: list[tuple[str, bool]]) -> None:
 def _run_negative_control(checks: list[tuple[str, bool]]) -> None:
     """Re-parse the fixture with the pre-#106 narrow set: `KAPWR` must come back.
 
-    Without this, check 1 would also pass against a filter that drops
+    Without this, check a would also pass against a filter that drops
     *everything* — this pins its sensitivity to the one name issue #106
     widened.
     """
@@ -210,7 +379,7 @@ def _run_negative_control(checks: list[tuple[str, bool]]) -> None:
         path = Path(tmp) / "fixture_models.v"
         path.write_text(_fixture_v(), encoding="utf-8")
         with mock.patch.object(vn, "POWER_PINS", PRE_106_NARROW_SET):
-            got = parse_port_directions(path)
+            got, _defined = parse_port_directions(path)
     ok = got["sky130_fd_sc_hd__fx_kapwrbuf"].get("KAPWR") == "input"
     checks.append(("control: the pre-#106 narrow set keeps KAPWR (the delta this issue closes)", ok))
     if not ok:
@@ -218,7 +387,7 @@ def _run_negative_control(checks: list[tuple[str, bool]]) -> None:
 
 
 def main() -> int:
-    print("== tools/sim celltable parse_port_directions self-test ==")
+    print("== tools/sim celltable self-test: port directions + supply-pin filter ==")
     checks: list[tuple[str, bool]] = []
 
     print("\n== [fixture] synthetic model slice, no PDK needed ==")
@@ -230,7 +399,18 @@ def main() -> int:
     print("\n== [golden] 69-cell port map vs the committed baseline ==")
     _run_golden_check(checks)
 
-    return report_checks(checks)
+    rc_checks = report_checks(checks)
+
+    print("\n== [contracts] declaration-style unittest suite ==")
+    suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    rc_contracts = 0 if result.wasSuccessful() else 1
+    print(
+        f"\nCONTRACT SELF-TEST {'PASS' if rc_contracts == 0 else 'FAIL'} "
+        f"({result.testsRun} tests, {len(result.failures) + len(result.errors)} not passed)"
+    )
+
+    return rc_checks | rc_contracts
 
 
 if __name__ == "__main__":

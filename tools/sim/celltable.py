@@ -41,7 +41,14 @@ SCHEMA = "sky130-asic-puzzle/celltables@1"
 # unfiltered they would be classified as inputs and swept as such.
 
 _MODULE_RE = re.compile(r"^module\s+(sky130_fd_sc_hd__\w+)\s*\(", re.MULTILINE)
-_DIR_RE = re.compile(r"^\s*(input|output|inout)\s+([A-Za-z_]\w*)\s*;", re.MULTILINE)
+# The optional wire/reg/logic token covers both port-declaration styles the
+# open_pdks vintages emit: current installs write `input wire A1;`, older ones
+# the bare `input A1;`.  No ranged or comma-list declaration exists in either
+# style, so nothing beyond the optional type keyword is supported here.
+_DIR_RE = re.compile(
+    r"^\s*(input|output|inout)\s+(?:(?:wire|reg|logic)\s+)?([A-Za-z_]\w*)\s*;",
+    re.MULTILINE,
+)
 
 
 class CellTableError(RuntimeError):
@@ -88,16 +95,25 @@ class CellTable:
 # --------------------------------------------------------------------------
 
 
-def parse_port_directions(behavioural_v: Path) -> dict[str, dict[str, str]]:
-    """`{cell: {pin: 'input'|'output'}}` for every module in the model file.
+def parse_port_directions(
+    behavioural_v: Path,
+) -> tuple[dict[str, dict[str, str]], set[str]]:
+    """`({cell: {pin: 'input'|'output'}}, {every cell name the file defines})`.
 
     The model file defines each cell several times behind ``ifdef``s
     (power-pin / no-power-pin, functional / timing).  Signal-pin directions
     are identical across those variants, so the first definition wins and
     power pins are dropped.
+
+    The second return value is the raw module scan, so a caller can tell
+    "the file does not define this cell at all" from "the cell is defined
+    but none of its signal-pin declarations parsed" — a cell whose entire
+    port list is supply rails (decap/fill/tap) legitimately produces no
+    direction entry.
     """
     text = behavioural_v.read_text(encoding="utf-8", errors="replace")
     starts = [(m.start(), m.group(1)) for m in _MODULE_RE.finditer(text)]
+    defined = {cell for _, cell in starts}
     out: dict[str, dict[str, str]] = {}
     for idx, (pos, cell) in enumerate(starts):
         if cell in out:
@@ -111,7 +127,7 @@ def parse_port_directions(behavioural_v: Path) -> dict[str, dict[str, str]]:
         }
         if dirs:
             out[cell] = dirs
-    return out
+    return out, defined
 
 
 # --------------------------------------------------------------------------
@@ -160,10 +176,16 @@ def derive_cell_tables(
     Only the pins the netlist actually wires are driven/observed, which is
     also what keeps power pins out of the sweep.
     """
-    directions = parse_port_directions(models.behavioural_v)
+    directions, defined = parse_port_directions(models.behavioural_v)
     specs: list[tuple[str, tuple[str, ...], tuple[str, ...]]] = []
     for cell in sorted(cells):
         if cell not in directions:
+            if cell in defined:
+                raise CellTableError(
+                    f"{cell} is defined in {models.behavioural_v} but no signal-pin "
+                    f"port directions could be parsed from it — the model file's "
+                    f"port declaration style is not recognised"
+                )
             raise CellTableError(f"{cell} is not defined in {models.behavioural_v}")
         dirs = directions[cell]
         used = cells[cell]
