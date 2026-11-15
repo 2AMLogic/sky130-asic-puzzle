@@ -116,10 +116,12 @@ empirically, cited inline with which check backs each claim);
 whatever's already importable, then `$KLAYOUT_PYTHON`, then the interpreter
 behind `klt` on `PATH` — `klayout-tools` already depends on it, so that
 interpreter reliably has it without asking a contributor to `pip install`
-anything extra) and re-execs into it if needed. Both `tools/inventory` and
-`tools/pins` call `klayout_env.ensure_klayout()` before importing
-`klayout.db`, so either command works from a plain `python3` with no
-`klayout` package of its own, as long as `klt` is on `PATH`.
+anything extra) and re-execs into it if needed; `open_layout()` layers the
+whole GDS-open preamble on top of it (existence check, `db.Layout().read()`,
+raising `KlayoutResolutionError` / `LayoutReadError` naming the problem).
+The CLIs that read a GDS stream all go through that one preamble, so any of
+them works from a plain `python3` with no `klayout` package of its own, as
+long as `klt` is on `PATH`.
 
 ## `tools/extract` — cell-level connectivity extraction (stage 4)
 
@@ -304,11 +306,12 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/testbench.py` | generates directed-test and VCD-replay Verilog testbenches |
 | `tools/sim/directed.py` | the `A + B == 496` directed test (stage 5) |
 | `tools/sim/replay.py` | general VCD replay + trace diff (stage 6) |
-| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (shared by the replay self-test and the cross-netlist check below) |
+| `tools/sim/warmup_recorder.py` | records a shift-load stimulus to a VCD (protocol shared with `testbench.py`; used by the replay self-test and the cross-netlist check below) |
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
 | `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, and the `run_solve` `return rc` tail with collaborators mocked (no PDK, no `iverilog`, no `python-sat`) |
+| `tools/sim/selftest_celltable.py` | self-tests `celltable.py`'s port-direction parsing against inline fixtures: both open_pdks declaration styles (`input wire A1;` and bare `input A1;`), the `reg`/`logic` type keywords, power-only cells staying absent from the map, and the two distinct `CellTableError` messages (no PDK, no `iverilog`) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
@@ -319,6 +322,19 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/solve.py` | the model → structure → solve → verify-by-simulation pipeline (stage 7) |
 | `tools/sim/run_solve.py` | CLI for that pipeline |
 | `tools/sim/selftest_solve.py` | known-answer self-test of the whole solver stack against the warm-up |
+
+Which of these run in CI: `scripts/sim-selftests.sh` (issue #108) gates
+`selftest_pdk`, `selftest_answer`, `selftest_portmap` and `selftest_replay`,
+plus the directed `run_warmup_directed` run — the shift-load protocol's
+semantic gate, whose cases carry `expected_s` from `A + B == 496`
+(`selftest_replay` alone cannot catch a protocol mutation: it records and
+replays against the same netlist, so both sides move together). CI runs it
+with `--require-pdk` after the fetch step, so a missing `iverilog` or PDK
+fails the job rather than skipping. `selftest_solve` is reported as a skip
+naming #98 (`celltable.py`'s port-direction parser does not match this
+open_pdks build's `output wire X ;` declarations), keeping that coverage gap
+visible in the CI log; `selftest_cli` runs separately, ahead of the fetch, on
+purpose (#102: embargo-trivial).
 
 ### Where the behavioural models come from, and how to install them
 
@@ -462,6 +478,11 @@ no PDK, `iverilog` or `python-sat` required):
 python3 -m tools.sim.selftest_cli
 ```
 
+All of the above except `selftest_cli` run in CI via
+`scripts/sim-selftests.sh --require-pdk` (issue #108), together with the
+directed `run_warmup_directed` run that gates the shift-load protocol's
+semantics; `selftest_solve` (below) is a reported skip held on #98.
+
 See `evidence/warmup-sim.md`, `evidence/puzzle-replay.md` and
 `evidence/puzzle-solve.md` for recorded results and current status.
 
@@ -515,7 +536,15 @@ pip install python-sat          # the solver back end; not needed by anything el
 #   the 15 pairs with A + B == 496, an Icarus confirmation, a flipped-bit
 #   negative control and an UNSAT control.
 python3 -m tools.sim.selftest_solve
+```
 
+`selftest_solve` is currently held on #98: `celltable.py`'s port-direction
+parser does not match the `output wire X ;` form this open_pdks build's model
+files declare, so `derive_cell_tables()` cannot enumerate the cells. Until
+that parser fix lands, `scripts/sim-selftests.sh` reports the module as a
+visible skip naming #98 rather than running it.
+
+```sh
 # structural report + solve + uniqueness + Icarus verification, in one run
 python3 -m tools.sim.run_solve --netlist evidence/puzzle-extracted.v \
     --structure --verify --max-solutions 2 --grid-width 11

@@ -3,7 +3,7 @@
 
 Run with no arguments:  `tools/test-inventory`
 
-Two families of check:
+Three families of check:
 
 * **Synthetic** -- a tiny in-memory GDS layout built with KLayout's own API
   (no file on disk), covering the classification boundary cases: a `VIA_*`
@@ -16,6 +16,11 @@ Two families of check:
   acceptance criteria). `puzzle/` is gitignored, so these are SKIPPED with a
   pointer to `scripts/fetch-puzzle.sh` when the files are not present --
   reported as SKIP, never silently passed.
+* **CLI GDS-open failure paths** -- `tools/inventory` against a nonexistent
+  path and against an existing non-GDS file: each must exit 2 with
+  `tools/inventory: no such file: ...` / `tools/inventory: could not read ...`
+  on stderr (the wording lives in `klayout_env.open_layout`, not in the
+  CLI). Needs no `puzzle/` file, only an importable `klayout`.
 
 Both families are also SKIPPED, loudly, if no interpreter with an importable
 `klayout` module can be found (`tools/klayout_env.py`) -- this test needs
@@ -34,7 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from testutil import SKIP, make_tracker, summarize
+from testutil import SKIP, make_tracker, require_klayout, skip_all_no_klayout, summarize
 
 INVENTORY = os.path.join(HERE, "inventory")
 WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
@@ -43,16 +48,7 @@ PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
 results, record, check = make_tracker()
 
 
-try:
-    import klayout_env
-
-    klayout_env.ensure_klayout()
-    import klayout.db as db
-
-    KLAYOUT_OK = True
-except Exception as exc:  # klayout_env.KlayoutResolutionError, or import failure
-    KLAYOUT_OK = False
-    KLAYOUT_SKIP_REASON = str(exc)
+KLAYOUT_OK, db, KLAYOUT_SKIP_REASON = require_klayout()
 
 
 # ---------------------------------------------------------------------------
@@ -204,15 +200,52 @@ def test_puzzle_counts() -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# CLI GDS-open failure paths (the preamble the CLI inherits from
+# klayout_env.open_layout)
+# ---------------------------------------------------------------------------
+
+
+def _check_open_failure(label: str, bad_path: str, err_prefix: str) -> None:
+    proc = subprocess.run(
+        [sys.executable, INVENTORY, bad_path],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    check(
+        f"{label}: exit 2",
+        proc.returncode == 2,
+        f"exit={proc.returncode} stderr={proc.stderr.strip()[:300]}",
+    )
+    check(
+        f"{label}: stderr starts '{err_prefix}'",
+        proc.stderr.startswith(err_prefix),
+        proc.stderr.strip()[:200],
+    )
+
+
+def test_cli_open_failures() -> None:
+    """Both GDS-open failure branches: a nonexistent path, and an existing
+    file that is not a GDS stream. Neither needs `puzzle/` fetched."""
+    missing = "/tmp/test-inventory-does-not-exist.gds"
+    _check_open_failure("open-fail: no such file", missing, "tools/inventory: no such file: ")
+
+    not_gds = "/tmp/test-inventory-not-a-gds.gds"
+    with open(not_gds, "w", encoding="utf-8") as fh:
+        fh.write("not a GDS stream")
+    try:
+        _check_open_failure("open-fail: could not read", not_gds, "tools/inventory: could not read ")
+    finally:
+        os.unlink(not_gds)
+
+
 def main() -> int:
     print("tools/test-inventory")
     print("=" * 60)
 
     if not KLAYOUT_OK:
-        print(f"  {SKIP:6s} all checks -- klayout not importable: {KLAYOUT_SKIP_REASON}")
-        print("=" * 60)
-        print("SKIPPED (no klayout)")
-        return 0
+        return skip_all_no_klayout(KLAYOUT_SKIP_REASON)
 
     print("\n1. Synthetic classification + census")
     test_synthetic_classification()
@@ -222,6 +255,9 @@ def main() -> int:
 
     print("\n3. Real-file smoke test (puzzle)")
     test_puzzle_counts()
+
+    print("\n4. CLI GDS-open failure paths (no such file / could not read)")
+    test_cli_open_failures()
 
     print("=" * 60)
     return summarize(results)

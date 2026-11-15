@@ -699,18 +699,17 @@ printed lines:
 
 ```sh
 # needs the sky130 cell models and Icarus; no puzzle file (the netlist is committed)
-PDK_ROOT="$HOME/.volare" PYTHONPATH=. python3 evidence/featured-writeups-netlist.py
+PYTHONPATH=. python3 evidence/featured-writeups-netlist.py
 # pure Python, no inputs at all
 python3 evidence/featured-writeups-grids.py
 # the only one that reads puzzle/ — run ./scripts/fetch-puzzle.sh first
 PYTHONPATH=. python3 evidence/featured-writeups-warmup-logo.py
 ```
 
-The `PDK_ROOT` override is not cosmetic: `tools/sim/celltable.py` cannot parse the
-`input wire X;` port declarations that current open_pdks emits, so on this host
-`load_design()` fails against the `klt`-resolved PDK and the whole `tools/sim` stack is
-unusable without it. That is our own defect, not `klt`'s, and is filed as #98. The pinned
-root is open_pdks `c6d73a35`, the same one `evidence/puzzle-answer.md` recorded.
+No `PDK_ROOT` override: this pass originally pinned `PDK_ROOT="$HOME/.volare"`
+because `tools/sim/celltable.py` could not parse the `input wire X;` declarations
+current open_pdks emits (filed as #98); the parser has been fixed, so the plain
+command above works against any resolvable install.
 
 Most of these 15 differ from us in *method*, not in findings — an own C++ pipeline, an
 FPGA, Minecraft, analog SPICE, a Groth16 proof. A method difference asserts nothing about

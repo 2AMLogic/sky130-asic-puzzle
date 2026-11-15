@@ -3,7 +3,7 @@
 
 Run with no arguments:  `tools/test-extract`
 
-Five families of check:
+Six families of check:
 
 * **Synthetic, well-formed** -- two tiny in-memory standard-cell instances
   (one plain, one placed with a 180-degree rotation -- the "highest-risk
@@ -29,6 +29,11 @@ Five families of check:
   the counts `spec/puzzle.md`/`tools/README.md` already established:
   738 logic+sequential instances, 92 flip-flops split 84/4/4, and the
   13 named top-level ports). SKIPPED, loudly, when `puzzle/` is absent.
+* **CLI GDS-open failure paths** -- `tools/extract` against a nonexistent
+  path and against an existing non-GDS file: each must exit 2 with
+  `tools/extract: no such file: ...` / `tools/extract: could not read ...`
+  on stderr (the wording lives in `klayout_env.open_layout`, not in the
+  CLI). Needs no `puzzle/` file, only an importable `klayout`.
 
 All of the above are SKIPPED, loudly, if no interpreter with an importable
 `klayout` module can be found.
@@ -47,7 +52,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from testutil import SKIP, _box, _label, make_tracker, summarize
+from testutil import SKIP, _box, _label, make_tracker, require_klayout, skip_all_no_klayout, summarize
 
 EXTRACT = os.path.join(HERE, "extract")
 COMPARE = os.path.join(HERE, "compare")
@@ -58,16 +63,7 @@ PUZZLE_GDS = os.path.join(ROOT, "puzzle", "puzzle.gds")
 results, record, check = make_tracker()
 
 
-try:
-    import klayout_env
-
-    klayout_env.ensure_klayout()
-    import klayout.db as db
-
-    KLAYOUT_OK = True
-except Exception as exc:  # pragma: no cover - environment-dependent
-    KLAYOUT_OK = False
-    KLAYOUT_SKIP_REASON = str(exc)
+KLAYOUT_OK, db, KLAYOUT_SKIP_REASON = require_klayout()
 
 
 # ---------------------------------------------------------------------------
@@ -428,15 +424,39 @@ def _smoke_puzzle() -> None:
     check("puzzle: no supply pins (VPWR/VGND/VPB/VNB) emitted in any instance's connections", True)
 
 
+# ---------------------------------------------------------------------------
+# CLI GDS-open failure paths (the preamble the CLI inherits from
+# klayout_env.open_layout)
+# ---------------------------------------------------------------------------
+
+
+def _check_open_failure(label: str, bad_path: str, err_prefix: str) -> None:
+    code, _out, err = _run([sys.executable, EXTRACT, bad_path])
+    check(f"{label}: exit 2", code == 2, f"exit={code} stderr={err.strip()[:300]}")
+    check(f"{label}: stderr starts '{err_prefix}'", err.startswith(err_prefix), err.strip()[:200])
+
+
+def test_cli_open_failures() -> None:
+    """Both GDS-open failure branches: a nonexistent path, and an existing
+    file that is not a GDS stream. Neither needs `puzzle/` fetched."""
+    missing = "/tmp/test-extract-does-not-exist.gds"
+    _check_open_failure("open-fail: no such file", missing, "tools/extract: no such file: ")
+
+    not_gds = "/tmp/test-extract-not-a-gds.gds"
+    with open(not_gds, "w", encoding="utf-8") as fh:
+        fh.write("not a GDS stream")
+    try:
+        _check_open_failure("open-fail: could not read", not_gds, "tools/extract: could not read ")
+    finally:
+        os.unlink(not_gds)
+
+
 def main() -> int:
     print("tools/test-extract")
     print("=" * 60)
 
     if not KLAYOUT_OK:
-        print(f"  {SKIP:6s} all checks -- klayout not importable: {KLAYOUT_SKIP_REASON}")
-        print("=" * 60)
-        print("SKIPPED (no klayout)")
-        return 0
+        return skip_all_no_klayout(KLAYOUT_SKIP_REASON)
 
     print("\n1. Synthetic, well-formed (rotation + naming + direction)")
     test_well_formed_rotation_and_naming()
@@ -455,6 +475,9 @@ def main() -> int:
 
     print("\n6. Real-file smoke test (puzzle: counts + ports, no ground truth to compare)")
     _smoke_puzzle()
+
+    print("\n7. CLI GDS-open failure paths (no such file / could not read)")
+    test_cli_open_failures()
 
     print("=" * 60)
     return summarize(results)

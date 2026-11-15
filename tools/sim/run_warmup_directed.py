@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from tools.sim.directed import default_cases, run_directed_test
+from tools.sim.icarus import IcarusNotFoundError, report_sim_failure
 from tools.sim.pdk import PdkResolutionError
 
 
@@ -45,21 +46,16 @@ def main(argv: list[str] | None = None) -> int:
             cases=cases,
             work_dir=Path(args.work_dir),
         )
-    except PdkResolutionError as e:
+    except (PdkResolutionError, IcarusNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
     print(result.models.describe())
     print()
 
-    if not result.sim.compiled:
-        print("COMPILE FAILED", file=sys.stderr)
-        print(result.sim.compile_stderr, file=sys.stderr)
-        return 1
-    if not result.sim.ran:
-        print("SIMULATION DID NOT RUN", file=sys.stderr)
-        print(result.sim.run_stderr, file=sys.stderr)
-        return 1
+    rc = report_sim_failure(result.sim)
+    if rc is not None:
+        return rc
 
     for o in result.outcomes:
         status = "OK" if o.matched else "MISMATCH"

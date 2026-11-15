@@ -35,6 +35,91 @@ class ShiftLoadCase:
     label: str = ""
 
 
+def _emit_shift_load_protocol(
+    *,
+    top: str,
+    ports: dict[str, str],
+    cases: list[ShiftLoadCase],
+    local_names: tuple[str, str, str],
+    clock_period_ns: int,
+    verdict_registers: bool,
+    initial_prologue: list[str] | None = None,
+) -> list[str]:
+    """Emit the shared shift-load protocol half of both testbench generators.
+
+    This is the one piece of Verilog in the repo that has to match the
+    hardware (the warm-up `shift_register`'s load protocol), so it has
+    exactly one definition here. Both `build_shift_load_testbench` (below)
+    and `tools.sim.warmup_recorder.build_shift_load_recorder_testbench`
+    call this and then append only their purpose-specific tail — the
+    in-Verilog verdict machinery vs. the `$dumpfile`/`$dumpvars` + settle
+    lines.
+
+    Emits every line from the `timescale` directive through the end of the
+    bit-shift loop (`en = 0;`, inclusive). `local_names` are the
+    testbench's own signal names for the two serial inputs and the sampled
+    output — the recorder passes `("A", "B", "S")` so its dumped signal
+    names match the DUT port names (the identity `REPLAY_PORT_MAP` depends
+    on it); this emitter never imposes one spelling. `verdict_registers`
+    adds the `failures`/`expected_vals` declarations and per-case expected
+    initialisation only the directed test needs. `initial_prologue` lines
+    are inserted immediately after `initial begin` (the recorder's
+    `$dumpfile`/`$dumpvars` pair).
+
+    Validates `ports` against the six required roles for both callers.
+    """
+    required = {"clk", "rst_n", "en", "a", "b", "s"}
+    missing = required - set(ports)
+    if missing:
+        raise ValueError(f"ports mapping missing roles: {sorted(missing)}")
+
+    a, b, s = local_names
+    half_period = clock_period_ns // 2
+    n = len(cases)
+
+    lines: list[str] = []
+    lines.append(f"`timescale {UNIT_DELAY_TIMESCALE}")
+    lines.append("module tb;")
+    lines.append(f"  reg clk = 0, rst_n = 0, en = 0, {a} = 0, {b} = 0;")
+    lines.append(f"  wire {s};")
+    lines.append("  integer i, case_idx;")
+    if verdict_registers:
+        lines.append("  integer failures = 0;")
+    lines.append(f"  reg [7:0] a_vals [0:{n - 1}];")
+    lines.append(f"  reg [7:0] b_vals [0:{n - 1}];")
+    if verdict_registers:
+        lines.append(f"  reg expected_vals [0:{n - 1}];")
+    lines.append("")
+    lines.append(
+        f"  {top} dut ("
+        f".{ports['clk']}(clk), .{ports['rst_n']}(rst_n), .{ports['en']}(en), "
+        f".{ports['a']}({a}), .{ports['b']}({b}), .{ports['s']}({s}));"
+    )
+    lines.append("")
+    lines.append(f"  always #{half_period} clk = ~clk;")
+    lines.append("")
+    lines.append("  initial begin")
+    lines.extend(initial_prologue or [])
+    for idx, case in enumerate(cases):
+        lines.append(f"    a_vals[{idx}] = 8'd{case.a};")
+        lines.append(f"    b_vals[{idx}] = 8'd{case.b};")
+        if verdict_registers:
+            lines.append(f"    expected_vals[{idx}] = 1'b{1 if case.expected_s else 0};")
+    lines.append(f"    for (case_idx = 0; case_idx < {n}; case_idx = case_idx + 1) begin")
+    lines.append("      @(negedge clk);")
+    lines.append("      rst_n = 0; en = 0;")
+    lines.append("      @(negedge clk);")
+    lines.append("      rst_n = 1;")
+    lines.append("      for (i = 7; i >= 0; i = i - 1) begin")
+    lines.append(f"        {a} = a_vals[case_idx][i];")
+    lines.append(f"        {b} = b_vals[case_idx][i];")
+    lines.append("        en = 1;")
+    lines.append("        @(negedge clk);")
+    lines.append("      end")
+    lines.append("      en = 0;")
+    return lines
+
+
 def build_shift_load_testbench(
     *,
     top: str,
@@ -48,51 +133,18 @@ def build_shift_load_testbench(
     keys "clk", "rst_n", "en", "a", "b", "s" (all required). This is what
     lets the same generator target both `warmup/01_netlist.v` and, once
     available, an extracted netlist with the same top-level port names.
+
+    The shift-load protocol half is emitted by `_emit_shift_load_protocol`,
+    shared with `tools.sim.warmup_recorder.build_shift_load_recorder_testbench`.
     """
-    required = {"clk", "rst_n", "en", "a", "b", "s"}
-    missing = required - set(ports)
-    if missing:
-        raise ValueError(f"ports mapping missing roles: {sorted(missing)}")
-
-    half_period = clock_period_ns // 2
-    n = len(cases)
-
-    lines: list[str] = []
-    lines.append(f"`timescale {UNIT_DELAY_TIMESCALE}")
-    lines.append("module tb;")
-    lines.append("  reg clk = 0, rst_n = 0, en = 0, a_in = 0, b_in = 0;")
-    lines.append("  wire s_out;")
-    lines.append("  integer i, case_idx;")
-    lines.append("  integer failures = 0;")
-    lines.append(f"  reg [7:0] a_vals [0:{n - 1}];")
-    lines.append(f"  reg [7:0] b_vals [0:{n - 1}];")
-    lines.append(f"  reg expected_vals [0:{n - 1}];")
-    lines.append("")
-    lines.append(
-        f"  {top} dut ("
-        f".{ports['clk']}(clk), .{ports['rst_n']}(rst_n), .{ports['en']}(en), "
-        f".{ports['a']}(a_in), .{ports['b']}(b_in), .{ports['s']}(s_out));"
+    lines = _emit_shift_load_protocol(
+        top=top,
+        ports=ports,
+        cases=cases,
+        local_names=("a_in", "b_in", "s_out"),
+        clock_period_ns=clock_period_ns,
+        verdict_registers=True,
     )
-    lines.append("")
-    lines.append(f"  always #{half_period} clk = ~clk;")
-    lines.append("")
-    lines.append("  initial begin")
-    for idx, case in enumerate(cases):
-        lines.append(f"    a_vals[{idx}] = 8'd{case.a};")
-        lines.append(f"    b_vals[{idx}] = 8'd{case.b};")
-        lines.append(f"    expected_vals[{idx}] = 1'b{1 if case.expected_s else 0};")
-    lines.append("    for (case_idx = 0; case_idx < " + str(n) + "; case_idx = case_idx + 1) begin")
-    lines.append("      @(negedge clk);")
-    lines.append("      rst_n = 0; en = 0;")
-    lines.append("      @(negedge clk);")
-    lines.append("      rst_n = 1;")
-    lines.append("      for (i = 7; i >= 0; i = i - 1) begin")
-    lines.append("        a_in = a_vals[case_idx][i];")
-    lines.append("        b_in = b_vals[case_idx][i];")
-    lines.append("        en = 1;")
-    lines.append("        @(negedge clk);")
-    lines.append("      end")
-    lines.append("      en = 0;")
     lines.append("      #1;")
     lines.append("      if (s_out !== expected_vals[case_idx]) begin")
     lines.append("        failures = failures + 1;")

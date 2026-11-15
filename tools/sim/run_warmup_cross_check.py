@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 
 from tools.sim.directed import DEFAULT_PORTS, default_cases
+from tools.sim.icarus import IcarusNotFoundError, report_sim_failure
 from tools.sim.pdk import PdkResolutionError
 from tools.sim.replay import run_vcd_replay
 from tools.sim.warmup_recorder import REPLAY_PORT_MAP, record_shift_load_vcd
@@ -103,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
             output_names=["S"],
             work_dir=work_dir / "replay",
         )
-    except PdkResolutionError as e:
+    except (PdkResolutionError, IcarusNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
@@ -111,14 +112,9 @@ def main(argv: list[str] | None = None) -> int:
     print(result.models.describe())
     print()
 
-    if not result.sim.compiled:
-        print("COMPILE FAILED", file=sys.stderr)
-        print(result.sim.compile_stderr, file=sys.stderr)
-        return 1
-    if not result.sim.ran:
-        print("SIMULATION DID NOT RUN", file=sys.stderr)
-        print(result.sim.run_stderr, file=sys.stderr)
-        return 1
+    rc = report_sim_failure(result.sim)
+    if rc is not None:
+        return rc
 
     cycles = _count_clock_cycles(recorded_vcd)
     print(f"Compared through t={result.compared_through} ({result.recorded.timescale if result.recorded else '?'} units)")

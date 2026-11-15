@@ -20,9 +20,14 @@ import argparse
 import sys
 from pathlib import Path
 
+from tools.sim.icarus import IcarusNotFoundError
 from tools.sim.solve import (
+    EXIT_ERROR,
+    add_design_args,
     enumerate_solutions,
-    load_design,
+    load_design_for_cli,
+    print_sim_result_lines,
+    report_solver_sim_failure,
     verify_by_simulation,
     windowed_scenario,
 )
@@ -31,7 +36,6 @@ from tools.sim.testbench import SequenceExpectation
 
 EXIT_OK = 0
 EXIT_UNSAT = 1
-EXIT_ERROR = 2
 
 
 def _short_names(model) -> dict[str, str]:
@@ -55,59 +59,29 @@ def _short_names(model) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python3 -m tools.sim.run_solve")
-    ap.add_argument("--netlist", required=True, type=Path)
-    ap.add_argument("--clock-port", default="clk")
-    ap.add_argument("--reset-port", default="rst_n")
-    ap.add_argument("--enable-port", default="enable")
-    ap.add_argument("--goal", default="success", help="output port to drive high")
+    add_design_args(ap,
+                    work_dir_default=Path(".sim-work/solve"),
+                    goal_help="output port to drive high")
     ap.add_argument("--goal-value", type=int, default=1, choices=(0, 1))
-    ap.add_argument("--free", action="append", default=None,
-                    help="input port the solver may choose (repeatable)")
-    ap.add_argument("--reset-cycles", type=int, default=3)
-    ap.add_argument("--idle-cycles", type=int, default=1)
-    ap.add_argument("--active-cycles", type=int, default=121)
     ap.add_argument("--tail-cycles", type=int, default=5)
     ap.add_argument("--max-solutions", type=int, default=1,
                     help="stop after this many; >1 also tests uniqueness")
-    ap.add_argument("--solver", default="cadical195")
     ap.add_argument("--structure", action="store_true", help="print the structural report")
     ap.add_argument("--verify", action="store_true", help="replay the answer through Icarus")
     ap.add_argument("--grid-width", type=int, default=0,
                     help="also render the solved bits as a grid this many columns wide")
-    ap.add_argument("--clock-period-ns", type=int, default=10)
-    ap.add_argument("--work-dir", type=Path, default=Path(".sim-work/solve"))
-    ap.add_argument("--table-cache", type=Path, default=None)
     args = ap.parse_args(argv)
 
-    if not args.netlist.exists():
-        print(f"no such netlist: {args.netlist}", file=sys.stderr)
-        return EXIT_ERROR
-    try:
-        import pysat  # noqa: F401
-    except ImportError:
-        print("python-sat is not installed — `pip install python-sat`", file=sys.stderr)
-        return EXIT_ERROR
-
-    design = load_design(
-        args.netlist,
-        work_dir=args.work_dir,
-        table_cache=args.table_cache,
-        clock_port=args.clock_port,
-    )
-    print(design.pdk.describe())
-    print()
-    print(f"Netlist: {args.netlist} (top `{design.netlist.top}`)")
-    print(f"Cell truth tables: {len(design.tables)} cell types, measured from the models above")
+    loaded = load_design_for_cli(args)
+    if isinstance(loaded, int):
+        return loaded
+    design, free_ports = loaded
     print()
 
     if args.structure:
         print("== structural analysis ==")
         print(format_report(analyze(design.model), short_names=_short_names(design.model)))
 
-    free_ports = args.free or [
-        p for p in design.model.inputs
-        if p not in (args.clock_port, args.reset_port, args.enable_port)
-    ]
     scenario = windowed_scenario(
         design.model,
         reset_cycles=args.reset_cycles,
@@ -176,28 +150,29 @@ def main(argv: list[str] | None = None) -> int:
             for port in design.model.inputs
             if port != args.clock_port
         }
-        result = verify_by_simulation(
-            design,
-            drive=drive,
-            watch=[args.goal],
-            expect=[SequenceExpectation(
-                cycle=scenario.goal_cycle, signal=args.goal, value=args.goal_value
-            )],
-            work_dir=args.work_dir,
-            clock_period_ns=args.clock_period_ns,
-        )
-        if not result.sim.compiled:
-            print("compile FAILED")
-            print(result.sim.compile_stderr)
+        try:
+            result = verify_by_simulation(
+                design,
+                drive=drive,
+                watch=[args.goal],
+                expect=[SequenceExpectation(
+                    cycle=scenario.goal_cycle, signal=args.goal, value=args.goal_value
+                )],
+                work_dir=args.work_dir,
+                clock_period_ns=args.clock_period_ns,
+            )
+        except IcarusNotFoundError as e:
+            print(f"error: {e}", file=sys.stderr)
             return EXIT_ERROR
+        fail_rc = report_solver_sim_failure(result.sim)
+        if fail_rc is not None:
+            return fail_rc
         asserted = [int(r["cycle"]) for r in result.samples if r.get(args.goal) == "1"]
         print(f"Testbench: {result.testbench}")
         print(f"Sources:   {result.command_note}")
         print(f"Cycles where {args.goal} == 1: "
               f"{asserted if len(asserted) <= 12 else str(asserted[:12]) + ' ...'}")
-        for line in result.sim.run_stdout.splitlines():
-            if line.startswith(("RESULT ", "EXPECT FAIL")):
-                print(line)
+        print_sim_result_lines(result.sim)
         if not result.ok:
             print("VERIFICATION FAILED — the solver's answer does not reproduce in simulation")
             rc = EXIT_ERROR
