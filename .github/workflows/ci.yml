@@ -154,7 +154,17 @@ jobs:
           fi
           ls "$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/verilog/"
 
-      - name: tools/sim self-test gate (iverilog + PDK models)
+      - name: Install python-sat (pinned)
+        # issue #118: selftest_solve in the gate below needs pysat. Pinned
+        # because python-sat has no PEP 440 final release — every PyPI
+        # version is a .dev prerelease — so an unpinned install silently
+        # tracks a moving tip (the same defect class the ciel==3.2.0 pin
+        # fixed). An explicit == prerelease pin resolves without --pre and
+        # installs from the cp312 manylinux wheel this ubuntu-latest /
+        # python 3.12 job already uses, not from source.
+        run: pip install "python-sat==1.9.dev12"
+
+      - name: tools/sim self-test gate (iverilog + PDK models + python-sat)
         # issue #108: before this step, exactly one tools/sim module ran in
         # CI — selftest_cli above (issue #102, deliberately before the fetch
         # and left there) — while the library self-tests and the recorder's
@@ -164,12 +174,14 @@ jobs:
         # SEMANTIC gate: selftest_replay records and replays against the
         # same netlist, so a recorder mutation moves both sides together and
         # still passes, while the directed run's expected_s (A + B == 496)
-        # does not move. --require-pdk: with iverilog and the models
-        # provisioned above, a skip is a failure — a gate that cannot run
-        # must never look like one that passed. selftest_solve is a reported
-        # skip naming #98, never a run. Runs after the fetch because
-        # selftest_replay and the directed run read
-        # puzzle/warmup/01_netlist.v.
+        # does not move. --require-pdk: with iverilog, the models and
+        # python-sat provisioned above, a skip is a failure — a gate that
+        # cannot run must never look like one that passed. selftest_solve
+        # runs too (issue #118): it exercises the solver stack end to end
+        # against the warm-up's published ground truth, so a regression in
+        # solve.py, seqmodel.py or celltable.py now fails CI. Runs after the
+        # fetch because selftest_replay, the directed run and selftest_solve
+        # read puzzle/warmup/01_netlist.v.
         env:
           PDK_ROOT: ${{ github.workspace }}/build/pdk-root
         run: ./scripts/sim-selftests.sh --require-pdk
