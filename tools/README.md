@@ -116,10 +116,12 @@ empirically, cited inline with which check backs each claim);
 whatever's already importable, then `$KLAYOUT_PYTHON`, then the interpreter
 behind `klt` on `PATH` — `klayout-tools` already depends on it, so that
 interpreter reliably has it without asking a contributor to `pip install`
-anything extra) and re-execs into it if needed. Both `tools/inventory` and
-`tools/pins` call `klayout_env.ensure_klayout()` before importing
-`klayout.db`, so either command works from a plain `python3` with no
-`klayout` package of its own, as long as `klt` is on `PATH`.
+anything extra) and re-execs into it if needed; `open_layout()` layers the
+whole GDS-open preamble on top of it (existence check, `db.Layout().read()`,
+raising `KlayoutResolutionError` / `LayoutReadError` naming the problem).
+The CLIs that read a GDS stream all go through that one preamble, so any of
+them works from a plain `python3` with no `klayout` package of its own, as
+long as `klt` is on `PATH`.
 
 ## `tools/extract` — cell-level connectivity extraction (stage 4)
 

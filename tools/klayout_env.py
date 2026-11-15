@@ -1,7 +1,11 @@
-"""Resolve an importable `klayout` Python module.
+"""Resolve an importable `klayout` Python module and open GDS streams.
 
-`tools/inventory` and `tools/pins` read GDS streams with KLayout's Python API
-(`klayout.db`). Nothing in this repo vendors that package -- `klt` (the
+Every CLI in this repo that reads a GDS stream does both through this
+module: `ensure_klayout()` makes `import klayout.db` succeed, and
+`open_layout()` performs the whole resolve -> existence-check -> read
+preamble on top of it, so the GDS-open error wording lives in exactly one
+place and a new GDS-reading CLI inherits it instead of re-rolling the
+block. Nothing in this repo vendors that package -- `klt` (the
 `klayout-tools` CLI under test) already depends on it, so the interpreter
 `klt` itself runs under is the one reliable place to find it without asking a
 contributor to `pip install` anything extra.
@@ -28,6 +32,10 @@ from __future__ import annotations
 import os
 import shutil
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import klayout.db
 
 # Guards against relaunch loops: once we've re-exec'd once, a second failure
 # to import means the resolved interpreter didn't actually have klayout
@@ -49,6 +57,18 @@ class KlayoutResolutionError(RuntimeError):
 
     Always carries `INSTALL_HINT` as the message -- a missing `klayout`
     module is one actionable install instruction, never a silent skip.
+    """
+
+
+class LayoutReadError(RuntimeError):
+    """Raised when the file at `path` cannot be opened as a GDS layout.
+
+    Covers both failure branches of the GDS-open preamble, with the exact
+    wording the CLIs reported inline before the block was centralised:
+    `no such file: <path>` when the path does not exist, and
+    `could not read <path!r>: <reason>` when KLayout refuses the stream.
+    The message carries no program prefix -- the caller adds `f"{prog}: "`,
+    as it already does for `KlayoutResolutionError`.
     """
 
 
@@ -110,3 +130,29 @@ def ensure_klayout() -> None:
         os.execv(interp, [interp] + sys.argv)  # never returns on success
 
     raise KlayoutResolutionError(INSTALL_HINT)
+
+
+def open_layout(path: str) -> klayout.db.Layout:
+    """Resolve klayout, then read the GDS stream at `path` into a `db.Layout`.
+
+    The whole GDS-open preamble of a top-level CLI in one call: resolution
+    (`ensure_klayout()`, which may re-exec this process), the existence
+    check, and the `db.Layout().read()` itself. Raises
+    `KlayoutResolutionError` when no importable `klayout` can be resolved
+    and `LayoutReadError` for either read failure. Never prints and never
+    exits -- that is the caller's job, adding its own prog prefix and exit
+    status when it catches either error.
+    """
+    ensure_klayout()
+
+    from klayout import db
+
+    if not os.path.isfile(path):
+        raise LayoutReadError(f"no such file: {path}")
+
+    layout = db.Layout()
+    try:
+        layout.read(path)
+    except Exception as exc:  # klayout raises its own RuntimeError subclasses
+        raise LayoutReadError(f"could not read {path!r}: {exc}") from exc
+    return layout

@@ -42,10 +42,6 @@ PDK="${PDK:-sky130A}"
 
 command -v klt >/dev/null || { echo "warmup-klt-lvs: klt not found on PATH" >&2; exit 2; }
 
-if [ ! -f "$WARMUP/04_final.gds" ]; then
-  ./scripts/fetch-puzzle.sh
-fi
-
 if ! PDK_JSON="$(klt pdk find --pdk "$PDK" --format json 2>/dev/null)"; then
   echo "warmup-klt-lvs: no '$PDK' PDK found. Point PDK_ROOT at a sky130 install" >&2
   echo "(keep it inside your worktree; do not install into shared host paths)." >&2
@@ -62,6 +58,10 @@ if [ ! -f "$CELL_LEF" ]; then
   echo "cannot resolve the std cells' VNB/VPB pins without it, which silently" >&2
   echo "changes the verdict; install the libs.ref assets and re-run." >&2
   exit 2
+fi
+
+if [ ! -f "$WARMUP/04_final.gds" ]; then
+  ./scripts/fetch-puzzle.sh
 fi
 
 mkdir -p "$BUILD" evidence
