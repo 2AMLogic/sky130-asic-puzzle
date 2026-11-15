@@ -31,9 +31,10 @@
 # evidence/puzzle-extracted.v at all today — its eight escaped-bracket scalar
 # ports `\O[0] … \O[7] ` trip the gate-level-verilog reader's port-list check
 # (klayout-tools#5693, a follow-up to closed #1371 and #4810) and it exits 1
-# before any compare. That is a genuine hard error (klt's documented exit 1)
-# and stops the script; running the probe first is what keeps that abort from
-# also suppressing the one measurement that does get through. The probe is
+# before any compare. The probe's own stage fails soft: a probe-side hard
+# error (klt's documented exit 1 or worse) is reported on stderr with its rc
+# and stage 2 is still attempted — the script's exit status is always stage
+# 2's, so the probe can never suppress the deliverable compare. The probe is
 # build/-only and nothing committed depends on it. There is no workaround for
 # the reader defect in this script: the error is left to surface verbatim
 # (CLAUDE.md §2).
@@ -55,10 +56,6 @@ PDK="${PDK:-sky130A}"
 
 command -v klt >/dev/null || { echo "puzzle-klt-lvs: klt not found on PATH" >&2; exit 2; }
 
-if [ ! -f "$LAYOUT_GDS" ]; then
-  ./scripts/fetch-puzzle.sh
-fi
-
 if ! PDK_JSON="$(klt pdk find --pdk "$PDK" --format json 2>/dev/null)"; then
   echo "puzzle-klt-lvs: no '$PDK' PDK found. Point PDK_ROOT at a sky130 install" >&2
   echo "(keep it inside your worktree; do not install into shared host paths)." >&2
@@ -75,6 +72,10 @@ if [ ! -f "$CELL_LEF" ]; then
   echo "cannot resolve the std cells' VNB/VPB pins without it, which silently" >&2
   echo "changes the verdict; install the libs.ref assets and re-run." >&2
   exit 2
+fi
+
+if [ ! -f "$LAYOUT_GDS" ]; then
+  ./scripts/fetch-puzzle.sh
 fi
 
 mkdir -p "$BUILD" evidence
@@ -149,7 +150,8 @@ assert text.count("output [7:0] O;") == 1, "bus declaration was not emitted exac
 open(dst, "w").write(text)
 print(f"  wrote {dst}: eight '\\O[N] ' scalar ports -> one 'output [7:0] O;' bus")
 PY
-run_lvs "$PROBE_REFERENCE" "$BUILD/puzzle-klt-lvs-probe.json" "probe(bus-port)"
+run_lvs "$PROBE_REFERENCE" "$BUILD/puzzle-klt-lvs-probe.json" "probe(bus-port)" \
+  || echo "puzzle-klt-lvs: probe failed (rc=$?) — continuing to stage 2" >&2
 
 # ---- Stage 2: the committed reference, unmodified -------------------------
 #
