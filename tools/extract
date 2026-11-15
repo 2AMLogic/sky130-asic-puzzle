@@ -55,26 +55,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        klayout_env.ensure_klayout()
-    except klayout_env.KlayoutResolutionError as exc:
+        layout = klayout_env.open_layout(args.gds)
+    except (klayout_env.KlayoutResolutionError, klayout_env.LayoutReadError) as exc:
         print(f"tools/extract: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
-    import klayout.db as db
-
     import gds_extract
     import verilog_netlist as vn
-
-    if not os.path.isfile(args.gds):
-        print(f"tools/extract: no such file: {args.gds}", file=sys.stderr)
-        return EXIT_ERROR
-
-    layout = db.Layout()
-    try:
-        layout.read(args.gds)
-    except Exception as exc:  # klayout raises its own RuntimeError subclasses
-        print(f"tools/extract: could not read {args.gds!r}: {exc}", file=sys.stderr)
-        return EXIT_ERROR
 
     try:
         result = gds_extract.extract(layout, source=args.gds, top_name=args.top)

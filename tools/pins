@@ -89,25 +89,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        klayout_env.ensure_klayout()
-    except klayout_env.KlayoutResolutionError as exc:
+        layout = klayout_env.open_layout(args.gds)
+    except (klayout_env.KlayoutResolutionError, klayout_env.LayoutReadError) as exc:
         print(f"tools/pins: {exc}", file=sys.stderr)
         return EXIT_ERROR
 
-    import klayout.db as db
-
     import gds_pins
-
-    if not os.path.isfile(args.gds):
-        print(f"tools/pins: no such file: {args.gds}", file=sys.stderr)
-        return EXIT_ERROR
-
-    layout = db.Layout()
-    try:
-        layout.read(args.gds)
-    except Exception as exc:
-        print(f"tools/pins: could not read {args.gds!r}: {exc}", file=sys.stderr)
-        return EXIT_ERROR
 
     cell_names = gds_pins.library_cell_names(layout)
     if args.library_prefix:
