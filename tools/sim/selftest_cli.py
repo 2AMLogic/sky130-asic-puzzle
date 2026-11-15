@@ -9,7 +9,7 @@ reused the name `rc` for an `int | None` helper result, clobbering
 (`raise SystemExit(None)`). Only a test that inspects main()'s *return
 value* can catch that class of regression.
 
-Three contracts asserted here:
+Four contracts asserted here:
 
 1. `main([])` — missing required args — RAISES SystemExit with code exactly
    int 2 in all five CLIs. An exception, not a return value; asserted with
@@ -29,6 +29,14 @@ Three contracts asserted here:
    (issue #113), whose patch bypasses the lazy `import pysat` gate; a stdlib
    module stub in sys.modules keeps that gate satisfied should the patch
    boundary move back inside the preamble.
+4. An unresolvable sky130 PDK (issue #100) makes run_solve.main() and
+   run_answer.main() RETURN exactly int 2, with one stderr line carrying the
+   install hint and no traceback — the contract both CLIs' docstrings state.
+   The failure is injected in-process (`tools.sim.solve.load_design`, where
+   the shared `load_design_for_cli` helper looks it up, patched to raise
+   `PdkResolutionError`), so the assertion holds on any runner: no PDK-less
+   host, no HOME/PATH scrubbing. The pysat stub keeps the preamble's import
+   gate satisfied so the run reaches the injected failure.
 
 Needs no PDK, no iverilog, no python-sat and no puzzle/ file: every input is
 synthetic (CLAUDE.md §3 — nothing from puzzle/ is ever read) and every
@@ -55,6 +63,7 @@ from tools.sim import (
     run_warmup_cross_check,
     run_warmup_directed,
 )
+from tools.sim.pdk import INSTALL_HINT, PdkResolutionError
 
 # The five CLI entry points under test, in module order.
 CLIS = {
@@ -181,6 +190,41 @@ class CliBadInputExitTest(unittest.TestCase):
                     self.assertEqual(len(lines), 1, f"expected one stderr line: {lines}")
                     self.assertTrue(lines[0].strip())
                     self.assertIn(str(missing), lines[0])
+                    self.assertNotIn("Traceback", err.getvalue())
+
+
+class CliPdkResolutionErrorExitTest(unittest.TestCase):
+    """Contract 4: an unresolvable PDK returns exactly int 2, one error line.
+
+    The failure is injected where the shared preamble looks `load_design` up
+    (`tools.sim.solve`), so both solver CLIs are covered by one patch and the
+    test needs neither a PDK-less host nor HOME/PATH scrubbing.
+    """
+
+    def test_pdk_resolution_error_returns_exact_int_2_in_both_solver_clis(self):
+        solver_clis = {
+            "tools.sim.run_solve": run_solve.main,
+            "tools.sim.run_answer": run_answer.main,
+        }
+        with tempfile.TemporaryDirectory(prefix="cli-selftest-") as tmp:
+            netlist = Path(tmp) / "synthetic.v"
+            netlist.touch()
+            for name, main in solver_clis.items():
+                with self.subTest(cli=name):
+                    with contextlib.ExitStack() as stack:
+                        stack.enter_context(
+                            mock.patch.dict(sys.modules, {"pysat": ModuleType("pysat")}))
+                        stack.enter_context(mock.patch(
+                            "tools.sim.solve.load_design",
+                            mock.Mock(side_effect=PdkResolutionError(INSTALL_HINT))))
+                        with contextlib.redirect_stderr(io.StringIO()) as err:
+                            rc = main(["--netlist", str(netlist)])
+                    self.assertIs(type(rc), int)
+                    self.assertEqual(rc, 2)
+                    lines = err.getvalue().splitlines()
+                    self.assertEqual(len(lines), 1, f"expected one stderr line: {lines}")
+                    self.assertTrue(lines[0].startswith("error: "))
+                    self.assertIn(INSTALL_HINT, lines[0])
                     self.assertNotIn("Traceback", err.getvalue())
 
 

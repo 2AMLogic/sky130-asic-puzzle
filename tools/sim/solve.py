@@ -32,7 +32,7 @@ from pathlib import Path
 from tools.sim import bmc
 from tools.sim.celltable import CellTable, derive_cell_tables, load_tables, save_tables
 from tools.sim.icarus import IcarusNotFoundError, SimResult, compile_and_run
-from tools.sim.pdk import ResolvedModels, resolve_sky130_models
+from tools.sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
 from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model, simulate
 from tools.sim.testbench import SequenceExpectation, build_sequence_testbench
 from tools.verilog_netlist import Netlist, base_cell, is_fill, load
@@ -88,8 +88,9 @@ def load_design_for_cli(args: argparse.Namespace) -> tuple[LoadedDesign, list[st
     input that is not the clock, reset or enable port, unless --free says
     otherwise). Returns (design, free_ports), or EXIT_ERROR after printing
     the problem to stderr — callers return that code directly. A missing
-    Icarus (deriving cell tables compiles the PDK models) is reported the
-    same way, so a solver CLI never tracebacks on an environment error.
+    Icarus (deriving cell tables compiles the PDK models) or an unresolvable
+    sky130 PDK is reported the same way, so a solver CLI never tracebacks on
+    an environment error.
 
     Prints no trailing blank line after the banner; each CLI emits its own
     where its layout wants one.
@@ -110,7 +111,7 @@ def load_design_for_cli(args: argparse.Namespace) -> tuple[LoadedDesign, list[st
             table_cache=args.table_cache,
             clock_port=args.clock_port,
         )
-    except IcarusNotFoundError as e:
+    except (IcarusNotFoundError, PdkResolutionError) as e:
         print(f"error: {e}", file=sys.stderr)
         return EXIT_ERROR
     print(design.pdk.describe())
