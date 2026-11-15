@@ -7,11 +7,30 @@ updated.
 
 ### 2026-11-15
 
+- **PR #116**: ci: gate the tools/sim self-tests and the shift-load protocol in CI
+- **PR #115**: refactor: read celltable's supply-pin filter from verilog_netlist.POWER_PINS
+- **PR #114**: fix: parse 'input wire X;' cell ports so load_design() works on current open_pdks
+- **PR #111**: refactor: share the GDS-open preamble as klayout_env.open_layout
+- **PR #109**: fix: fail soft on klt-lvs probe stage and check PDK before fetching puzzle
+- **PR #107**: refactor: share the warm-up shift-load protocol between both testbench generators
+- **PR #104**: refactor: share the klayout bootstrap and skip-all guard via tools/testutil.py
+- **PR #101**: refactor: share the tools/sim CLI preamble blocks; route IcarusNotFoundError to exit 2
+- **PR #73**: docs: roadmap as of 2026-11-15
 - **PR #105**: test: add CLI main() return-contract selftest for the five tools/sim CLIs
 - **PR #103**: README: close the capability-gap section, keep the premise as history
 - **PR #95**: refactor(tools): share one driven/supply pin definition, widening it to HI/LO
 - **PR #99**: docs(evidence): check the 15 featured writeups against our record
 - **PR #90**: feat(puzzle-lvs): run klt lvs on puzzle.gds, file the port-name reader defect
+- **Issue #117** (closed): main is red since dd2925e: selftest_cli patches run_solve.load_design, renamed to load_design_for_cli by #101
+- **Issue #113** (closed): tools/sim/selftest_cli.py fails on main: patches run_solve.load_design, which the #101 preamble refactor removed
+- **Issue #108** (closed): Gate the tools/sim self-tests in CI: only selftest_cli runs today, and the shift-load protocol has no semantic gate at all
+- **Issue #106** (closed): tools/sim/celltable.py keeps a fourth local supply-pin set after #93 collapsed the others
+- **Issue #98** (closed): tools/sim/celltable.py cannot parse 'input wire X;' cell ports, so load_design() fails against current open_pdks
+- **Issue #96** (closed): Share the klayout bootstrap in the test harnesses: tools/test-inventory, test-pins and test-extract triplicate the same try/except and the same skip-all guard
+- **Issue #94** (closed): Share the GDS-open preamble: tools/extract, tools/inventory and tools/pins each re-roll the same 20-line klayout-resolve-and-read block
+- **Issue #92** (closed): puzzle-klt-lvs.sh: let a probe failure fall through to stage 2, and check the PDK before fetching puzzle/
+- **Issue #91** (closed): Share the tools/sim CLI preamble: a 15-line block triplicated, a 19-line block doubled, and no CLI catches IcarusNotFoundError
+- **Issue #89** (closed): Share the warm-up shift-load protocol: the recorder testbench re-emits 30 of its 34 lines from build_shift_load_testbench
 - **Issue #102** (closed): No test exercises any tools/sim CLI main(): a return-contract regression reached review undetected
 - **Issue #93** (closed): One source of truth for driven/supply pin names: tools/floating-nets re-rolls both, and its copy disagrees with the gds_extract.py constant it cites
 - **Issue #75** (closed): README: the "capability gap" section still describes klt extract as device-level only
