@@ -164,9 +164,9 @@ def main(argv: list[str] | None = None) -> int:
         except IcarusNotFoundError as e:
             print(f"error: {e}", file=sys.stderr)
             return EXIT_ERROR
-        rc = report_solver_sim_failure(result.sim)
-        if rc is not None:
-            return rc
+        fail_rc = report_solver_sim_failure(result.sim)
+        if fail_rc is not None:
+            return fail_rc
         asserted = [int(r["cycle"]) for r in result.samples if r.get(args.goal) == "1"]
         print(f"Testbench: {result.testbench}")
         print(f"Sources:   {result.command_note}")
