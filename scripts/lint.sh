@@ -101,9 +101,23 @@ fi
 # truncated header is still all comment lines), which stays an acceptance
 # test on the script's last help line. Scripts without a -h|--help arm are
 # skipped, not failed — growing one is not a lint requirement.
+# The gate matches a real case arm, not the bare '-h|--help' substring: the
+# substring occurs in this file's own text, and lint.sh takes no arguments,
+# so `lint.sh --help` re-ran the whole lint and this loop recursed until the
+# CI job timeout killed the run. `timeout` bounds any future hanging help arm
+# the same way, to a FAIL instead of a dead job. The output is captured
+# before it is tested: a producer piped straight into `grep -q` takes SIGPIPE
+# (141) when grep short-circuits on an early match, and under
+# `set -o pipefail` that exit code, not grep's verdict, decides the `if` —
+# which reported `ok` on precisely the long-running, large spills this check
+# exists to catch.
 while IFS= read -r f; do
-  grep -q -- '-h|--help' "$f" || continue
-  if "$f" --help 2>/dev/null | grep -qvE '^#|^$'; then
+  grep -qE '^[[:space:]]*-h\|--help\)' "$f" || continue
+  rc=0
+  out="$(timeout 10 "$f" --help 2>/dev/null)" || rc=$?
+  if [ "$rc" -eq 124 ]; then
+    note "FAIL" "$f --help timed out (help arm hung?)"; fail=1
+  elif printf '%s\n' "$out" | grep -qvE '^#|^$'; then
     note "FAIL" "$f --help spills non-comment lines"; fail=1
   else
     note "ok" "$f --help is header-only"
