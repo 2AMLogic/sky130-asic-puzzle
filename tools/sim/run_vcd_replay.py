@@ -32,6 +32,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from tools.sim.icarus import IcarusNotFoundError, report_sim_failure
 from tools.sim.pdk import PdkResolutionError
 from tools.sim.replay import run_vcd_replay
 
@@ -100,21 +101,16 @@ def main(argv: list[str] | None = None) -> int:
             work_dir=Path(args.work_dir),
             margin=args.margin,
         )
-    except PdkResolutionError as e:
+    except (PdkResolutionError, IcarusNotFoundError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
     print(result.models.describe())
     print()
 
-    if not result.sim.compiled:
-        print("COMPILE FAILED", file=sys.stderr)
-        print(result.sim.compile_stderr, file=sys.stderr)
-        return 1
-    if not result.sim.ran:
-        print("SIMULATION DID NOT RUN", file=sys.stderr)
-        print(result.sim.run_stderr, file=sys.stderr)
-        return 1
+    rc = report_sim_failure(result.sim)
+    if rc is not None:
+        return rc
 
     print(f"Compared through t={result.compared_through} ({result.recorded.timescale if result.recorded else '?'} units)")
     if result.simulated_vcd_path:
