@@ -310,7 +310,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_replay.py` | self-tests `replay.py` against the warm-up (see `evidence/warmup-sim.md`) |
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
-| `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, and the `run_solve` `return rc` tail with collaborators mocked (no PDK, no `iverilog`, no `python-sat`) |
+| `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, the `run_solve` `return rc` tail with collaborators mocked, and the PDK-resolution-error exit in both solver CLIs (failure injected in-process; no PDK, no `iverilog`, no `python-sat`) |
 | `tools/sim/selftest_celltable.py` | self-tests `celltable.py`'s port-direction parsing: the #98 declaration-style contracts (`input wire A1;` vs bare `input A1;`, `reg`/`logic` keywords, power-only cells staying absent, the two distinct `CellTableError` messages) plus issue #106's supply-pin filter (a no-PDK fixture check, a negative control, and a golden check that the 69-cell port map is unchanged vs `evidence/portmap-sky130_fd_sc_hd.json`) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
