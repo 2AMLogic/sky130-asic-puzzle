@@ -91,6 +91,25 @@ else
   note "skip" "ruff not installed"
 fi
 
+# 5. --help prints only the header comment block.
+#
+# A script that reads its own header as its help text must stop where the
+# header stops (issue #132): a hard-coded end line drifts every time the
+# header is edited, and had drifted both ways — sim-selftests.sh printed
+# shell code after the header, warmup-regression.sh truncated it mid-sentence.
+# This catches an overshoot mechanically; it cannot catch an undershoot (a
+# truncated header is still all comment lines), which stays an acceptance
+# test on the script's last help line. Scripts without a -h|--help arm are
+# skipped, not failed — growing one is not a lint requirement.
+while IFS= read -r f; do
+  grep -q -- '-h|--help' "$f" || continue
+  if "$f" --help 2>/dev/null | grep -qvE '^#|^$'; then
+    note "FAIL" "$f --help spills non-comment lines"; fail=1
+  else
+    note "ok" "$f --help is header-only"
+  fi
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
+
 rm -rf tools/__pycache__ 2>/dev/null || true
 
 echo "------------------------------------------------------------"

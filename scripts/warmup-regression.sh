@@ -44,7 +44,7 @@ for arg in "$@"; do
     --no-fetch) FETCH=0 ;;
     --require-klt) REQUIRE_KLT=1 ;;
     -h|--help)
-      sed -n '2,32p' "${BASH_SOURCE[0]}"
+      sed -n '2,/^[^#]/{ /^[^#]/d; p; }' "${BASH_SOURCE[0]}"
       exit 0
       ;;
     *) echo "warmup-regression: unknown argument $arg" >&2; exit 2 ;;

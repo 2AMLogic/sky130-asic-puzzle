@@ -27,7 +27,7 @@ for arg in "$@"; do
   case "$arg" in
     --no-fetch) FETCH=0 ;;
     --require-klt) REQUIRE_KLT=1 ;;
-    -h|--help) sed -n '2,18p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,/^[^#]/{ /^[^#]/d; p; }' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "puzzle-regression: unknown argument $arg" >&2; exit 2 ;;
   esac
 done
