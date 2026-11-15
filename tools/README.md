@@ -324,17 +324,17 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_solve.py` | known-answer self-test of the whole solver stack against the warm-up |
 
 Which of these run in CI: `scripts/sim-selftests.sh` (issue #108) gates
-`selftest_pdk`, `selftest_answer`, `selftest_portmap`, `selftest_replay` and
-`selftest_solve` (gated in by issue #118), plus the directed
-`run_warmup_directed` run — the shift-load protocol's semantic gate, whose
-cases carry `expected_s` from `A + B == 496` (`selftest_replay` alone cannot
-catch a protocol mutation: it records and replays against the same netlist,
-so both sides move together). CI runs the gate with `--require-pdk` after
-the fetch step, so a missing `iverilog`, PDK or `python-sat` fails the job
-rather than skipping — `selftest_solve` additionally needs `python-sat`,
-pinned in CI because the package publishes no stable release;
-`selftest_cli` runs separately, ahead of the fetch, on purpose (#102:
-embargo-trivial).
+`selftest_pdk`, `selftest_answer`, `selftest_portmap`, `selftest_celltable`
+(gated in by issue #122), `selftest_replay` and `selftest_solve` (gated in
+by issue #118), plus the directed `run_warmup_directed` run — the shift-load
+protocol's semantic gate, whose cases carry `expected_s` from `A + B == 496`
+(`selftest_replay` alone cannot catch a protocol mutation: it records and
+replays against the same netlist, so both sides move together). CI runs the
+gate with `--require-pdk` after the fetch step, so a missing `iverilog`, PDK
+or `python-sat` fails the job rather than skipping — `selftest_solve`
+additionally needs `python-sat`, pinned in CI because the package publishes
+no stable release; `selftest_cli` runs separately, ahead of the fetch, on
+purpose (#102: embargo-trivial).
 
 ### Where the behavioural models come from, and how to install them
 
