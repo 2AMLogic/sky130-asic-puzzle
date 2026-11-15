@@ -24,21 +24,24 @@
 #                                 netlist, so a recorder-protocol mutation
 #                                 moves both sides together and still passes;
 #                                 the directed run's expected_s does not move.
-#   tools.sim.selftest_solve    — never run here: reported as a skip naming
-#                                 #98 (celltable's port-direction parser does
-#                                 not match this open_pdks build's
-#                                 "output wire X ;" declarations), so the
+#   tools.sim.selftest_solve    — iverilog + resolvable sky130 models +
+#                                 puzzle/warmup/01_netlist.v + python-sat
+#                                 (pinned in CI): the solver stack's
+#                                 known-answer check against the warm-up,
+#                                 gated in by issue #118. Skipped, naming
+#                                 whichever prerequisite is missing, so the
 #                                 coverage gap stays legible in the log
 #                                 instead of silently absent.
 #
-# A missing iverilog or models is a reported skip and exit 0 by default;
-# --require-pdk turns that into a hard failure naming what was missing
-# (mirroring warmup-regression.sh's --require-klt), so CI can never go green
-# on a silently skipped gate. A missing netlist is always a reported skip —
-# run this after scripts/fetch-puzzle.sh in CI. Scratch output lands in
-# .sim-work/ (gitignored), so the tree stays clean.
+# A missing iverilog, models or python-sat is a reported skip and exit 0 by
+# default; --require-pdk turns that into a hard failure naming what was
+# missing (mirroring warmup-regression.sh's --require-klt), so CI can never
+# go green on a silently skipped gate. A missing netlist is always a
+# reported skip — run this after scripts/fetch-puzzle.sh in CI. Scratch
+# output lands in .sim-work/ (gitignored), so the tree stays clean.
 #
-# Flags: --require-pdk (a missing iverilog or models is a failure, not a skip).
+# Flags: --require-pdk (a missing iverilog, models or python-sat is a
+# failure, not a skip).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -48,7 +51,7 @@ REQUIRE_PDK=0
 for arg in "$@"; do
   case "$arg" in
     --require-pdk) REQUIRE_PDK=1 ;;
-    -h|--help) sed -n '2,52p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,55p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "sim-selftests: unknown argument $arg" >&2; exit 2 ;;
   esac
 done
@@ -87,7 +90,9 @@ if python3 -c 'from tools.sim.pdk import resolve_sky130_models; resolve_sky130_m
 fi
 HAVE_NETLIST=0
 if [ -f "$NETLIST" ]; then HAVE_NETLIST=1; fi
-echo "prerequisites: iverilog=$HAVE_IV sky130_models=$HAVE_MODELS warmup_netlist=$HAVE_NETLIST"
+HAVE_PYSAT=0
+if python3 -c 'import pysat' >/dev/null 2>&1; then HAVE_PYSAT=1; fi
+echo "prerequisites: iverilog=$HAVE_IV sky130_models=$HAVE_MODELS warmup_netlist=$HAVE_NETLIST python_sat=$HAVE_PYSAT"
 
 # 1. PDK resolver self-test — mocks every source, so it always runs.
 run_py "tools.sim.selftest_pdk" tools.sim.selftest_pdk
@@ -120,14 +125,30 @@ else
   note "skip" "tools.sim.run_warmup_directed — needs iverilog + models + $NETLIST (run ./scripts/fetch-puzzle.sh)"
 fi
 
-# 6. Solver self-test — held on #98, always a reported skip, never a run.
-note "skip" "tools.sim.selftest_solve — blocked on #98 (celltable's port-direction parser does not match open_pdks' 'output wire X ;' declarations)"
+# 6. Solver self-test — the solver stack's known-answer check against the
+#    warm-up, gated in by issue #118. It needs everything the replay pair
+#    needs plus python-sat. The probe is load-bearing, not cosmetic:
+#    selftest_solve guards pysat itself and exits 1 when it is missing,
+#    and run_py records any non-zero exit as FAIL — so an unguarded run
+#    would turn a green suite on a python-sat-less host into a hard failure.
+solve_missing=""
+if [ "$HAVE_IV" -eq 0 ]; then solve_missing="iverilog"; fi
+if [ "$HAVE_MODELS" -eq 0 ]; then solve_missing="${solve_missing:+$solve_missing, }resolvable sky130 models"; fi
+if [ "$HAVE_NETLIST" -eq 0 ]; then solve_missing="${solve_missing:+$solve_missing, }$NETLIST"; fi
+if [ "$HAVE_PYSAT" -eq 0 ]; then solve_missing="${solve_missing:+$solve_missing, }python-sat"; fi
+if [ -z "$solve_missing" ]; then
+  run_py "tools.sim.selftest_solve" tools.sim.selftest_solve
+else
+  note "skip" "tools.sim.selftest_solve — missing: $solve_missing"
+fi
 
-# --require-pdk (CI): a missing iverilog or models must fail the run, not
-# skip it — a gate that cannot run must never look like one that passed.
+# --require-pdk (CI): a missing iverilog, models or python-sat must fail the
+# run, not skip it — a gate that cannot run must never look like one that
+# passed.
 missing=""
 if [ "$HAVE_IV" -eq 0 ]; then missing="iverilog"; fi
 if [ "$HAVE_MODELS" -eq 0 ]; then missing="${missing:+$missing, }resolvable sky130 models"; fi
+if [ "$HAVE_PYSAT" -eq 0 ]; then missing="${missing:+$missing, }python-sat"; fi
 if [ "$REQUIRE_PDK" -eq 1 ] && [ -n "$missing" ]; then
   echo "FAILED — --require-pdk was given, but missing: $missing." >&2
   exit 1
