@@ -48,6 +48,17 @@ POWER_PINS = frozenset(
 )
 POWER_NETS = frozenset({"VPWR", "VGND", "VPB", "VNB", "VDD", "VSS", "vpwr", "vgnd", "vdd", "vss"})
 
+# sky130_fd_sc_hd's *driven* (output) pin names -- the single definition shared
+# by every tool here that needs to tell a driver from a load (issue #93).
+# Derived empirically from every pin name across all 69 cells `puzzle.gds` uses
+# (`evidence/pins-sky130_fd_sc_hd.json`): X/Y for combinational cells, Q for
+# flip-flops/latches, and HI/LO for the constant generator
+# `sky130_fd_sc_hd__conb_1`, whose only non-supply pins they are.  Every
+# remaining pin name in that evidence file -- A, A0, A1, A1_N, A2, A2_N, A3,
+# A4, A_N, B, B1, B1_N, B2, B_N, C, C1, CLK, C_N, D, D1, DIODE, D_N, RESET_B,
+# S, SET_B -- is an input.
+DRIVEN_PINS = frozenset({"X", "Y", "Q", "HI", "LO"})
+
 # Fill/tap cells carry no signal connectivity.  Requiring a 1:1 correspondence
 # on them would fail a comparison for reasons that say nothing about extraction
 # quality, so they are matched by count as a separate class.

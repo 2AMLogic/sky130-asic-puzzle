@@ -3,13 +3,18 @@
 
 Run with no arguments:  `tools/test-extract`
 
-Four families of check:
+Five families of check:
 
 * **Synthetic, well-formed** -- two tiny in-memory standard-cell instances
   (one plain, one placed with a 180-degree rotation -- the "highest-risk
   detail" issue #2 calls out) wired together by a top-level `li1` shape,
   with top-level port labels. Proves pin-transform correctness (rotation)
   and basic net naming/direction inference.
+* **Synthetic, constant-generator outputs** -- a `conb_1`-shaped cell whose
+  only pins are the driven outputs `HI`/`LO`, each reaching its own named
+  top-level port. Both ports must come out `output`; this is the regression
+  guard on `verilog_netlist.DRIVEN_PINS` being the single shared
+  driven-pin definition (issue #93).
 * **Synthetic, unconnected pin** -- a third instance with a pin touching no
   conductor at all. Must raise `ExtractionError` naming the instance and
   pin -- the total-or-loud contract this issue's acceptance criteria
@@ -137,6 +142,55 @@ def _connected_layout():
     return layout, top
 
 
+CONB_CELL_NAME = "sky130_fd_sc_hd__synthconb_1"
+
+
+def _synthconb_cell(layout):
+    """A minimal constant-generator cell in the shape of the real
+    `sky130_fd_sc_hd__conb_1`: its only non-supply pins are the two *driven*
+    outputs `HI` and `LO` (see `evidence/pins-sky130_fd_sc_hd.json`). No
+    input pin at all, which is what makes it the one cell in the library
+    whose driven pin names are neither X, Y nor Q."""
+    cell = layout.create_cell(CONB_CELL_NAME)
+    _box(cell, layout, 67, 16, 100, 100, 200, 200)
+    _label(cell, layout, 67, 5, "HI", 150, 150)
+    _box(cell, layout, 67, 16, 700, 100, 800, 200)
+    _label(cell, layout, 67, 5, "LO", 750, 150)
+    return cell
+
+
+def _layout_with_conb_driven_ports():
+    """One `synthconb` instance whose `HI` and `LO` pins each reach their own
+    named top-level port (issue #93).
+
+    Both ports are driven by a cell output and by nothing else, so both must
+    be emitted `output`. With the pre-#93 narrow driven-pin set
+    (`{X, Y, Q}`) the direction guess in `gds_extract.extract` found no
+    output pin on either net and defaulted both to `input` -- the latent
+    defect that collapsing to `verilog_netlist.DRIVEN_PINS` fixes.
+    """
+    layout = db.Layout()
+    layout.dbu = 0.001
+    _synthconb_cell(layout)
+    top = layout.create_cell("test_top")
+    cell_idx = layout.cell_by_name(CONB_CELL_NAME)
+
+    t0 = db.Trans(db.Trans.R0, 0, 0)
+    top.insert(db.CellInstArray(cell_idx, t0))
+
+    # Every pin must reach a conductor or extraction hard-errors, so each of
+    # HI/LO gets its own li1-met3 via stack carrying its port label.
+    for pin_local, port_name in (
+        (db.Box(100, 100, 200, 200), "CONST_HI"),
+        (db.Box(700, 100, 800, 200), "CONST_LO"),
+    ):
+        pin_top = db.Polygon(pin_local).transformed(t0).bbox()
+        _via_stack(top, layout, pin_top)
+        _label(top, layout, 70, 5, port_name, pin_top.center().x, pin_top.center().y)
+
+    return layout, top
+
+
 def _layout_with_dangling_pin():
     """Same as `_connected_layout`, plus a third instance whose `A` pin
     touches no conductor at all -- must be a hard `ExtractionError`."""
@@ -181,7 +235,7 @@ def test_well_formed_rotation_and_naming() -> None:
     by_name = {p.name: p.direction for p in nl.ports}
     check(
         "well-formed: direction inferred from pin name (IN touches only an 'A' pin -> input; "
-        "OUT touches a 'Y' pin, one of OUTPUT_PIN_NAMES -> output)",
+        "OUT touches a 'Y' pin, one of verilog_netlist.DRIVEN_PINS -> output)",
         by_name == {"IN": "input", "OUT": "output"},
         str(by_name),
     )
@@ -206,6 +260,29 @@ def test_well_formed_rotation_and_naming() -> None:
     ys = [c["Y"] for c in conns.values() if "Y" in c]
     as_ = [c["A"] for c in conns.values() if "A" in c]
     check("well-formed: u0.Y and u1.A share one net (the bridge)", len(set(ys) & set(as_)) >= 1)
+
+
+def test_conb_hi_lo_ports_are_outputs() -> None:
+    """A port driven only by a `conb_1`-style `HI`/`LO` pin is an output
+    (issue #93). Regression guard on the one shared driven-pin definition:
+    narrowing it back to `{X, Y, Q}` turns both directions into `input`."""
+    import gds_extract as ge
+    import verilog_netlist as vn
+
+    check(
+        "conb: HI and LO are both in the shared driven-pin set",
+        {"HI", "LO"} <= vn.DRIVEN_PINS,
+        f"DRIVEN_PINS={sorted(vn.DRIVEN_PINS)}",
+    )
+
+    layout, top = _layout_with_conb_driven_ports()
+    nl = ge.extract(layout, source="<synthetic>", top_name=top.name).netlist
+    by_name = {p.name: p.direction for p in nl.ports}
+    check(
+        "conb: ports driven by HI/LO pins are emitted 'output', not 'input'",
+        by_name == {"CONST_HI": "output", "CONST_LO": "output"},
+        str(by_name),
+    )
 
 
 def test_unconnected_pin_is_hard_error() -> None:
@@ -364,16 +441,19 @@ def main() -> int:
     print("\n1. Synthetic, well-formed (rotation + naming + direction)")
     test_well_formed_rotation_and_naming()
 
-    print("\n2. Synthetic, unconnected pin (total-or-loud contract)")
+    print("\n2. Synthetic, conb_1-style HI/LO pins drive output ports")
+    test_conb_hi_lo_ports_are_outputs()
+
+    print("\n3. Synthetic, unconnected pin (total-or-loud contract)")
     test_unconnected_pin_is_hard_error()
 
-    print("\n3. Synthetic, spurious supply short")
+    print("\n4. Synthetic, spurious supply short")
     test_spurious_supply_short_is_hard_error()
 
-    print("\n4. Real-file smoke test (warm-up: exact histogram + tools/compare EQUIVALENT)")
+    print("\n5. Real-file smoke test (warm-up: exact histogram + tools/compare EQUIVALENT)")
     _smoke_warmup()
 
-    print("\n5. Real-file smoke test (puzzle: counts + ports, no ground truth to compare)")
+    print("\n6. Real-file smoke test (puzzle: counts + ports, no ground truth to compare)")
     _smoke_puzzle()
 
     print("=" * 60)
