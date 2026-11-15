@@ -27,14 +27,18 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from tools import verilog_netlist as vn
 from tools.sim.icarus import compile_and_run
 from tools.sim.pdk import ResolvedModels
 
 SCHEMA = "sky130-asic-puzzle/celltables@1"
 
-# Pins that exist on the models but are never wired by an extracted netlist
-# (USE_POWER_PINS is left undefined — see tools/sim/icarus.py).
-_POWER_PINS = frozenset({"VPWR", "VGND", "VPB", "VNB"})
+# Ports parsed out of the models that are never wired by an extracted netlist
+# (USE_POWER_PINS is left undefined — see tools/sim/icarus.py).  This is
+# verilog_netlist.POWER_PINS (the one shared supply-pin set, issue #106):
+# _DIR_RE is a raw-text regex, so it sees the `` `ifdef USE_POWER_PINS ``
+# branch's supply-port declarations regardless of the compile defines, and
+# unfiltered they would be classified as inputs and swept as such.
 
 _MODULE_RE = re.compile(r"^module\s+(sky130_fd_sc_hd__\w+)\s*\(", re.MULTILINE)
 # The optional wire/reg/logic token covers both port-declaration styles the
@@ -119,7 +123,7 @@ def parse_port_directions(
         dirs = {
             pin: direction
             for direction, pin in _DIR_RE.findall(body)
-            if pin not in _POWER_PINS
+            if pin not in vn.POWER_PINS
         }
         if dirs:
             out[cell] = dirs
