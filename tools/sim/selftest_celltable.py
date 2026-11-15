@@ -47,21 +47,25 @@ would be swept as one.  The filter is `verilog_netlist.POWER_PINS` (issue
      patched back in keeps `KAPWR` — proving check a is sensitive to exactly
      the change issue #106 made rather than passing for any filter (the
      positive/negative-control discipline `selftest_portmap.py` uses).
-  c. [golden, needs the PDK install the baseline names] re-parses the exact
-     model file `evidence/portmap-sky130_fd_sc_hd.json` was recorded from
-     and asserts the port map for the 69 cells `puzzle.gds` uses
-     (`evidence/pins-sky130_fd_sc_hd.json`) is unchanged.  The baseline was
+  c. [golden, needs a resolvable sky130 install] resolves the models with
+     `resolve_sky130_models()` and asserts the port map for the 69 cells
+     `puzzle.gds` uses (`evidence/pins-sky130_fd_sc_hd.json`) is unchanged
+     vs `evidence/portmap-sky130_fd_sc_hd.json`.  The baseline was
      recorded 2026-11-15 with the pre-#106 filter, so a green check here
      proves the swap to `verilog_netlist.POWER_PINS` did not move it.
 
-The golden check pins the baseline's own provenance path rather than
-`resolve_sky130_models()`: on a `~/.ciel` open_pdks install the models declare
-ports as ``input wire X;`` — parsed since #98, but pinning the recorded path
-keeps the check independent of whichever install the host happens to resolve.
+The golden check resolves its models instead of re-reading the baseline's
+recorded path: measured (2026-11-15) the 69-cell map is identical across the
+volare `c6d73a35` install the baseline was recorded from and the ciel
+`f6eeac7d` install CI provisions — the two use the two declaration styles #98
+widened `_DIR_RE` for, and both parse to the same port directions — so the
+check may resolve whatever install the host has, and a skip happens only when
+no PDK resolves at all.  The run prints the baseline's recorded provenance
+next to the resolved `version`, so a future drift failure names both sides.
 
 Contracts 1–5 need no PDK, no iverilog and no fetched upstream file; checks
-a–b likewise, and check c needs the volare install named in the baseline's
-`source` (skipped with an explanatory line when that file is not present).
+a–b likewise, and check c needs a resolvable sky130 install (skipped with an
+explanatory line when `resolve_sky130_models()` finds none).
 
 Run it with:
 
@@ -83,7 +87,7 @@ from tools.sim.celltable import (
     derive_cell_tables,
     parse_port_directions,
 )
-from tools.sim.pdk import ResolvedModels
+from tools.sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
 from tools.testutil import report_checks
 
 # The pre-#106 local copy — exactly the four names it carried.  Used only by
@@ -339,15 +343,19 @@ def _run_fixture_check(checks: list[tuple[str, bool]]) -> None:
 def _run_golden_check(checks: list[tuple[str, bool]]) -> None:
     baseline = json.loads(BASELINE.read_text(encoding="utf-8"))
     cells69 = sorted(json.loads(PINS_EVIDENCE.read_text(encoding="utf-8"))["cells"])
-    models_v = Path(baseline["source"]["behavioural_v"])
-    if not models_v.exists():
+    try:
+        resolved = resolve_sky130_models()
+    except PdkResolutionError as e:
         print(
-            f"\n[skip] golden 69-cell check — baseline's model file not present: {models_v}\n"
-            "       (record the baseline on this machine to enable the check; see the note in the JSON)"
+            f"\n[skip] golden 69-cell check — no resolvable sky130 PDK install: {e}\n"
+            "       (the check needs resolve_sky130_models() to find the behavioural models)"
         )
         return
+    recorded = baseline["source"].get("version", baseline["source"]["install"])
+    print(f"  baseline recorded from: {recorded} ({baseline['source']['behavioural_v']})")
+    print(f"  this host resolved:     {resolved.version} (via {resolved.resolved_via})")
 
-    got, _defined = parse_port_directions(models_v)
+    got, _defined = parse_port_directions(resolved.behavioural_v)
     expected = baseline["cells"]
     absent_expected = sorted(baseline["cells_absent_after_filter"])
     absent_now = sorted(c for c in cells69 if c not in got)

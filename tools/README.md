@@ -311,7 +311,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
 | `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, the `run_solve` `return rc` tail with collaborators mocked, and the PDK-resolution-error exit in both solver CLIs (failure injected in-process; no PDK, no `iverilog`, no `python-sat`) |
-| `tools/sim/selftest_celltable.py` | self-tests `celltable.py`'s port-direction parsing: the #98 declaration-style contracts (`input wire A1;` vs bare `input A1;`, `reg`/`logic` keywords, power-only cells staying absent, the two distinct `CellTableError` messages) plus issue #106's supply-pin filter (a no-PDK fixture check, a negative control, and a golden check that the 69-cell port map is unchanged vs `evidence/portmap-sky130_fd_sc_hd.json`) |
+| `tools/sim/selftest_celltable.py` | self-tests `celltable.py`'s port-direction parsing: the #98 declaration-style contracts (`input wire A1;` vs bare `input A1;`, `reg`/`logic` keywords, power-only cells staying absent, the two distinct `CellTableError` messages) plus issue #106's supply-pin filter (a no-PDK fixture check, a negative control, and a golden check — resolved via `resolve_sky130_models()` — that the 69-cell port map is unchanged vs `evidence/portmap-sky130_fd_sc_hd.json`) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
@@ -481,19 +481,25 @@ python3 -m tools.sim.selftest_cli
 Port-direction-parse self-test (the `parse_port_directions` supply-pin
 filter: a synthetic no-PDK fixture, a negative control that re-parses the
 fixture with the pre-#106 narrow set, and a golden check that the 69-cell
-port map is unchanged vs the committed baseline — the golden check needs
-the volare install the baseline's `source` names and is skipped otherwise):
+port map is unchanged vs the committed baseline — the golden check resolves
+the models with `resolve_sky130_models()` (issue #122: the map is measured
+identical across the volare and ciel installs, so it no longer pins the
+recorded path) and is skipped, naming the missing prerequisite, only when
+no sky130 install resolves):
 
 ```sh
 python3 -m tools.sim.selftest_celltable
 ```
 
-All of the above except `selftest_cli` and `selftest_celltable` run in CI
-via `scripts/sim-selftests.sh --require-pdk` (issue #108), together with the
+All of the above except `selftest_cli` run in CI via
+`scripts/sim-selftests.sh --require-pdk` (issue #108), together with the
 directed `run_warmup_directed` run that gates the shift-load protocol's
 semantics; `selftest_solve` (below) is a reported skip held on #98.
-`selftest_cli` and `selftest_celltable` run as their own earlier CI steps,
-ahead of the puzzle fetch (issues #102 and #98 respectively).
+`selftest_cli` runs as its own earlier CI step, ahead of the puzzle fetch
+(issue #102: embargo-trivial). `selftest_celltable` runs there too — its
+fixture and negative control need nothing — and runs again in the gate once
+the PDK is provisioned, where the golden 69-cell check resolves instead of
+skipping (issue #122).
 
 See `evidence/warmup-sim.md`, `evidence/puzzle-replay.md` and
 `evidence/puzzle-solve.md` for recorded results and current status.

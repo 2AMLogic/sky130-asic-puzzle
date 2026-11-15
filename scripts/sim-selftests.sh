@@ -13,6 +13,12 @@
 #   tools.sim.selftest_pdk      — always (no external dependency at all)
 #   tools.sim.selftest_answer   — iverilog
 #   tools.sim.selftest_portmap  — iverilog + resolvable sky130 models
+#   tools.sim.selftest_celltable — resolvable sky130 models (the golden
+#                               69-cell check; issue #122). No iverilog, no
+#                               fetched netlist. The fixture and negative
+#                               control need nothing, but the module is
+#                               gated here on HAVE_MODELS so the gate line
+#                               reflects the golden check this exists for.
 #   tools.sim.selftest_replay   — iverilog + models + puzzle/warmup/01_netlist.v
 #   tools.sim.run_warmup_directed --netlist puzzle/warmup/01_netlist.v --random 10
 #                               — the shift-load protocol's SEMANTIC gate
@@ -107,7 +113,17 @@ else
   note "skip" "tools.sim.selftest_portmap — needs iverilog + resolvable sky130 models"
 fi
 
-# 4. Replay self-test + 5. the directed run — both read the warm-up netlist.
+# 4. Celltable port-direction self-test — the golden 69-cell check resolves
+#    the sky130 models with resolve_sky130_models() (issue #122), so it runs
+#    wherever a PDK is installed, not only on the baseline's recording host.
+#    Needs models only — no iverilog, no fetched netlist.
+if [ "$HAVE_MODELS" -eq 1 ]; then
+  run_py "tools.sim.selftest_celltable" tools.sim.selftest_celltable
+else
+  note "skip" "tools.sim.selftest_celltable — needs resolvable sky130 models (the golden 69-cell check)"
+fi
+
+# 5. Replay self-test + the directed run — both read the warm-up netlist.
 #    The directed run is the protocol's semantic gate: its cases carry
 #    expected_s derived from A + B == 496, which a recorder mutation cannot
 #    move (see the header comment for why selftest_replay alone cannot).
