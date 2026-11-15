@@ -4,7 +4,7 @@
 (`klt`) at a sky130 standard-cell layout that another flow produced, with published ground
 truth, so the toolkit is tested on something it did not build itself.
 
-Status as of 2026-11-14, `main` @ `80c19dd`.
+Status as of 2026-11-15, `main` @ `ddcc198`.
 
 ## Where it stands
 
@@ -27,6 +27,7 @@ results post of 2026-10-02; the reconciliation is the 2026-10-02 addendum in
 | No upstream puzzle file tracked (`CLAUDE.md` §3) | `scripts/check-embargo.sh` | in CI |
 | `klt lvs` of the warm-up against `01_netlist.v` (signal-only) | `evidence/warmup-klt-lvs.md` Run 1 and Run 2, `evidence/warmup-klt-lvs-01.json` | **match** in both, run by hand on 2026-10-17 and 2026-11-14, not in CI |
 | `klt lvs` of the warm-up against `02_netlist_with_power_rails.v` | same file, `evidence/warmup-klt-lvs-02.json` | **mismatch** in both runs, tool-side; 243 mismatches (242 errors) on `klt 0.9.2.dev1022` against Run 1's 159 — open upstream as klayout-tools#5632 |
+| `klt lvs` of `puzzle.gds` against this repo's own `evidence/puzzle-extracted.v` | `evidence/puzzle-klt-lvs.md` Run 1 | recorded 2026-11-14, not in CI; the compare refused the reference's port spelling (klayout-tools#5693, open) — the isolating probe, differing in spelling alone, **match** |
 
 **The warm-up `klt lvs` re-run on the fixed build (done, #74, PR #81).** Run 2 of
 `evidence/warmup-klt-lvs.md` (2026-11-14, `klt 0.9.2.dev1022+g2a9c52b27ce7`, klayout
@@ -40,53 +41,45 @@ retracts two Run 1 attributions (`evidence/upstream.md:15-16`): the #3748 fix wa
 message-only, since `reference.pdk` already existed and no `export PDK=sky130A` workaround
 is involved, and the `02` mismatch is not the dropped `VNB` pin.
 
-**Upstream findings.** Nine toolkit gaps have been filed from this repo
-(`evidence/upstream.md:10-18`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
-#5631 and #5632. The first seven read as closed on the upstream tracker today; **#5631 and
-#5632 are open**, both filed from here for #74, and both are `klt lvs` findings — so the
-`02` comparison and cheap `--check` re-verification are blocked upstream rather than here.
-Four have been re-verified against a `klt` that contains the fix: #619 and #620 by
-`evidence/klt-extract.md`, #3748 and #3749 by Run 2 above. The remaining three — #673, #674
-and #675 — are closed upstream but unconfirmed from this side, which is the main thing left
-to do (scoped under "Next").
+**The 2026-11-13 "Now" list is done.** #75 (PR #103) updated the README's capability-gap
+section: it now states the gap as closed upstream and keeps the original wording as
+history. #76 (PR #90) recorded the puzzle-scale `klt lvs` run
+(`evidence/puzzle-klt-lvs.md`, 2026-11-14, `klt 0.9.2.dev1025`, PDK `sky130A`): the
+extraction succeeded — 1,618 abstracted instances over 69 cell types, agreeing with the
+reference's own instance count — but the compare refused the committed reference, whose
+bit-blasted escaped port names trip the reference reader (klayout-tools#5693). The
+isolating probe, differing in port spelling alone, returned **match** with
+`power_connectivity: match` and zero errors, so the self-consistency check the item asked
+for landed, one reference spelling short of a clean run. #77 (PR #99) checked Jane
+Street's 15 featured writeups against our record one by one: the dated amendment is in
+`evidence/easter-eggs.md` and the README sentence now points to it.
 
-**Tracker.** Open issues: #75, #76 and #77 are this roadmap's own Now items, filed and
-curated with point estimates; #78 is a Hermit dead-code proposal parked on an operator
-decision; #30 is an automated merge-hold digest, not work. Four pull requests are open at
-this snapshot (#73, #82, #86, #87), all in normal review flow. `WORK_PLAN.md` is
-machine-generated and lags these filings.
+**Upstream findings.** Ten toolkit gaps have been filed from this repo
+(`evidence/upstream.md:10-19`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
+#5631, #5632 and #5693. The first seven read as closed on the upstream tracker today;
+**#5631, #5632 and #5693 are open** — the two `klt lvs` findings from #74 and the
+port-name reader defect the puzzle-scale run filed for #76 — so the `02` comparison, the
+cheap `--check` re-verification and a clean re-run of the puzzle compare are blocked
+upstream rather than here. Four have been re-verified against a `klt` that contains the
+fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by Run 2 above. The
+remaining three — #673, #674 and #675 — are closed upstream but unconfirmed from this
+side, which is the main thing left to do (scoped under "Next").
+
+**Tracker.** The open issues bearing on this roadmap are #78, a Hermit dead-code proposal
+parked on an operator decision, and #30, an automated merge-hold digest that is not work.
+The five issues this roadmap had curated — #75, #76 and #77, plus the Hermit refactors
+#83 and #85 — are all closed, as are their pull requests. Seven pull requests are open as
+this is written (this one; the sharing refactors #101, #104, #107 and #111; the
+puzzle-lvs fail-soft fix #109; the docs-maintenance update #110), all in normal review
+flow. `WORK_PLAN.md` is machine-generated and lags these filings.
 
 ## Now
 
-Each of these can start today and fits one pull request. All three are filed and curated:
-#75, #76 and #77. The 2026-11-13 list opened with a fourth item — re-running the warm-up
-`klt lvs` on a build carrying the #3748/#3749 fixes — which was filed as #74 and merged as
-PR #81; it is recorded under "Where it stands" above, not here.
-
-1. **Bring the README's "capability gap" section up to date** (#75). It still says
-   `klt extract` is device-level only and presents #619 and #620 as open gaps, while CI runs
-   `klt extract --abstract-cells` on both layouts. It also cites `sky130-modexp#8` as an
-   open seam (that issue is closed) and describes `scripts/` as "fetch + embargo check".
-   Done when: the section states the gap as closed with links to `evidence/klt-extract.md`
-   and `evidence/upstream.md`, the `scripts/` line lists the regression scripts, and the
-   original wording is kept as history in the same way the lifted embargo section is.
-
-2. **Run `klt lvs` on `puzzle.gds` against `evidence/puzzle-extracted.v`** (#76). This is
-   scope item 3 of #47, recorded as "Not done" in `evidence/warmup-klt-lvs.md`. It is
-   self-consistency, not ground truth, but it is the only place `klt lvs` meets a
-   third-party layout of this size (728 signal cells).
-   Done when: a recorded run is appended to an evidence file with the command, `klt`
-   version, verdict and counts, the envelope is committed with reference-side names handled
-   as the warm-up envelopes are, and any tool-side finding is filed upstream.
-   Needs: a sky130 PDK on the machine that runs it (the script hard-fails without one).
-
-3. **Check the featured writeups against our record** (#77). The README says of the 15
-   writeups in Jane Street's results post: "We have not checked these writeups against our
-   record yet."
-   Done when: `evidence/easter-eggs.md` has a dated addendum listing, per writeup, anything
-   that contradicts or adds to our record, each point reproduced here before it is written
-   down (`CLAUDE.md` §5), unreachable links are named as such, and the README sentence is
-   replaced by a pointer to the addendum.
+Nothing is queued. The three items this section carried on 2026-11-13 are done and
+recorded under "Where it stands" (#75 as PR #103, #76 as PR #90, #77 as PR #99); the
+fourth item the list opened with was #74, merged as PR #81 the same day. No new item has
+been curated yet — the two open issues (#78, #30) are parked, not work. New items are
+filed as issues, curated with a point estimate, and then listed here.
 
 ## Next
 
@@ -114,10 +107,11 @@ PR #81; it is recorded under "Where it stands" above, not here.
   Done when `evidence/upstream.md` has a row per issue recording the `klt` command that now
   does the job on `puzzle.gds`, the version used, and whether its result agrees with the
   local script's. Sized as one PR per issue once the first shows the pattern.
-- **Bump the `klt` pin when a release follows 0.9.1.** 0.9.1 is the newest published
-  release today, so there is nothing to bump yet. Done when CI is green on the new pin
-  and `evidence/klt-extract.md` has a run entry for it; a regression on these layouts is
-  an upstream issue, not a local fix (`CLAUDE.md` §2).
+- **Bump the `klt` pin to 0.9.2.** The trigger has fired: v0.9.2 was tagged 2026-11-14 and
+  is the newest published release, while CI still pins `klayout-tools==0.9.1`
+  (`.github/workflows/ci.yml:71`). Done when CI is green on the new pin and
+  `evidence/klt-extract.md` has a run entry for it; a regression on these layouts is an
+  upstream issue, not a local fix (`CLAUDE.md` §2).
 
 ## Later
 
@@ -134,10 +128,9 @@ PR #81; it is recorded under "Where it stands" above, not here.
 ## Blocked and waiting
 
 #78 (Hermit: dead code in `tools/sim/solve.py`) is parked on an operator decision; nothing
-else is. Nothing waits on an upstream release, but the `02` comparison and cheap `--check`
-cannot be resolved from this side while klayout-tools#5632 and #5631 are open. Now 2 needs
-a sky130 PDK on the worker; Run 1 and Run 2 both found one under `~/.ciel` on a dispatch
-worker, so this is an environment requirement and not a block.
+else is. Nothing waits on an upstream release, but the `02` comparison, the cheap
+`--check` re-verification and a clean re-run of the puzzle compare cannot be resolved from
+this side while klayout-tools#5632, #5631 and #5693 are open.
 
 ## Not planned
 
