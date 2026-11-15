@@ -60,8 +60,10 @@ volare `c6d73a35` install the baseline was recorded from and the ciel
 `f6eeac7d` install CI provisions — the two use the two declaration styles #98
 widened `_DIR_RE` for, and both parse to the same port directions — so the
 check may resolve whatever install the host has, and a skip happens only when
-no PDK resolves at all.  The run prints the baseline's recorded provenance
-next to the resolved `version`, so a future drift failure names both sides.
+no PDK resolves at all.  The run prints the baseline's recorded provenance —
+the install the map was first parsed from, plus the recording host's resolver
+version (`source.version`) when the baseline carries one — next to the version
+this host resolved, so a future drift failure names all sides.
 
 Contracts 1–5 need no PDK, no iverilog and no fetched upstream file; checks
 a–b likewise, and check c needs a resolvable sky130 install (skipped with an
@@ -351,8 +353,10 @@ def _run_golden_check(checks: list[tuple[str, bool]]) -> None:
             "       (the check needs resolve_sky130_models() to find the behavioural models)"
         )
         return
-    recorded = baseline["source"].get("version", baseline["source"]["install"])
-    print(f"  baseline recorded from: {recorded} ({baseline['source']['behavioural_v']})")
+    source = baseline["source"]
+    print(f"  baseline: map first parsed from {source['install']} ({source['behavioural_v']})")
+    if "version" in source:
+        print(f"  resolver at record time: {source['version']} (source.version)")
     print(f"  this host resolved:     {resolved.version} (via {resolved.resolved_via})")
 
     got, _defined = parse_port_directions(resolved.behavioural_v)
