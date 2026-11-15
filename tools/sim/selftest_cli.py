@@ -25,8 +25,10 @@ Three contracts asserted here:
    both the --verify success path (returns exactly int 0) and the --verify
    failure path (returns exactly int 2). The collaborators are patched as
    bound in the CLI module (from-imports, so patching tools.sim.solve would
-   not take effect), and the lazy `import pysat` gate is satisfied with a
-   stdlib module stub in sys.modules.
+   not take effect) — `load_design_for_cli` since the #101 preamble refactor
+   (issue #113), whose patch bypasses the lazy `import pysat` gate; a stdlib
+   module stub in sys.modules keeps that gate satisfied should the patch
+   boundary move back inside the preamble.
 
 Needs no PDK, no iverilog, no python-sat and no puzzle/ file: every input is
 synthetic (CLAUDE.md §3 — nothing from puzzle/ is ever read) and every
@@ -91,10 +93,12 @@ def _missing_argv(name: str, missing: Path) -> list[str]:
 def _patched_collaborators(calls: dict, ok: bool):
     """Fakes for run_solve's four collaborators, recording each call.
 
-    Shaped so the real main() walks its full solve-then-verify body: one free
-    input `I`, a 5-cycle scenario, one SAT solution, and a verification result
-    that compiles and passes (or fails, per `ok`) through result.ok — the
-    branch that assigns `rc = EXIT_ERROR` before the `return rc` tail.
+    Shaped so the real main() walks its full solve-then-verify body:
+    `load_design_for_cli` returns the `(design, free_ports)` tuple the shared
+    preamble contract promises (one free input `I`), a 5-cycle scenario, one
+    SAT solution, and a verification result that compiles and passes (or
+    fails, per `ok`) through result.ok — the branch that assigns
+    `rc = EXIT_ERROR` before the `return rc` tail.
     """
     scenario_cycles = 5
     design = SimpleNamespace(
@@ -128,9 +132,9 @@ def _patched_collaborators(calls: dict, ok: bool):
         ok=ok,
     )
 
-    def load_design(netlist, work_dir=None, table_cache=None, clock_port=None):
-        calls["load_design"] = {"netlist": netlist, "work_dir": work_dir}
-        return design
+    def load_design_for_cli(args):
+        calls["load_design_for_cli"] = {"netlist": args.netlist, "work_dir": args.work_dir}
+        return design, ["I"]
 
     def windowed_scenario(model, **kwargs):
         calls["windowed_scenario"] = kwargs
@@ -145,7 +149,7 @@ def _patched_collaborators(calls: dict, ok: bool):
         calls["verify_by_simulation"] = {"drive": drive, "work_dir": work_dir}
         return result
 
-    return load_design, windowed_scenario, enumerate_solutions, verify_by_simulation
+    return load_design_for_cli, windowed_scenario, enumerate_solutions, verify_by_simulation
 
 
 class CliArgparseAndUsageExitTest(unittest.TestCase):
@@ -202,7 +206,7 @@ class RunSolveReturnContractTest(unittest.TestCase):
                 stack.enter_context(
                     mock.patch.dict(sys.modules, {"pysat": ModuleType("pysat")}))
                 for target, fake in (
-                    ("tools.sim.run_solve.load_design", fakes[0]),
+                    ("tools.sim.run_solve.load_design_for_cli", fakes[0]),
                     ("tools.sim.run_solve.windowed_scenario", fakes[1]),
                     ("tools.sim.run_solve.enumerate_solutions", fakes[2]),
                     ("tools.sim.run_solve.verify_by_simulation", fakes[3]),
@@ -223,10 +227,11 @@ class RunSolveReturnContractTest(unittest.TestCase):
         self.assertEqual(rc, expected_rc)
         self.assertEqual(
             sorted(captured["calls"]),
-            ["enumerate_solutions", "load_design", "verify_by_simulation",
+            ["enumerate_solutions", "load_design_for_cli", "verify_by_simulation",
              "windowed_scenario"],
         )
-        self.assertEqual(captured["calls"]["load_design"]["work_dir"], captured["work_dir"])
+        self.assertEqual(
+            captured["calls"]["load_design_for_cli"]["work_dir"], captured["work_dir"])
         self.assertEqual(
             captured["calls"]["verify_by_simulation"]["work_dir"], captured["work_dir"])
         self.assertIn(expected_marker, captured["stdout"])
