@@ -69,7 +69,11 @@ jobs:
         #     silently. The regression step passes --require-klt so a missing
         #     klt fails the job rather than skipping.
         run: |
-          pip install klayout "klayout-tools==0.9.1"
+          # The klayout wheel is pinned too (klayout==0.30.13, the version the
+          # current evidence was produced against): a klayout.db behaviour
+          # change must surface at a deliberate bump, not at its upstream
+          # release — same convention as the klayout-tools pin below it.
+          pip install "klayout==0.30.13" "klayout-tools==0.9.1"
           klt --version
 
       - name: Install ruff
@@ -78,7 +82,9 @@ jobs:
         # step the runner never has ruff installed, so the ruff branch never
         # executes here and `ruff check` conformance is not actually a CI
         # guarantee despite the Lint job appearing to be strict (issue #24).
-        run: pip install ruff
+        # Ruff is pinned (klayout-tools pin convention): a release adding new
+        # default rules must surface at a deliberate bump, not redden CI.
+        run: pip install "ruff==0.17.5"
 
       - name: Lint (compile tools, parse scripts)
         run: ./scripts/lint.sh
@@ -131,17 +137,18 @@ jobs:
       - name: Provision the pinned sky130_fd_sc_hd behavioural models
         # issue #108. ciel (volare's successor) downloads per-library
         # tarballs, so -l sky130_fd_sc_hd narrows the install to the one
-        # library these netlists use instead of a full sky130A. The commit is
-        # pinned literally, for the same reason klayout-tools==0.9.1 above
-        # is: a model-file change (the #98 class of breakage) should surface
-        # at the bump, not silently. f6eeac7… is the install this repo's
-        # evidence was produced against. Skipped when the cache already
-        # holds it.
+        # library these netlists use instead of a full sky130A. Both the
+        # tool and the commit are pinned (klayout-tools==0.9.1 pin
+        # convention): the commit is pinned literally so a model-file change
+        # (the #98 class of breakage) should surface at the bump, not
+        # silently, and ciel itself at 3.2.0 so the fetcher cannot change
+        # under that pin. f6eeac7… is the install this repo's evidence was
+        # produced against. Skipped when the cache already holds it.
         env:
           PDK_ROOT: ${{ github.workspace }}/build/pdk-root
         run: |
           if [ ! -f "$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v" ]; then
-            pip install ciel
+            pip install "ciel==3.2.0"
             ciel enable --pdk sky130 f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7 \
               -l sky130_fd_sc_hd --pdk-root "$PDK_ROOT"
           fi
