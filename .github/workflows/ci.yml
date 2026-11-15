@@ -82,6 +82,16 @@ jobs:
       - name: Lint (compile tools, parse scripts)
         run: ./scripts/lint.sh
 
+      - name: CLI main() return-contract selftest (no PDK, no simulator, no solver)
+        # issue #102: the five tools/sim CLIs had no automated main() coverage —
+        # the pipeline only ever observed the shell exit status, which is how
+        # #101's run_solve rc clobber (main() returning None instead of 0)
+        # reached review. This asserts the main() return VALUES (exact ints,
+        # not just exit status), including run_solve's `return rc` tail with
+        # its collaborators mocked. Needs no PDK, no iverilog, no python-sat
+        # and no puzzle/ files; kept ahead of the fetch so it is embargo-trivial.
+        run: python3 -m tools.sim.selftest_cli
+
       - name: Fetch upstream puzzle files
         # janestreet/asic-puzzle-2026 carries no license; these land in puzzle/,
         # which is gitignored, and are never committed (CLAUDE.md §3).
