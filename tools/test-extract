@@ -47,6 +47,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -439,16 +440,14 @@ def _check_open_failure(label: str, bad_path: str, err_prefix: str) -> None:
 def test_cli_open_failures() -> None:
     """Both GDS-open failure branches: a nonexistent path, and an existing
     file that is not a GDS stream. Neither needs `puzzle/` fetched."""
-    missing = "/tmp/test-extract-does-not-exist.gds"
-    _check_open_failure("open-fail: no such file", missing, "tools/extract: no such file: ")
+    with tempfile.TemporaryDirectory(prefix="test-extract-open-fail-") as td:
+        missing = os.path.join(td, "does-not-exist.gds")
+        _check_open_failure("open-fail: no such file", missing, "tools/extract: no such file: ")
 
-    not_gds = "/tmp/test-extract-not-a-gds.gds"
-    with open(not_gds, "w", encoding="utf-8") as fh:
-        fh.write("not a GDS stream")
-    try:
+        not_gds = os.path.join(td, "not-a-gds.gds")
+        with open(not_gds, "w", encoding="utf-8") as fh:
+            fh.write("not a GDS stream")
         _check_open_failure("open-fail: could not read", not_gds, "tools/extract: could not read ")
-    finally:
-        os.unlink(not_gds)
 
 
 def main() -> int:
