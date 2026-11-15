@@ -4,7 +4,7 @@
 (`klt`) at a sky130 standard-cell layout that another flow produced, with published ground
 truth, so the toolkit is tested on something it did not build itself.
 
-Status as of 2026-11-15, `main` @ `ddcc198`.
+Status as of 2026-11-15, `main` @ `f89a3d7`.
 
 ## Where it stands
 
@@ -65,21 +65,31 @@ fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by Run 2 above.
 remaining three — #673, #674 and #675 — are closed upstream but unconfirmed from this
 side, which is the main thing left to do (scoped under "Next").
 
-**Tracker.** The open issues bearing on this roadmap are #78, a Hermit dead-code proposal
-parked on an operator decision, and #30, an automated merge-hold digest that is not work.
-The five issues this roadmap had curated — #75, #76 and #77, plus the Hermit refactors
-#83 and #85 — are all closed, as are their pull requests. Seven pull requests are open as
-this is written (this one; the sharing refactors #101, #104, #107 and #111; the
-puzzle-lvs fail-soft fix #109; the docs-maintenance update #110), all in normal review
-flow. `WORK_PLAN.md` is machine-generated and lags these filings.
+**Tracker.** Nine issues are open. Two curated items are in flight behind their pull
+requests — #106 (celltable's fourth local supply-pin set, PR #115) and #112 (GDS-open
+failure-path tests on fixed `/tmp` paths, PR #120). #100 (`run_solve`/`run_answer` still
+escaping `PdkResolutionError`, points:2) is curated and awaiting approval; #118 needs a
+triage decision now that #98 has landed (gate `selftest_solve` or drop its "blocked on
+#98" skip); #119, #121 and #122 are fresh filings awaiting curation; #78 is parked on an
+operator decision and #30 is the automated merge-hold digest, not work. Everything the
+previous inventory carried has closed: this roadmap's own curations (#75, #76 and #77,
+plus the Hermit refactors #83 and #85), the Hermit-derived sharing refactors (#89, #91,
+#92, #94 and #96 — PRs #107, #101, #109, #111 and #104), the `tools/sim` fixes #98
+(PR #114) and #108 (PR #116), and the docs update PR #110. Three pull requests are open
+as this is written (this one; #115 for #106; #120 for #112), all in normal review flow.
+`WORK_PLAN.md` is machine-generated and lags these filings.
 
 ## Now
 
-Nothing is queued. The three items this section carried on 2026-11-13 are done and
-recorded under "Where it stands" (#75 as PR #103, #76 as PR #90, #77 as PR #99); the
-fourth item the list opened with was #74, merged as PR #81 the same day. No new item has
-been curated yet — the two open issues (#78, #30) are parked, not work. New items are
-filed as issues, curated with a point estimate, and then listed here.
+The queue is not empty, but nothing in it is idle-dispatchable as this is written: no
+open issue carries `loom:issue`. #106 and #112 are curated and in flight behind PRs
+#115 and #120; #100 is curated (points:2) and awaiting approval; #119, #121 and #122
+await curation; #118 is blocked on a triage decision; #78 and #30 are parked or blocked
+as described under "Tracker" and "Blocked and waiting". The three items this section
+carried on 2026-11-13 are done and recorded under "Where it stands" (#75 as PR #103,
+#76 as PR #90, #77 as PR #99); the fourth item the list opened with was #74, merged as
+PR #81 the same day. New items are filed as issues, curated with a point estimate, and
+then listed here.
 
 ## Next
 
@@ -109,7 +119,7 @@ filed as issues, curated with a point estimate, and then listed here.
   local script's. Sized as one PR per issue once the first shows the pattern.
 - **Bump the `klt` pin to 0.9.2.** The trigger has fired: v0.9.2 was tagged 2026-11-14 and
   is the newest published release, while CI still pins `klayout-tools==0.9.1`
-  (`.github/workflows/ci.yml:71`). Done when CI is green on the new pin and
+  (`.github/workflows/ci.yml:72`). Done when CI is green on the new pin and
   `evidence/klt-extract.md` has a run entry for it; a regression on these layouts is an
   upstream issue, not a local fix (`CLAUDE.md` §2).
 
@@ -127,10 +137,13 @@ filed as issues, curated with a point estimate, and then listed here.
 
 ## Blocked and waiting
 
-#78 (Hermit: dead code in `tools/sim/solve.py`) is parked on an operator decision; nothing
-else is. Nothing waits on an upstream release, but the `02` comparison, the cheap
-`--check` re-verification and a clean re-run of the puzzle compare cannot be resolved from
-this side while klayout-tools#5632, #5631 and #5693 are open.
+#78 (Hermit: dead code in `tools/sim/solve.py`) is parked on an operator decision; #118
+is blocked on a triage decision (whether `sim-selftests.sh` should now gate
+`selftest_solve`, whose "blocked on #98" skip is stale); #30 is the automated
+merge-hold digest, not work. Nothing else here waits on a person. Nothing waits on an
+upstream release, but the `02` comparison, the cheap `--check` re-verification and a
+clean re-run of the puzzle compare cannot be resolved from this side while
+klayout-tools#5632, #5631 and #5693 are open.
 
 ## Not planned
 
