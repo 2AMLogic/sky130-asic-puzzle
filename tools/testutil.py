@@ -19,6 +19,12 @@ per-check format, not the summary). `report_checks()` is the same idea for
 the `tools/sim/` selftests, which carry their own `(label, ok)` check lists
 and a different summary format.
 
+`require_klayout()`/`skip_all_no_klayout()` are the module-level klayout
+bootstrap and skip-all guard shared by `test-pins`, `test-extract` and
+`test-inventory` (each caller's `main()` keeps its own title print and the
+`if not KLAYOUT_OK:` branch). The guard's skip block must print identically
+from all three, which one shared copy enforces.
+
 Both summary formats are quoted verbatim as committed evidence
 (`evidence/independent-review.md`, `evidence/warmup-regression.md`,
 `evidence/warmup-sim.md`, `evidence/puzzle-answer.md`), which CLAUDE.md
@@ -85,6 +91,43 @@ def report_checks(checks: list[tuple[str, bool]]) -> int:
     print(f"\nSELF-TEST {'PASS' if passed else 'FAIL'} "
           f"({sum(1 for _, ok in checks if ok)}/{len(checks)} checks passed)")
     return 0 if passed else 1
+
+
+def require_klayout():
+    """Resolve and import `klayout.db`; return `(ok, db, reason)`.
+
+    `db` is the imported `klayout.db` module when `ok` is True (else None),
+    and `reason` is the stringified failure when it is not. The broad except
+    covers `klayout_env.KlayoutResolutionError` or any plain import failure
+    -- environment-dependent either way, so callers skip all checks with
+    `reason` rather than crash. Must be called with the script's own
+    directory on `sys.path` (each harness inserts it before importing
+    `testutil`) so that `klayout_env` resolves.
+    """
+
+    try:
+        import klayout_env
+
+        klayout_env.ensure_klayout()
+        from klayout import db
+
+        return True, db, ""
+    except Exception as exc:  # noqa: BLE001 - KlayoutResolutionError or import failure, environment-dependent
+        return False, None, str(exc)
+
+
+def skip_all_no_klayout(reason: str) -> int:
+    """Print the shared skip-all block; return the shell exit code (0).
+
+    Output is byte-for-byte what `test-pins`, `test-extract` and
+    `test-inventory` printed in this state before this was shared -- the
+    skip line carrying `reason`, the `"=" * 60` rule, `SKIPPED (no klayout)`.
+    """
+
+    print(f"  {SKIP:6s} all checks -- klayout not importable: {reason}")
+    print("=" * 60)
+    print("SKIPPED (no klayout)")
+    return 0
 
 
 def _box(cell, layout, layer_num, datatype, x0, y0, x1, y1):
