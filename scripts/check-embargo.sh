@@ -6,7 +6,7 @@ set -uo pipefail
 
 # The upstream puzzle files must not be tracked (no license, and they are
 # the subject itself).
-tracked=$(git ls-files | grep -E '^puzzle/|(^|/)puzzle\.gds$|(^|/)example_inputs\.vcd$' || true)
+tracked=$(git ls-files | grep -E '^puzzle$|^puzzle/|(^|/)puzzle\.gds$|(^|/)example_inputs\.vcd$' || true)
 if [ -n "$tracked" ]; then
   echo "  FAIL  upstream puzzle files are tracked:"
   printf '        %s\n' $tracked
