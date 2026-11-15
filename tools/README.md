@@ -311,6 +311,7 @@ Verilator, and is sufficient for this repo's 92-flop scale.
 | `tools/sim/selftest_pdk.py` | self-tests `pdk.py`'s resolution order and its no-PDK-anywhere failure path (all three sources mocked; needs no PDK) |
 | `tools/sim/selftest_portmap.py` | self-tests the multi-bit (per-bit-port) `port_map` connection logic against a synthetic DUT (needs a PDK to compile against, but no sky130 cells) |
 | `tools/sim/selftest_cli.py` | self-tests the five `run_*` CLIs' `main()` return contracts: the argparse exit, the nonexistent-input exit code, and the `run_solve` `return rc` tail with collaborators mocked (no PDK, no `iverilog`, no `python-sat`) |
+| `tools/sim/selftest_celltable.py` | self-tests `celltable.parse_port_directions`'s supply-pin filter: a no-PDK fixture check plus a negative control, and a golden check that the 69-cell port map is unchanged vs `evidence/portmap-sky130_fd_sc_hd.json` (issue #106) |
 | `tools/sim/run_warmup_directed.py` | CLI for the directed warm-up test |
 | `tools/sim/run_vcd_replay.py` | CLI for general VCD replay |
 | `tools/sim/run_warmup_cross_check.py` | CLI: cross-netlist agreement on `S` between a reference and a candidate warm-up netlist over a shared randomized stimulus (issue #5 acceptance criterion 2) |
@@ -462,6 +463,16 @@ no PDK, `iverilog` or `python-sat` required):
 
 ```sh
 python3 -m tools.sim.selftest_cli
+```
+
+Port-direction-parse self-test (the `parse_port_directions` supply-pin
+filter: a synthetic no-PDK fixture, a negative control that re-parses the
+fixture with the pre-#106 narrow set, and a golden check that the 69-cell
+port map is unchanged vs the committed baseline — the golden check needs
+the volare install the baseline's `source` names and is skipped otherwise):
+
+```sh
+python3 -m tools.sim.selftest_celltable
 ```
 
 See `evidence/warmup-sim.md`, `evidence/puzzle-replay.md` and
