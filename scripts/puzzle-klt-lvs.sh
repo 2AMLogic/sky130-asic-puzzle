@@ -54,25 +54,10 @@ LAYOUT_NETLIST="$BUILD/puzzle-klt-lvs.spice"
 PROBE_REFERENCE="$BUILD/puzzle-klt-lvs-busport.v"
 PDK="${PDK:-sky130A}"
 
-command -v klt >/dev/null || { echo "puzzle-klt-lvs: klt not found on PATH" >&2; exit 2; }
-
-if ! PDK_JSON="$(klt pdk find --pdk "$PDK" --format json 2>/dev/null)"; then
-  echo "puzzle-klt-lvs: no '$PDK' PDK found. Point PDK_ROOT at a sky130 install" >&2
-  echo "(keep it inside your worktree; do not install into shared host paths)." >&2
-  exit 2
-fi
-
-# The std-cell LEF --abstract-cell-lef needs, derived from the PDK this run
-# actually resolved rather than hardcoded to ~/.ciel.
-LIBS_REF="$(printf '%s' "$PDK_JSON" | python3 -I -c 'import json,sys; print(json.load(sys.stdin)["assets"]["libs_ref"])')"
-CELL_LEF="$LIBS_REF/sky130_fd_sc_hd/lef/sky130_fd_sc_hd.lef"
-if [ ! -f "$CELL_LEF" ]; then
-  echo "puzzle-klt-lvs: '$PDK' resolved to libs_ref '$LIBS_REF' but its" >&2
-  echo "sky130_fd_sc_hd/lef/sky130_fd_sc_hd.lef is missing. --abstract-cells" >&2
-  echo "cannot resolve the std cells' VNB/VPB pins without it, which silently" >&2
-  echo "changes the verdict; install the libs.ref assets and re-run." >&2
-  exit 2
-fi
+# Shared klt/PDK/LEF preamble (scripts/lib/klt-lvs-preamble.sh): sets
+# PDK_JSON, LIBS_REF and CELL_LEF, exiting 2 with this prefix on any missing
+# prerequisite. Sourced, so the variables land in this script's scope.
+source scripts/lib/klt-lvs-preamble.sh 'puzzle-klt-lvs'
 
 if [ ! -f "$LAYOUT_GDS" ]; then
   ./scripts/fetch-puzzle.sh
