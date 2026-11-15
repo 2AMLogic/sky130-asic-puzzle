@@ -1,7 +1,8 @@
 # The warm-up regression, in CI.
 #
 # What this runs, and nothing else:
-#   lint -> comparator self-test + mutation suite -> warm-up regression
+#   lint -> CLI-contract selftest -> iverilog + pinned-PDK provisioning
+#        -> fetch -> tools/sim self-test gate -> warm-up regression
 #        -> puzzle extraction regression -> tracked-file check
 #
 # Publishing constraints this workflow is written against. The §1 embargo was
@@ -106,6 +107,65 @@ jobs:
         # janestreet/asic-puzzle-2026 carries no license; these land in puzzle/,
         # which is gitignored, and are never committed (CLAUDE.md §3).
         run: ./scripts/fetch-puzzle.sh
+
+      - name: Install iverilog (Icarus Verilog)
+        # issue #108: tools/sim simulates gate-level sky130_fd_sc_hd netlists
+        # through Icarus (tools/sim/icarus.py). The sim self-test gate below
+        # needs it; without this step it could only ever report a skip.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog
+
+      - name: Restore the pinned sky130 PDK from cache
+        # issue #108: the sim self-test gate links sky130_fd_sc_hd's
+        # behavioural Verilog (primitives.v + sky130_fd_sc_hd.v — ~4 MB of
+        # what a sky130A install is). Provisioned into build/pdk-root
+        # (gitignored, so the clean-tree assertion below stays green) and
+        # cached keyed on the pinned open_pdks commit, so a re-pin
+        # invalidates the cache.
+        uses: actions/cache@v4
+        with:
+          path: build/pdk-root
+          key: sky130-pdk-f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7-sky130_fd_sc_hd
+
+      - name: Provision the pinned sky130_fd_sc_hd behavioural models
+        # issue #108. ciel (volare's successor) downloads per-library
+        # tarballs, so -l sky130_fd_sc_hd narrows the install to the one
+        # library these netlists use instead of a full sky130A. The commit is
+        # pinned literally, for the same reason klayout-tools==0.9.1 above
+        # is: a model-file change (the #98 class of breakage) should surface
+        # at the bump, not silently. f6eeac7… is the install this repo's
+        # evidence was produced against. Skipped when the cache already
+        # holds it.
+        env:
+          PDK_ROOT: ${{ github.workspace }}/build/pdk-root
+        run: |
+          if [ ! -f "$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/verilog/sky130_fd_sc_hd.v" ]; then
+            pip install ciel
+            ciel enable --pdk sky130 f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7 \
+              -l sky130_fd_sc_hd --pdk-root "$PDK_ROOT"
+          fi
+          ls "$PDK_ROOT/sky130A/libs.ref/sky130_fd_sc_hd/verilog/"
+
+      - name: tools/sim self-test gate (iverilog + PDK models)
+        # issue #108: before this step, exactly one tools/sim module ran in
+        # CI — selftest_cli above (issue #102, deliberately before the fetch
+        # and left there) — while the library self-tests and the recorder's
+        # shift-load protocol never executed anywhere automated.
+        # scripts/sim-selftests.sh runs them, one ok/skip/FAIL line per
+        # module. It also runs tools.sim.run_warmup_directed, the protocol's
+        # SEMANTIC gate: selftest_replay records and replays against the
+        # same netlist, so a recorder mutation moves both sides together and
+        # still passes, while the directed run's expected_s (A + B == 496)
+        # does not move. --require-pdk: with iverilog and the models
+        # provisioned above, a skip is a failure — a gate that cannot run
+        # must never look like one that passed. selftest_solve is a reported
+        # skip naming #98, never a run. Runs after the fetch because
+        # selftest_replay and the directed run read
+        # puzzle/warmup/01_netlist.v.
+        env:
+          PDK_ROOT: ${{ github.workspace }}/build/pdk-root
+        run: ./scripts/sim-selftests.sh --require-pdk
 
       - name: Warm-up regression (warm-up files only)
         # Runs tools/test-compare (comparator self-test + three mutation tests),
