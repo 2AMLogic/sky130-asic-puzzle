@@ -185,7 +185,9 @@ own before it came out.
 ### Featured by Jane Street (2026-10-02)
 
 Approaches as the [results post](https://blog.janestreet.com/asic-puzzle-results/)
-describes them. We have not checked these writeups against our record yet.
+describes them. All 15 were checked against our record on 2026-11-14, one by one: the
+2026-11-14 addendum in `evidence/easter-eggs.md` has an entry per writeup — what was
+reachable, the method, what it contradicts or adds, and whether that reproduced here.
 
 | Writeup | What the post highlights |
 |---|---|
@@ -268,7 +270,35 @@ simulation is the intended symptom. The ditto still carries no meaning. On (4): 
 attempts in the VCD are text, not pictures. The low seven cells of each grid row, read LSB first,
 spell "The night sky awaits" (`evidence/easter-egg-vcd-night-sky.py`).
 
-Things in our record that no other writeup so far contains: the complete message map,
-*proven* — exactly two failure streams exist besides the three constant ones — the
-31,197,434-grid enumeration showing that the withheld regions are what make the answer
-unique, and the SAT-independent uniqueness check from the recovered rules alone.
+**Amended 2026-11-14, after checking Jane Street's 15 featured writeups one by one**
+(`evidence/easter-eggs.md`, 2026-11-14 addendum). Two items above need updating, and the
+paragraph that used to close this section has been removed as wrong.
+
+On (1): the floating net's forward cone reaches `O[1]` **and `O[4]`**, not `O[1]` alone.
+Ebert and Soto Franco both say so and both are right — `net_00575`'s cone is 11 nets, meets
+no flip-flop, cannot reach `success`, and lands on those two bits. The `O[4]` effect shows
+on one cycle only (140, the second trailing zero byte after the message), which is why the
+earlier reading missed it. Everything else in (1) stands. Worth stating explicitly:
+`TWO NOT TOUCH` is what the ROM *holds*; no static tie of the floating net prints it
+cleanly — tie low gives the ditto, tie high gives `TWO NOT TOUCJ` then `0x02 0x10`.
+
+One new item: (6) **the output generator encrypts the winning row.** It holds an 8-bit
+LFSR — four `dfstp_2` reset high and four `dfrtp_2` reset low — shifted once per input bit,
+with feedback from four taps XORed with the incoming `I`. The characteristic polynomial is
+x⁸+x⁴+x³+x²+1, `0x1d`, the CRC-8 SAE-J1850 polynomial. The four failure rows are
+plaintext, but the success row is a stored ROM row XORed with the keystream this register
+produces, so the winning row's address is effectively the whole 121-bit board: forcing
+`success` on a wrong board prints garbage, and no constant-address probe of the printer
+reveals it. This is Gabriel Taboada's finding; `NOTES-FOR-NEXT-TIME.md` had the bare fact
+from him, unattributed and without the mechanism. All 15 keystream bytes and all 15 stored
+bytes reproduce here (`evidence/featured-writeups-netlist.py`). The tie-high lesson at
+`NOTES-FOR-NEXT-TIME.md` line 36 is Soto Franco's, and is now owed to him by name.
+
+**The removed paragraph claimed that the complete proven message map, the 31,197,434-grid
+enumeration and the SAT-independent uniqueness check were in no other writeup. All three
+are in the featured set**, two of them more than once: Garner derived 31,197,434
+independently and then simulated all ~31M boards; Soto Franco enumerated the readable
+messages by solver to exhaustion and got exactly five, and also solved the recovered rules
+directly; Ebert's no-Z3 backtracking is the SAT-independent uniqueness check. Nothing about
+this record's *findings* is unique to it. What is particular to it is the per-cell `klt`
+extraction trail and the warm-up regression — the reason the repo exists.
