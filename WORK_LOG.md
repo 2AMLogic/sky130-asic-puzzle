@@ -7,6 +7,8 @@ updated.
 
 ### 2026-11-16
 
+- **PR #149**: docs(lint): say '--help arm' in the section-5 skip message and comment
+- **Issue #146** (closed): lint section 5: skip message and line-108 prose still say "-h|--help arm" after #144 narrowed the gate to --help
 - **PR #145**: lint: require section-5 help arm to name --help
 - **PR #142**: lint: report section-5 skips and widen the anchored help-arm match
 - **PR #139**: refactor: share the CLI GDS-open-failure probe via testutil.check_cli_open_failures
