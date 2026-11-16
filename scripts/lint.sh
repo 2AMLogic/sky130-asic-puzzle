@@ -105,7 +105,7 @@ fi
 # shell code after the header, warmup-regression.sh truncated it mid-sentence.
 # This catches an overshoot mechanically; it cannot catch an undershoot (a
 # truncated header is still all comment lines), which stays an acceptance
-# test on the script's last help line. Scripts without a -h|--help arm are
+# test on the script's last help line. Scripts without a --help arm are
 # skipped, not failed — growing one is not a lint requirement — and the
 # skip is reported, per the header contract at the top of this file: a
 # script dropping out of this gate must appear as a changed line, not a
@@ -136,7 +136,7 @@ fi
 arm_re='^[[:space:]]*(-h[[:space:]]*\|[[:space:]]*)?--help([[:space:]]*\|[[:space:]]*-h)?[[:space:]]*\)'
 while IFS= read -r f; do
   if ! grep -qE "$arm_re" "$f"; then
-    note "skip" "$f has no -h|--help arm"
+    note "skip" "$f has no --help arm"
     continue
   fi
   rc=0
