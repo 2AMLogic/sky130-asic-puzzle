@@ -25,6 +25,12 @@ bootstrap and skip-all guard shared by `test-pins`, `test-extract` and
 `if not KLAYOUT_OK:` branch). The guard's skip block must print identically
 from all three, which one shared copy enforces.
 
+`check_cli_open_failures()` is the CLI GDS-open failure probe shared by the
+same three scripts: it runs the caller's tool against a nonexistent path and
+an existing non-GDS file and asserts exit 2 plus the `tools/<name>: ...`
+stderr prefix, emitting each check through the caller's own `check` closure
+so the per-script tracker stays local.
+
 Both summary formats are quoted verbatim as committed evidence
 (`evidence/independent-review.md`, `evidence/warmup-regression.md`,
 `evidence/warmup-sim.md`, `evidence/puzzle-answer.md`), which CLAUDE.md
@@ -128,6 +134,53 @@ def skip_all_no_klayout(reason: str) -> int:
     print("=" * 60)
     print("SKIPPED (no klayout)")
     return 0
+
+
+def check_cli_open_failures(check, script: str, tool: str, tmp_prefix: str) -> None:
+    """Run both GDS-open failure branches of a `tools/` CLI and check them.
+
+    `script` is the absolute path of the CLI under test and `tool` the
+    `tools/<name>` stem its error messages start with; `tmp_prefix` names
+    the scratch `TemporaryDirectory`. Each probe must exit 2 with the
+    `klayout_env.open_layout` wording (`<tool>: no such file: ...` /
+    `<tool>: could not read ...`) on stderr. Emits through the caller's
+    `make_tracker()` `check` closure so each script's tracker and exit
+    accounting stay local; labels and details are byte-for-byte what the
+    three scripts printed before this was shared.
+    """
+
+    import os
+    import subprocess
+    import sys
+    import tempfile
+
+    def _check_open_failure(label: str, bad_path: str, err_prefix: str) -> None:
+        proc = subprocess.run(
+            [sys.executable, script, bad_path],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        check(
+            f"{label}: exit 2",
+            proc.returncode == 2,
+            f"exit={proc.returncode} stderr={proc.stderr.strip()[:300]}",
+        )
+        check(
+            f"{label}: stderr starts '{err_prefix}'",
+            proc.stderr.startswith(err_prefix),
+            proc.stderr.strip()[:200],
+        )
+
+    with tempfile.TemporaryDirectory(prefix=tmp_prefix) as td:
+        missing = os.path.join(td, "does-not-exist.gds")
+        _check_open_failure("open-fail: no such file", missing, f"{tool}: no such file: ")
+
+        not_gds = os.path.join(td, "not-a-gds.gds")
+        with open(not_gds, "w", encoding="utf-8") as fh:
+            fh.write("not a GDS stream")
+        _check_open_failure("open-fail: could not read", not_gds, f"{tool}: could not read ")
 
 
 def _box(cell, layout, layer_num, datatype, x0, y0, x1, y1):

@@ -53,7 +53,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from testutil import SKIP, _box, _label, make_tracker, require_klayout, skip_all_no_klayout, summarize
+from testutil import SKIP, _box, _label, check_cli_open_failures, make_tracker, require_klayout, skip_all_no_klayout, summarize
 
 EXTRACT = os.path.join(HERE, "extract")
 COMPARE = os.path.join(HERE, "compare")
@@ -434,23 +434,10 @@ def _smoke_puzzle() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _check_open_failure(label: str, bad_path: str, err_prefix: str) -> None:
-    code, _out, err = _run([sys.executable, EXTRACT, bad_path])
-    check(f"{label}: exit 2", code == 2, f"exit={code} stderr={err.strip()[:300]}")
-    check(f"{label}: stderr starts '{err_prefix}'", err.startswith(err_prefix), err.strip()[:200])
-
-
 def test_cli_open_failures() -> None:
     """Both GDS-open failure branches: a nonexistent path, and an existing
     file that is not a GDS stream. Neither needs `puzzle/` fetched."""
-    with tempfile.TemporaryDirectory(prefix="test-extract-open-fail-") as td:
-        missing = os.path.join(td, "does-not-exist.gds")
-        _check_open_failure("open-fail: no such file", missing, "tools/extract: no such file: ")
-
-        not_gds = os.path.join(td, "not-a-gds.gds")
-        with open(not_gds, "w", encoding="utf-8") as fh:
-            fh.write("not a GDS stream")
-        _check_open_failure("open-fail: could not read", not_gds, "tools/extract: could not read ")
+    check_cli_open_failures(check, EXTRACT, "tools/extract", "test-extract-open-fail-")
 
 
 def main() -> int:
