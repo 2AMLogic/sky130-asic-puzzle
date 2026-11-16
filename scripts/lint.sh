@@ -114,10 +114,15 @@ fi
 # substring occurs in this file's own text, and lint.sh takes no arguments,
 # so `lint.sh --help` re-ran the whole lint and this loop recursed until the
 # CI job timeout killed the run. The match stays anchored at a line start
-# but tolerates spacing and operand order within the arm: -h|--help), -h |
-# --help), --help|-h), and bare -h) or --help) all gate; an arm naming no
-# help flag (-v|--verbose)) still does not. The invariant that must not
-# regress is that the pattern matches no line of this file itself, including
+# and tolerates spacing and operand order, but the arm must name --help:
+# the gate invokes the script as `$f --help`, so an arm that does not
+# answer that flag would gate in, fall through its case, exit 0 silently,
+# and be reported ok without anything having run — a green on a check
+# that never executed (issue #144). -h|--help), -h | --help), --help|-h)
+# and bare --help) all gate; a bare -h) does not (it reports skip, not
+# ok), nor does an arm naming no help flag (-v|--verbose)). The invariant
+# that must not regress is that the pattern matches no line of this file
+# itself, including
 # the line carrying it — re-check after any edit to the pattern or to any
 # line that could start with a help flag. `timeout` bounds any future
 # hanging help arm the same way, to a FAIL instead of a dead job. Help
@@ -128,7 +133,7 @@ fi
 # pipe buffer — under `set -o pipefail` that status, not grep's verdict,
 # decided the `if` and reported `ok` on large spills. With no pipe in the
 # chain, the verdict is grep's at any output size.
-arm_re='^[[:space:]]*(-h|--help)([[:space:]]*\|[[:space:]]*(-h|--help))?[[:space:]]*\)'
+arm_re='^[[:space:]]*(-h[[:space:]]*\|[[:space:]]*)?--help([[:space:]]*\|[[:space:]]*-h)?[[:space:]]*\)'
 while IFS= read -r f; do
   if ! grep -qE "$arm_re" "$f"; then
     note "skip" "$f has no -h|--help arm"
