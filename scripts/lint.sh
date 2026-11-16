@@ -111,19 +111,22 @@ fi
 # substring occurs in this file's own text, and lint.sh takes no arguments,
 # so `lint.sh --help` re-ran the whole lint and this loop recursed until the
 # CI job timeout killed the run. `timeout` bounds any future hanging help arm
-# the same way, to a FAIL instead of a dead job. The output is captured
-# before it is tested: a producer piped straight into `grep -q` takes SIGPIPE
-# (141) when grep short-circuits on an early match, and under
-# `set -o pipefail` that exit code, not grep's verdict, decides the `if` —
-# which reported `ok` on precisely the long-running, large spills this check
-# exists to catch.
+# the same way, to a FAIL instead of a dead job. Help output is captured
+# into a variable and tested from it via a here-string, so no stage of the
+# check is a pipe: `grep -q` short-circuits on the first non-comment line,
+# and a piped producer would take SIGPIPE (141) once the spill outgrew the
+# pipe buffer — under `set -o pipefail` that status, not grep's verdict,
+# decided the `if` and reported `ok` on large spills. With no pipe in the
+# chain, the verdict is grep's at any output size.
 while IFS= read -r f; do
   grep -qE '^[[:space:]]*-h\|--help\)' "$f" || continue
   rc=0
   out="$(timeout 10 "$f" --help 2>/dev/null)" || rc=$?
   if [ "$rc" -eq 124 ]; then
     note "FAIL" "$f --help timed out (help arm hung?)"; fail=1
-  elif printf '%s\n' "$out" | grep -qvE '^#|^$'; then
+  elif [ "$rc" -ne 0 ]; then
+    note "FAIL" "$f --help exited $rc (help arm must exit 0)"; fail=1
+  elif grep -qvE '^#|^$' <<<"$out"; then
     note "FAIL" "$f --help spills non-comment lines"; fail=1
   else
     note "ok" "$f --help is header-only"
