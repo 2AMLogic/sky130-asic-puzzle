@@ -106,20 +106,34 @@ fi
 # This catches an overshoot mechanically; it cannot catch an undershoot (a
 # truncated header is still all comment lines), which stays an acceptance
 # test on the script's last help line. Scripts without a -h|--help arm are
-# skipped, not failed — growing one is not a lint requirement.
+# skipped, not failed — growing one is not a lint requirement — and the
+# skip is reported, per the header contract at the top of this file: a
+# script dropping out of this gate must appear as a changed line, not a
+# vanished one (issue #140).
 # The gate matches a real case arm, not the bare '-h|--help' substring: the
 # substring occurs in this file's own text, and lint.sh takes no arguments,
 # so `lint.sh --help` re-ran the whole lint and this loop recursed until the
-# CI job timeout killed the run. `timeout` bounds any future hanging help arm
-# the same way, to a FAIL instead of a dead job. Help output is captured
+# CI job timeout killed the run. The match stays anchored at a line start
+# but tolerates spacing and operand order within the arm: -h|--help), -h |
+# --help), --help|-h), and bare -h) or --help) all gate; an arm naming no
+# help flag (-v|--verbose)) still does not. The invariant that must not
+# regress is that the pattern matches no line of this file itself, including
+# the line carrying it — re-check after any edit to the pattern or to any
+# line that could start with a help flag. `timeout` bounds any future
+# hanging help arm the same way, to a FAIL instead of a dead job. Help
+# output is captured
 # into a variable and tested from it via a here-string, so no stage of the
 # check is a pipe: `grep -q` short-circuits on the first non-comment line,
 # and a piped producer would take SIGPIPE (141) once the spill outgrew the
 # pipe buffer — under `set -o pipefail` that status, not grep's verdict,
 # decided the `if` and reported `ok` on large spills. With no pipe in the
 # chain, the verdict is grep's at any output size.
+arm_re='^[[:space:]]*(-h|--help)([[:space:]]*\|[[:space:]]*(-h|--help))?[[:space:]]*\)'
 while IFS= read -r f; do
-  grep -qE '^[[:space:]]*-h\|--help\)' "$f" || continue
+  if ! grep -qE "$arm_re" "$f"; then
+    note "skip" "$f has no -h|--help arm"
+    continue
+  fi
   rc=0
   out="$(timeout 10 "$f" --help 2>/dev/null)" || rc=$?
   if [ "$rc" -eq 124 ]; then
