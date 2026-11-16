@@ -7,6 +7,12 @@ updated.
 
 ### 2026-11-16
 
+- **PR #145**: lint: require section-5 help arm to name --help
+- **PR #142**: lint: report section-5 skips and widen the anchored help-arm match
+- **PR #139**: refactor: share the CLI GDS-open-failure probe via testutil.check_cli_open_failures
+- **Issue #144** (closed): lint.sh section 5: a bare `-h)`-only arm gates in but is tested with `--help`, yielding a vacuous `ok`
+- **Issue #140** (closed): lint.sh section 5: a reformatted -h|--help case arm silently drops a script from the help-output gate
+- **Issue #137** (closed): Share the CLI open-failure probe: _check_open_failure/test_cli_open_failures is triplicated across test-pins, test-inventory and test-extract
 - **PR #138**: fix: attribute selftest_celltable's provenance print to the install each commit belongs to
 - **PR #136**: fix: derive scripts' --help output by pattern, not hard-coded line range
 - **Issue #133** (closed): selftest_celltable's "baseline recorded from:" line names source.version (ciel f6eeac7d), but the cells map was first parsed from the volare c6d73a35 path printed beside it
