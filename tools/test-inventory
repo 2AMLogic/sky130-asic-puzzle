@@ -34,13 +34,12 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 
-from testutil import SKIP, make_tracker, require_klayout, skip_all_no_klayout, summarize
+from testutil import SKIP, check_cli_open_failures, make_tracker, require_klayout, skip_all_no_klayout, summarize
 
 INVENTORY = os.path.join(HERE, "inventory")
 WARMUP_GDS = os.path.join(ROOT, "puzzle", "warmup", "04_final.gds")
@@ -207,36 +206,10 @@ def test_puzzle_counts() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _check_open_failure(label: str, bad_path: str, err_prefix: str) -> None:
-    proc = subprocess.run(
-        [sys.executable, INVENTORY, bad_path],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    check(
-        f"{label}: exit 2",
-        proc.returncode == 2,
-        f"exit={proc.returncode} stderr={proc.stderr.strip()[:300]}",
-    )
-    check(
-        f"{label}: stderr starts '{err_prefix}'",
-        proc.stderr.startswith(err_prefix),
-        proc.stderr.strip()[:200],
-    )
-
-
 def test_cli_open_failures() -> None:
     """Both GDS-open failure branches: a nonexistent path, and an existing
     file that is not a GDS stream. Neither needs `puzzle/` fetched."""
-    with tempfile.TemporaryDirectory(prefix="test-inventory-open-fail-") as td:
-        missing = os.path.join(td, "does-not-exist.gds")
-        _check_open_failure("open-fail: no such file", missing, "tools/inventory: no such file: ")
-
-        not_gds = os.path.join(td, "not-a-gds.gds")
-        with open(not_gds, "w", encoding="utf-8") as fh:
-            fh.write("not a GDS stream")
-        _check_open_failure("open-fail: could not read", not_gds, "tools/inventory: could not read ")
+    check_cli_open_failures(check, INVENTORY, "tools/inventory", "test-inventory-open-fail-")
 
 
 def main() -> int:
