@@ -97,6 +97,42 @@ else
   note "skip" "ruff not installed"
 fi
 
+# 5. --help prints only the header comment block.
+#
+# A script that reads its own header as its help text must stop where the
+# header stops (issue #132): a hard-coded end line drifts every time the
+# header is edited, and had drifted both ways — sim-selftests.sh printed
+# shell code after the header, warmup-regression.sh truncated it mid-sentence.
+# This catches an overshoot mechanically; it cannot catch an undershoot (a
+# truncated header is still all comment lines), which stays an acceptance
+# test on the script's last help line. Scripts without a -h|--help arm are
+# skipped, not failed — growing one is not a lint requirement.
+# The gate matches a real case arm, not the bare '-h|--help' substring: the
+# substring occurs in this file's own text, and lint.sh takes no arguments,
+# so `lint.sh --help` re-ran the whole lint and this loop recursed until the
+# CI job timeout killed the run. `timeout` bounds any future hanging help arm
+# the same way, to a FAIL instead of a dead job. Help output is captured
+# into a variable and tested from it via a here-string, so no stage of the
+# check is a pipe: `grep -q` short-circuits on the first non-comment line,
+# and a piped producer would take SIGPIPE (141) once the spill outgrew the
+# pipe buffer — under `set -o pipefail` that status, not grep's verdict,
+# decided the `if` and reported `ok` on large spills. With no pipe in the
+# chain, the verdict is grep's at any output size.
+while IFS= read -r f; do
+  grep -qE '^[[:space:]]*-h\|--help\)' "$f" || continue
+  rc=0
+  out="$(timeout 10 "$f" --help 2>/dev/null)" || rc=$?
+  if [ "$rc" -eq 124 ]; then
+    note "FAIL" "$f --help timed out (help arm hung?)"; fail=1
+  elif [ "$rc" -ne 0 ]; then
+    note "FAIL" "$f --help exited $rc (help arm must exit 0)"; fail=1
+  elif grep -qvE '^#|^$' <<<"$out"; then
+    note "FAIL" "$f --help spills non-comment lines"; fail=1
+  else
+    note "ok" "$f --help is header-only"
+  fi
+done < <(find scripts -maxdepth 1 -type f -name '*.sh' | sort)
+
 rm -rf tools/__pycache__ 2>/dev/null || true
 
 echo "------------------------------------------------------------"

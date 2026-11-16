@@ -57,7 +57,7 @@ REQUIRE_PDK=0
 for arg in "$@"; do
   case "$arg" in
     --require-pdk) REQUIRE_PDK=1 ;;
-    -h|--help) sed -n '2,55p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help) sed -n '2,/^[^#]/{ /^[^#]/d; p; }' "${BASH_SOURCE[0]}"; exit 0 ;;
     *) echo "sim-selftests: unknown argument $arg" >&2; exit 2 ;;
   esac
 done
