@@ -5,8 +5,21 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-16
+
+- **PR #138**: fix: attribute selftest_celltable's provenance print to the install each commit belongs to
+- **PR #136**: fix: derive scripts' --help output by pattern, not hard-coded line range
+- **Issue #133** (closed): selftest_celltable's "baseline recorded from:" line names source.version (ciel f6eeac7d), but the cells map was first parsed from the volare c6d73a35 path printed beside it
+- **Issue #132** (closed): sim-selftests.sh --help prints 11 lines of shell code after the header
+- **Issue #122** (closed): selftest_celltable's golden 69-cell check is pinned to an absolute volare path, so it skips everywhere but the recording host
+
 ### 2026-11-15
 
+- **PR #135**: fix: ignore a root puzzle symlink and catch it in the embargo guard
+- **PR #131**: refactor: share the klt-lvs PDK/LEF preamble in one sourced helper
+- **PR #129**: fix: resolve selftest_celltable's golden check via the PDK resolver, not the recorded baseline path
+- **Issue #128** (closed): gitignore: a `puzzle` symlink is not ignored (`puzzle/` matches directories only)
+- **Issue #123** (closed): Share the klt-lvs PDK/LEF preamble: warmup-klt-lvs.sh and puzzle-klt-lvs.sh duplicate ~25 lines
 - **PR #130**: ci: gate selftest_solve into the sim self-tests with a pinned python-sat
 - **PR #127**: test-extract, lint: give every scratch path a per-run temp file
 - **PR #126**: fix(sim): solver CLIs exit 2 on an unresolvable PDK, not a traceback
