@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-17
+
+- **PR #151**: chore: ship $schema in opencode.json so OpenCode stops dirtying the checkout
+
 ### 2026-11-16
 
 - **PR #149**: docs(lint): say '--help arm' in the section-5 skip message and comment
