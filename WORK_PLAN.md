@@ -57,7 +57,7 @@ _None._
 
 ## Proposed (Architect / Hermit)
 
-- **#78**: Remove dead code in tools/sim/solve.py: unreferenced concrete_trace() and the unused free_lits accumulation *(hermit)*
+- **#78**: Remove dead code in tools/sim/solve.py: unreferenced concrete_trace() and the unused free_lits accumulation *(hermit)* *(held)*
 
 ## Epics
 

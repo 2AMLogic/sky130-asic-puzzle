@@ -5,6 +5,10 @@ triage agent. Entries are appended, never rewritten in place — see
 `.loom/roles/guide.md`'s Document Maintenance phase for how this file is
 updated.
 
+### 2026-11-18
+
+- **Issue #141** (closed): create-pr.sh accepts a literal `@path` as --body, silently publishing the path string instead of the PR body
+
 ### 2026-11-17
 
 - **PR #151**: chore: ship $schema in opencode.json so OpenCode stops dirtying the checkout
