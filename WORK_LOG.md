@@ -9,6 +9,13 @@ updated.
 
 - [2026-08](work_log/WORK_LOG_2026-08.md)
 
+### 2026-11-20
+
+- **PR #163**: fix: fail warmup-klt-lvs.sh when a pinned LVS verdict moves
+- **PR #162**: Bump CI klayout-tools pin to 0.9.2 and record Run 4
+- **Issue #158** (closed): warmup-klt-lvs.sh: fail when the 01 match regresses or the 02 mismatch counts move, instead of exiting 0 whenever the runs complete
+- **Issue #157** (closed): Bump the CI klt pin from 0.9.1 to 0.9.2 and record the run in evidence/klt-extract.md
+
 ### 2026-11-19
 
 - **PR #155**: chore: refresh Squad block and skill so unattended roles do not stop

@@ -7,7 +7,7 @@ overwritten wholesale on each update — do not hand-edit it. See
 maintained.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-20T20:12:42Z (snapshot; compare against live labels)_
+_Generated: 2026-11-20T23:54:29Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -18,20 +18,21 @@ _None._
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-- **#157**: Bump the CI klt pin from 0.9.1 to 0.9.2 and record the run in evidence/klt-extract.md
+- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
 
 ## Important
 
 `loom:important`; taken before unlabelled work.
 
-- **#158**: warmup-klt-lvs.sh: fail when the 01 match regresses or the 02 mismatch counts move, instead of exiting 0 whenever the runs complete
+- **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
 
 ## Ready
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#157**: Bump the CI klt pin from 0.9.1 to 0.9.2 and record the run in evidence/klt-extract.md
-- **#158**: warmup-klt-lvs.sh: fail when the 01 match regresses or the 02 mismatch counts move, instead of exiting 0 whenever the runs complete
+- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
+- **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
+- **#164**: Share GDS label-to-polygon matching between the pin reporter and extractor
 
 ## In Progress
 
@@ -55,9 +56,8 @@ _None._
 
 Issues carrying `loom:curated`.
 
-- **#157**: Bump the CI klt pin from 0.9.1 to 0.9.2 and record the run in evidence/klt-extract.md *(curated)*
-- **#158**: warmup-klt-lvs.sh: fail when the 01 match regresses or the 02 mismatch counts move, instead of exiting 0 whenever the runs complete *(curated)*
 - **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it *(curated)*
+- **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -74,11 +74,11 @@ _None._
 | Operator merge-risk holds | 0 |
 | Very important | 1 |
 | Important | 1 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 2 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 3 |
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 3 |
+| Curated | 2 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
