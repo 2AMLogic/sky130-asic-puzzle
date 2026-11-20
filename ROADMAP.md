@@ -22,7 +22,7 @@ results post of 2026-10-02; the reconciliation is the 2026-10-02 addendum in
 | Check | Evidence | State |
 |---|---|---|
 | Warm-up `04_final.gds` to gate-level netlist with `tools/extract`, equivalent to the published `01_netlist.v` | `scripts/warmup-regression.sh`, `evidence/warmup-regression.md` | in CI |
-| Same layout through `klt extract --abstract-cells`, equivalent to `01_netlist.v`, with a mutation check | `evidence/klt-extract.md` Run 2; `--require-klt` (#63, PR #64) | in CI, `klayout-tools==0.9.1` pinned |
+| Same layout through `klt extract --abstract-cells`, equivalent to `01_netlist.v`, with a mutation check | `evidence/klt-extract.md` Run 2 and Run 4; `--require-klt` (#63, PR #64) | in CI, `klayout-tools==0.9.2` pinned |
 | `puzzle.gds` through both extractors, equivalent to `evidence/puzzle-extracted.v`, exactly one floating net | `scripts/puzzle-regression.sh`, `evidence/klt-extract.md` Run 3 (#68, PR #69) | in CI |
 | No upstream puzzle file tracked (`CLAUDE.md` §3) | `scripts/check-embargo.sh` | in CI |
 | `klt lvs` of the warm-up against `01_netlist.v` (signal-only) | `evidence/warmup-klt-lvs.md` Run 1 and Run 2, `evidence/warmup-klt-lvs-01.json` | **match** in both, run by hand on 2026-10-17 and 2026-11-14, not in CI |
@@ -117,11 +117,6 @@ then listed here.
   Done when `evidence/upstream.md` has a row per issue recording the `klt` command that now
   does the job on `puzzle.gds`, the version used, and whether its result agrees with the
   local script's. Sized as one PR per issue once the first shows the pattern.
-- **Bump the `klt` pin to 0.9.2.** The trigger has fired: v0.9.2 was tagged 2026-11-14 and
-  is the newest published release, while CI still pins `klayout-tools==0.9.1`
-  (`.github/workflows/ci.yml:72`). Done when CI is green on the new pin and
-  `evidence/klt-extract.md` has a run entry for it; a regression on these layouts is an
-  upstream issue, not a local fix (`CLAUDE.md` §2).
 
 ## Later
 

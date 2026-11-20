@@ -100,3 +100,41 @@ undriven net in each netlist (two load pins), as in Run 1. The mutation check
 
 No disagreement between extractors, so nothing filed upstream. Live CI
 verification not performed: the first CI run on the PR is the evidence.
+
+## Run 4 — 2026-11-20
+
+The pin-bump run (issue #157): `klayout-tools` 0.9.2 was published and CI moved
+from 0.9.1 to 0.9.2. Both gates were run once, locally, before pushing.
+
+- Toolkit: `klt 0.9.2` (`klayout-tools==0.9.2` from PyPI, now the version pinned
+  in `.github/workflows/ci.yml`), with `klayout==0.30.13`, installed into a
+  throwaway venv, on Linux 7.0.0 (aws).
+- Commands: `PATH=<venv>/bin:$PATH ./scripts/warmup-regression.sh --no-fetch
+  --require-klt` and `PATH=<venv>/bin:$PATH ./scripts/puzzle-regression.sh
+  --no-fetch --require-klt` — one local `klt extract` per layout, as in Runs 2
+  and 3.
+
+### Warm-up: `04_final.gds` vs published `01_netlist.v`
+
+Step 5 reports `klt cross-check: PASSED (equivalent to 01_netlist.v)`:
+`tools/compare` **EQUIVALENT**, 6 ports, 79 signal cells matched 1:1, 84 nets,
+151 fill cells by count (58 decap, 93 tap), independent re-check passed, and the
+mutation check (an instance removed from the converted netlist) was rejected.
+Identical counts to Run 2 on 0.9.1.
+
+### Puzzle: `puzzle.gds` vs `evidence/puzzle-extracted.v`
+
+`tools/extract` and `tools/klt-extract` each reported **EQUIVALENT** from
+`tools/compare`: 13 ports, 728 signal cells matched 1:1, 739 nets, 890 fill
+cells by count (204 decap, 10 diode, 676 tap) — identical counts to Runs 1 and
+3. `tools/floating-nets` found exactly one non-port, loaded, undriven net in
+each netlist (two load pins), the confirmed floating input of Run 1. The
+mutation check (an instance removed from the klt netlist) was rejected. Exit 0.
+
+### Verdict on 0.9.2
+
+No regression on either layout and no disagreement between extractors, so
+nothing was filed upstream and `evidence/upstream.md` is unchanged. Live CI
+verification not performed at recording time: the first CI run on the PR
+carrying the pin bump is the evidence; this entry is amended by a later run if
+CI differs.
