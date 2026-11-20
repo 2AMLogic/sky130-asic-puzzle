@@ -6,7 +6,7 @@
     "scope": "repo"
   },
   "reference": {
-    "path": "warmup/02_netlist_with_power_rails.v",
+    "path": "puzzle/warmup/02_netlist_with_power_rails.v",
     "scope": "repo"
   },
   "top": "ADDER_DEMO",
@@ -88,6 +88,7 @@
     "reason": "no request.layout.deck was given (the pre-extracted request.layout.netlist form), so nothing establishes this layout's substrate/well-tap convention and no synthesized body net can be told apart from a real one -- this run verified nothing about the device bodies either way",
     "device_classes": [],
     "device_count": 0,
+    "inspected_count": 0,
     "findings": [],
     "finding_count": 0
   },
@@ -125,31 +126,28 @@
   "device_classes": null,
   "environment": {
     "engine": "klayout",
-    "engine_version": "0.30.13",
+    "engine_version": "0.30.12",
     "netgen_binary": null,
     "layout_sha256": "9e7223ccfa2a3b1c116a3a0eafcd45e73a5cf9a57e188cbf3a3d0341a46c1b2b",
     "reference_sha256": "ffdbf25c8fc04f26ad24a1260a0d9304b809914e0272a78634c2d70f7e99f3f3",
     "extracted_netlist": null
   },
   "provenance": {
-    "klt_version": "0.9.2.dev1022+g2a9c52b27ce7",
-    "klt_git_commit": "2a9c52b27ce7986b4372ae5d73129dac4773e02c",
-    "klt_reinstall_spec": "klayout-tools @ git+https://github.com/2AMLogic/klayout-tools@2a9c52b27ce7986b4372ae5d73129dac4773e02c",
-    "klayout_version": "0.30.13",
+    "klt_version": "0.9.3.dev2572+g75c6350d487d",
+    "klt_git_commit": "75c6350d487d0ea474c6eb446385ce310d7661f7",
+    "klt_reinstall_spec": "klayout-tools @ git+https://github.com/2AMLogic/klayout-tools@75c6350d487d0ea474c6eb446385ce310d7661f7",
+    "klayout_version": "0.30.12",
     "pdk": {
       "name": "sky130A",
       "source": "search root: ~/.ciel",
-      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7",
-      "ambiguous_sources": [
-        "search root: ~/.volare"
-      ]
+      "version": "open_pdks f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7"
     },
     "deck": null,
     "input": {
       "content_hash": "sha256:9e7223ccfa2a3b1c116a3a0eafcd45e73a5cf9a57e188cbf3a3d0341a46c1b2b",
       "role": "netlist"
     },
-    "klayout_version_mismatch": true,
+    "klayout_version_mismatch": false,
     "pin_order_sources": [
       {
         "library": "sky130_fd_sc_hd",
@@ -166,7 +164,9 @@
       "side": "both",
       "net": {
         "layout": "VGND",
-        "reference": "VGND"
+        "layout_id": 131,
+        "reference": "VGND",
+        "reference_id": 135
       },
       "device": null,
       "property": null,
@@ -184,7 +184,9 @@
       "side": "both",
       "net": {
         "layout": "VPWR",
-        "reference": "VPWR"
+        "layout_id": 132,
+        "reference": "VPWR",
+        "reference_id": 134
       },
       "device": null,
       "property": null,
@@ -202,7 +204,9 @@
       "side": "layout",
       "net": {
         "layout": "VSUBS",
-        "reference": null
+        "layout_id": 139,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -218,7 +222,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$177",
-        "reference": null
+        "layout_id": 195,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -234,7 +240,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$178",
-        "reference": null
+        "layout_id": 210,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -250,7 +258,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$225",
-        "reference": null
+        "layout_id": 196,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -266,7 +276,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$226",
-        "reference": null
+        "layout_id": 211,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -282,7 +294,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$241",
-        "reference": null
+        "layout_id": 197,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -298,7 +312,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$242",
-        "reference": null
+        "layout_id": 212,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -314,7 +330,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$243",
-        "reference": null
+        "layout_id": 172,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -330,7 +348,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$251",
-        "reference": null
+        "layout_id": 198,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -346,7 +366,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$252",
-        "reference": null
+        "layout_id": 213,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -362,7 +384,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$260",
-        "reference": null
+        "layout_id": 199,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -378,7 +402,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$261",
-        "reference": null
+        "layout_id": 214,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -394,7 +420,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$265",
-        "reference": null
+        "layout_id": 200,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -410,7 +438,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$266",
-        "reference": null
+        "layout_id": 215,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -426,7 +456,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$267",
-        "reference": null
+        "layout_id": 240,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -442,7 +474,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$279",
-        "reference": null
+        "layout_id": 201,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -458,7 +492,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$280",
-        "reference": null
+        "layout_id": 216,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -474,7 +510,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$29",
-        "reference": null
+        "layout_id": 193,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -490,7 +528,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$30",
-        "reference": null
+        "layout_id": 208,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -506,7 +546,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$31",
-        "reference": null
+        "layout_id": 241,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -522,7 +564,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$314",
-        "reference": null
+        "layout_id": 202,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -538,7 +582,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$315",
-        "reference": null
+        "layout_id": 217,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -554,7 +600,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$348",
-        "reference": null
+        "layout_id": 203,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -570,7 +618,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$349",
-        "reference": null
+        "layout_id": 218,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -586,7 +636,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$364",
-        "reference": null
+        "layout_id": 204,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -602,7 +654,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$365",
-        "reference": null
+        "layout_id": 219,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -618,7 +672,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$366",
-        "reference": null
+        "layout_id": 205,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -634,7 +690,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$367",
-        "reference": null
+        "layout_id": 220,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -650,7 +708,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$368",
-        "reference": null
+        "layout_id": 206,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -666,7 +726,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$369",
-        "reference": null
+        "layout_id": 221,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -682,7 +744,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$6",
-        "reference": null
+        "layout_id": 192,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -698,7 +762,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$7",
-        "reference": null
+        "layout_id": 207,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -714,7 +780,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$8",
-        "reference": null
+        "layout_id": 248,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -730,7 +798,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$95",
-        "reference": null
+        "layout_id": 194,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,
@@ -746,7 +816,9 @@
       "side": "layout",
       "net": {
         "layout": "\\$96",
-        "reference": null
+        "layout_id": 209,
+        "reference": null,
+        "reference_id": null
       },
       "device": null,
       "property": null,

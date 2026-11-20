@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""Compare `klt lvs` envelopes against the pinned expected verdicts (issue #158).
+
+`scripts/warmup-klt-lvs.sh` rewrites evidence/warmup-klt-lvs-{01,02}.json on
+every run, so the envelopes cannot be their own expectation: the recorded
+verdicts live in evidence/warmup-klt-lvs-expected.json and this tool compares
+the fresh envelopes against them once both references have run. It needs no PDK
+and no puzzle/ file -- only JSON -- so its own correctness is checkable in CI
+on canned envelopes (tools/test-lvs-verdict).
+
+Usage:
+
+  lvs-verdict EXPECTED.json TAG:ENVELOPE.json [TAG:ENVELOPE.json ...]
+
+Each TAG names an entry under EXPECTED's "expected" object. Every pinned tag
+must arrive as an envelope and every envelope tag must be pinned, so a new
+reference cannot join the run without joining the gate. Only the fields a tag
+pins are compared: `status` always, `mismatch_count`/`error_count` where
+recorded (the `01` pin is status-only -- its two mismatches are informational
+warnings, not part of the contract). Each moved value is named with its
+direction. A pinned `mismatch` that turns into `match` is reported as a stale
+pin, not a pass: the fix is to promote the expectation (the pinned tool gap is
+named in EXPECTED's "upstream"), never to loosen this gate.
+
+Exit codes: 0 both verdicts as pinned; 1 a pinned value moved (including the
+stale-pin case); 2 unusable input -- bad usage, unreadable file, a JSON that
+is not an lvs envelope, or a tag mismatch between EXPECTED and the envelopes
+(a gate that cannot run must never look like one that passed).
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+
+EXIT_OK = 0
+EXIT_MOVED = 1
+EXIT_USAGE = 2
+
+USAGE = "usage: lvs-verdict EXPECTED.json TAG:ENVELOPE.json [TAG:ENVELOPE.json ...]"
+
+
+def die(msg: str) -> None:
+    print(f"lvs-verdict: {msg}", file=sys.stderr)
+    sys.exit(EXIT_USAGE)
+
+
+def load_json(path: str, what: str) -> dict:
+    try:
+        with open(path, encoding="utf-8") as f:
+            value = json.load(f)
+    except OSError as e:
+        die(f"cannot read {what} {path!r}: {e}")
+    except json.JSONDecodeError as e:
+        die(f"{what} {path!r} is not valid JSON: {e}")
+    if not isinstance(value, dict):
+        die(f"{what} {path!r} is not a JSON object")
+    return value
+
+
+def parse_pair(arg: str) -> tuple[str, str]:
+    tag, sep, path = arg.partition(":")
+    if not sep or not tag or not path:
+        die(f"argument {arg!r} is not TAG:ENVELOPE.json")
+    return tag, path
+
+
+def envelope_field(envelope: dict, name: str, path: str):
+    if name not in envelope:
+        die(f"envelope {path!r} has no {name!r} field -- not an lvs envelope?")
+    return envelope[name]
+
+
+def describe_count_move(tag: str, name: str, pinned: int, got: int) -> str:
+    delta = got - pinned
+    sign = f"+{delta}" if delta >= 0 else str(delta)
+    return f"lvs-verdict: {tag} {name} moved: pinned {pinned}, got {got} ({sign})"
+
+
+def compare(expected: dict, envelopes: dict[str, str]) -> int:
+    """Return EXIT_OK when every pinned verdict holds, EXIT_MOVED otherwise."""
+    pins = expected.get("expected")
+    if not isinstance(pins, dict) or not pins:
+        die("EXPECTED has no non-empty 'expected' object")
+
+    upstream = expected.get("upstream")
+    issue = upstream.get("issue") if isinstance(upstream, dict) else None
+    if not issue:
+        die("EXPECTED has no upstream.issue to name if the pin goes stale")
+
+    unpinned = sorted(set(envelopes) - set(pins))
+    if unpinned:
+        die(f"envelope tag(s) {', '.join(unpinned)} have no pinned expectation")
+    missing = sorted(set(pins) - set(envelopes))
+    if missing:
+        die(f"pinned tag(s) {', '.join(missing)} arrived without an envelope")
+
+    rc = EXIT_OK
+    for tag in sorted(pins):
+        pin = pins[tag]
+        if not isinstance(pin, dict) or "status" not in pin:
+            die(f"pin for tag {tag!r} must be an object with at least a 'status'")
+        path = envelopes[tag]
+        envelope = load_json(path, "envelope")
+
+        got = envelope_field(envelope, "status", path)
+        pinned = pin["status"]
+        if got != pinned:
+            rc = EXIT_MOVED
+            if pinned == "mismatch" and got == "match":
+                print(f"lvs-verdict: {tag} status moved: pinned mismatch, got match")
+                print(
+                    f"lvs-verdict: {tag}: the pinned expectation is stale, not "
+                    f"satisfied -- if the tool gap has been fixed, re-record the "
+                    f"run and promote the pin; do not loosen this gate ({issue})"
+                )
+            else:
+                print(
+                    f"lvs-verdict: {tag} status moved: pinned {pinned!r}, got {got!r}"
+                )
+
+        for name in ("mismatch_count", "error_count"):
+            if name not in pin:
+                continue
+            pinned, got = pin[name], envelope_field(envelope, name, path)
+            if got != pinned:
+                rc = EXIT_MOVED
+                print(describe_count_move(tag, name, pinned, got))
+
+    if rc == EXIT_OK:
+        for tag in sorted(pins):
+            print(f"lvs-verdict: {tag} verdict as pinned")
+    return rc
+
+
+def main(argv: list[str]) -> int:
+    args = argv[1:]
+    if len(args) < 2:
+        print(USAGE, file=sys.stderr)
+        return EXIT_USAGE
+    expected = load_json(args[0], "EXPECTED")
+    envelopes: dict[str, str] = {}
+    for arg in args[1:]:
+        tag, path = parse_pair(arg)
+        if tag in envelopes:
+            die(f"tag {tag!r} given twice")
+        envelopes[tag] = path
+    return compare(expected, envelopes)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

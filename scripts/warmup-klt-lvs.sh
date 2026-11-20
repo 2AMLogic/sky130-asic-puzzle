@@ -8,10 +8,14 @@
 #   build/warmup-klt-lvs.spice --klt lvs--> puzzle/warmup/02_netlist_with_power_rails.v (PG pins)
 #
 # Writes the klt lvs envelopes to evidence/warmup-klt-lvs-{01,02}.json (committed,
-# with reference-side net/instance names elided). `klt lvs --check` cannot re-verify
-# them today: puzzle/ is a git clone, so klt anchors the recorded reference path on
-# *that* repo while --check resolves it against this one (klayout-tools#5631) -- see
-# evidence/warmup-klt-lvs.md, Run 2. The extracted netlist stays in build/
+# with reference-side net/instance names elided). The pinned verdicts those
+# envelopes are compared against live in evidence/warmup-klt-lvs-expected.json;
+# the envelopes are rewritten on every run, so they cannot be their own
+# expectation. `klt lvs --check` re-verifies the committed envelopes from the
+# repo root again (exit 0 on both, 2026-11-20, klt 0.9.3.dev2572): Run 2's
+# nested-clone path anchoring (klayout-tools#5631, since fixed upstream) no
+# longer reproduces -- see evidence/warmup-klt-lvs.md, Run 2 and the
+# pinned-expectation section. The extracted netlist stays in build/
 # (gitignored): it is derived from a file that carries no license (CLAUDE.md §3).
 # Never reads puzzle/puzzle.gds.
 #
@@ -27,8 +31,14 @@
 # the fix for klayout-tools#3749 (which merges the LEF's pins into a labelled
 # cell's pin list) never engages. See evidence/warmup-klt-lvs.md, Run 2.
 #
-# Exit 0 means the runs completed and envelopes were written, NOT that the compare
-# matched; the verdicts are printed and live in the envelopes.
+# Exit 0 means the runs completed AND both verdicts equal the pins in
+# evidence/warmup-klt-lvs-expected.json (#158): 01 match, 02 the recorded
+# tool-side mismatch of klayout-tools#5632. tools/lvs-verdict -- PDK-free,
+# self-tested by tools/test-lvs-verdict -- compares both envelopes after both
+# references have run, so one run reports both verdicts, and names any moved
+# value with its direction. Any move fails, including 02 turning into a match:
+# that is a stale pin to promote after the upstream fix, not a pass. A klt
+# crash (rc > 3) stays a hard error, above.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -90,3 +100,9 @@ print(f"{sys.argv[2]}: status={d['status']} power_connectivity={pc['status']} "
       f"body_verification={d['body_verification']['status']} mismatches={d['mismatch_count']}")
 PY
 done
+
+# Verdict gate (#158): both envelopes exist now, so compare them against the
+# pinned expectations before exiting -- a completed run that moved either
+# verdict fails, with the moved value and its direction named.
+exec "$ROOT/tools/lvs-verdict" evidence/warmup-klt-lvs-expected.json \
+  01:evidence/warmup-klt-lvs-01.json 02:evidence/warmup-klt-lvs-02.json
