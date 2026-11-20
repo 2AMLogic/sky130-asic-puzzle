@@ -25,8 +25,8 @@ results post of 2026-10-02; the reconciliation is the 2026-10-02 addendum in
 | Same layout through `klt extract --abstract-cells`, equivalent to `01_netlist.v`, with a mutation check | `evidence/klt-extract.md` Run 2; `--require-klt` (#63, PR #64) | in CI, `klayout-tools==0.9.1` pinned |
 | `puzzle.gds` through both extractors, equivalent to `evidence/puzzle-extracted.v`, exactly one floating net | `scripts/puzzle-regression.sh`, `evidence/klt-extract.md` Run 3 (#68, PR #69) | in CI |
 | No upstream puzzle file tracked (`CLAUDE.md` §3) | `scripts/check-embargo.sh` | in CI |
-| `klt lvs` of the warm-up against `01_netlist.v` (signal-only) | `evidence/warmup-klt-lvs.md` Run 1 and Run 2, `evidence/warmup-klt-lvs-01.json` | **match** in both, run by hand on 2026-10-17 and 2026-11-14, not in CI |
-| `klt lvs` of the warm-up against `02_netlist_with_power_rails.v` | same file, `evidence/warmup-klt-lvs-02.json` | **mismatch** in both runs, tool-side; 243 mismatches (242 errors) on `klt 0.9.2.dev1022` against Run 1's 159 — open upstream as klayout-tools#5632 |
+| `klt lvs` of the warm-up against `01_netlist.v` (signal-only) | `evidence/warmup-klt-lvs.md` Run 1 and Run 2, `evidence/warmup-klt-lvs-01.json` | **match** in both, run by hand on 2026-10-17 and 2026-11-14 (re-confirmed 2026-11-20 on `klt 0.9.3.dev2572`), not in CI; pinned as the expected verdict (#158) |
+| `klt lvs` of the warm-up against `02_netlist_with_power_rails.v` | same file, `evidence/warmup-klt-lvs-02.json` | **mismatch** in both runs, tool-side; 243 mismatches (242 errors) on `klt 0.9.2.dev1022` against Run 1's 159 — open upstream as klayout-tools#5632; pinned as the expected verdict in `evidence/warmup-klt-lvs-expected.json`, and `scripts/warmup-klt-lvs.sh` exits nonzero if it moves (#158) |
 | `klt lvs` of `puzzle.gds` against this repo's own `evidence/puzzle-extracted.v` | `evidence/puzzle-klt-lvs.md` Run 1 | recorded 2026-11-14, not in CI; the compare refused the reference's port spelling (klayout-tools#5693, open) — the isolating probe, differing in spelling alone, **match** |
 
 **The warm-up `klt lvs` re-run on the fixed build (done, #74, PR #81).** Run 2 of
@@ -40,6 +40,20 @@ nested-clone `--check` failure found in the same run is klayout-tools#5631. Run 
 retracts two Run 1 attributions (`evidence/upstream.md:15-16`): the #3748 fix was
 message-only, since `reference.pdk` already existed and no `export PDK=sky130A` workaround
 is involved, and the `02` mismatch is not the dropped `VNB` pin.
+
+**The pinned LVS verdict gate (done, #158).** `evidence/warmup-klt-lvs-expected.json`
+pins Run 2's verdicts — `01` `match`; `02` the tool-side `mismatch` at 243/242
+(klayout-tools#5632) — and `scripts/warmup-klt-lvs.sh` now exits nonzero when
+either moves, replacing the old "exit 0 means the runs completed" contract:
+the PDK-free `tools/lvs-verdict` compares both envelopes after both references
+run, names any moved value and its direction, and reports `02` turning `match`
+as a stale pin to promote rather than a pass. Its own self-test
+(`tools/test-lvs-verdict`, canned envelopes, the four cases of #158) is a named
+CI step. The pin was re-confirmed unchanged on `klt 0.9.3.dev2572` / klayout
+0.30.12 before landing, and that confirming run also showed cheap
+`klt lvs --check` exiting 0 on the refreshed envelopes — the #5631 path
+anchoring no longer reproduces (`evidence/warmup-klt-lvs.md`, pinned-expectation
+section).
 
 **The 2026-11-13 "Now" list is done.** #75 (PR #103) updated the README's capability-gap
 section: it now states the gap as closed upstream and keeps the original wording as
@@ -93,25 +107,16 @@ then listed here.
 
 ## Next
 
-- **Put the LVS result under CI.** Run 2 already answered the question this item used to
-  open with, and the answer was no: cheap `klt lvs --check
-  evidence/warmup-klt-lvs-01.json` does **not** exit 0 on a runner, and not for want of a
-  PDK — `puzzle/` is a nested clone, so the envelope records the reference path relative to
-  the inner repo while `--check` resolves it against this one (klayout-tools#5631, open;
-  `evidence/warmup-klt-lvs.md:17-34`). The open question is therefore which way around it:
-  wait for #5631, re-record the envelopes with the reference outside `puzzle/` (the shape
-  Run 2's probe showed re-runs clean, exit 0 / `status: match`), or gate a full
-  PDK-bearing run on a self-hosted runner. Done when CI runs a `klt lvs` check, or
-  `evidence/warmup-klt-lvs.md` records which option was taken and why.
-- **Pin the `02` power-rail comparison as an expected mismatch, not an expected match.**
-  The earlier framing assumed Run 1's mismatch was the dropped `VNB` pin and would clear on
-  a fixed build. Run 2 refuted that, and upstream has already **rejected** modelling tap
-  continuity in abstract extraction (klayout-tools#4363's `_GROUND_SUBSTRATE_CAVEAT`,
-  `evidence/warmup-klt-lvs.md:256`), so `match` is not reachable from this side while
-  klayout-tools#5632 is open. Done when `scripts/warmup-klt-lvs.sh` exits nonzero if `01`
-  stops matching **or** `02`'s recorded counts move, replacing today's "exit 0 means the
-  runs completed" contract. Promotion to an expected match is reconsidered only if #5632
-  is fixed.
+- **Put the LVS result under CI (#159).** Run 2 found cheap `klt lvs --check` could not
+  close on a runner: `puzzle/` is a nested clone, so the envelope recorded the reference
+  path relative to the inner repo while `--check` resolved it against this one
+  (klayout-tools#5631; `evidence/warmup-klt-lvs.md:17-34`). #5631 is now closed upstream,
+  and #158's confirming run on `klt 0.9.3.dev2572` showed cheap `--check` exiting 0 on
+  both refreshed envelopes, so that blocker is gone on current builds. The verdict
+  comparison itself is already PDK-free and in CI (`tools/lvs-verdict`, self-tested by
+  `tools/test-lvs-verdict`, #158); what remains is CI reproducing the runs or their
+  envelopes. Done when CI runs a `klt lvs` check, or `evidence/warmup-klt-lvs.md` records
+  which option was taken and why.
 - **Confirm klayout-tools #673, #674 and #675 from this side.** Each was found during the
   physical-layout inspection and worked around with a local script under `evidence/`.
   Done when `evidence/upstream.md` has a row per issue recording the `klt` command that now

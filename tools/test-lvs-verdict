@@ -1,0 +1,211 @@
+#!/usr/bin/env python3
+"""Self-test for `tools/lvs-verdict`, on canned envelopes (issue #158).
+
+`scripts/warmup-klt-lvs.sh` used to exit 0 whenever the runs completed, so
+neither a regression of the `01` match nor a move in `02`'s pinned mismatch
+counts could fail anything. The gate now lives in `tools/lvs-verdict`, which
+compares the two envelopes against `evidence/warmup-klt-lvs-expected.json`
+after both references have run. This script checks the comparator itself on
+the four cases issue #158 names -- both verdicts as pinned, `01` regressed,
+`02`'s count moved, `02` now `match` -- asserting each exit code AND the
+message: a gate that fails without naming the moved value and its direction
+would only move the silence one step down. Two config-error cases cover the
+tag checks that keep a new reference from skipping the gate.
+
+Every fixture is synthetic and lives under tempfile.TemporaryDirectory():
+no PDK, no simulator, no puzzle/ file (CLAUDE.md §3), clean working tree.
+The fixtures mirror the committed expected file's shape, at small numbers, so
+the test asserts behaviour, not the recorded values themselves.
+"""
+
+from __future__ import annotations
+
+import contextlib
+import importlib.machinery
+import importlib.util
+import io
+import json
+import os
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+
+from testutil import make_tracker, summarize
+
+loader = importlib.machinery.SourceFileLoader("lvs_verdict", os.path.join(HERE, "lvs-verdict"))
+spec = importlib.util.spec_from_loader("lvs_verdict", loader)
+lv = importlib.util.module_from_spec(spec)
+loader.exec_module(lv)
+
+results, record, check = make_tracker()
+
+# The pinned shape under test: 01 status-only (its two mismatches are
+# informational warnings), 02 pinned to status + both counts.
+EXPECTED = {
+    "schema": 1,
+    "expected": {
+        "01": {"status": "match"},
+        "02": {"status": "mismatch", "mismatch_count": 30, "error_count": 28},
+    },
+    "upstream": {
+        "issue": "2AMLogic/klayout-tools#5632",
+        "url": "https://github.com/2AMLogic/klayout-tools/issues/5632",
+    },
+}
+
+
+def envelope(status: str, mismatch_count: int, error_count: int) -> dict:
+    """A canned lvs envelope: the fields lvs-verdict reads, plus one it must
+    ignore, so a pin that omits a field is provably not compared against it."""
+    return {
+        "status": status,
+        "mismatch_count": mismatch_count,
+        "error_count": error_count,
+        "extra_envelope_field": "ignored by the gate",
+    }
+
+
+def run_tool(tmp: str, env01: dict, env02: dict, extra_args: list[str] | None = None):
+    """Write the fixtures, run lvs-verdict's main(), return (rc, stdout)."""
+    expected_path = os.path.join(tmp, "expected.json")
+    with open(expected_path, "w", encoding="utf-8") as f:
+        json.dump(EXPECTED, f)
+    paths = {}
+    for tag, env in (("01", env01), ("02", env02)):
+        paths[tag] = os.path.join(tmp, f"envelope-{tag}.json")
+        with open(paths[tag], "w", encoding="utf-8") as f:
+            json.dump(env, f)
+    args = [expected_path, f"01:{paths['01']}", f"02:{paths['02']}"]
+    args += extra_args or []
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        try:
+            rc = lv.main(["lvs-verdict"] + args)
+        except SystemExit as e:  # die(): usage/config errors exit directly
+            rc = e.code
+    return rc, out.getvalue()
+
+
+def main() -> int:
+    with tempfile.TemporaryDirectory() as tmp:
+        # Case 1: both verdicts exactly as pinned -> exit 0, both tags named.
+        rc, out = run_tool(
+            tmp,
+            envelope("match", 2, 0),
+            envelope("mismatch", 30, 28),
+        )
+        check("as pinned exits 0", rc == 0, f"rc={rc}")
+        check(
+            "as pinned names both verdicts",
+            "01 verdict as pinned" in out and "02 verdict as pinned" in out,
+            out.strip(),
+        )
+
+        # Case 2: 01 regressed to mismatch -> exit 1, the move named with both
+        # statuses (which value moved, from what to what).
+        rc, out = run_tool(
+            tmp,
+            envelope("mismatch", 2, 2),
+            envelope("mismatch", 30, 28),
+        )
+        check("01 regressed exits 1", rc == 1, f"rc={rc}")
+        check(
+            "01 regression names tag and both statuses",
+            "01 status moved" in out and "'match'" in out and "'mismatch'" in out,
+            out.strip(),
+        )
+        check(
+            "01 regression does not touch 02",
+            "02 mismatch_count" not in out and "02 status" not in out,
+            out.strip(),
+        )
+
+        # Case 3: 02's counts moved, both directions at once -> exit 1, each
+        # count named with its pinned value, its new value and a signed delta.
+        rc, out = run_tool(
+            tmp,
+            envelope("match", 2, 0),
+            envelope("mismatch", 37, 26),
+        )
+        check("02 count moved exits 1", rc == 1, f"rc={rc}")
+        check(
+            "mismatch_count named with values and direction",
+            "02 mismatch_count moved" in out
+            and "pinned 30" in out
+            and "got 37" in out
+            and "(+7)" in out,
+            out.strip(),
+        )
+        check(
+            "error_count named with values and direction",
+            "02 error_count moved" in out and "pinned 28" in out and "got 26" in out
+            and "(-2)" in out,
+            out.strip(),
+        )
+
+        # Case 4: 02 now matches -> exit 1 (not 0), reported as a stale pin
+        # naming the upstream issue the pin tracks.
+        rc, out = run_tool(
+            tmp,
+            envelope("match", 2, 0),
+            envelope("match", 0, 0),
+        )
+        check("02 now match still exits 1", rc == 1, f"rc={rc}")
+        check(
+            "stale pin is named as stale, with the upstream issue",
+            "stale" in out and "2AMLogic/klayout-tools#5632" in out,
+            out.strip(),
+        )
+
+        # Config errors: a gate that cannot run must never look like it passed.
+        rc, out = run_tool(
+            tmp,
+            envelope("match", 2, 0),
+            envelope("mismatch", 30, 28),
+            extra_args=["03:does-not-matter.json"],
+        )
+        check("unpinned envelope tag exits 2", rc == 2, f"rc={rc}")
+
+        expected_path = os.path.join(tmp, "expected.json")
+        pinned_only = dict(EXPECTED)
+        pinned_only["expected"] = {"01": EXPECTED["expected"]["01"],
+                                   "02": EXPECTED["expected"]["02"],
+                                   "03": {"status": "match"}}
+        with open(expected_path, "w", encoding="utf-8") as f:
+            json.dump(pinned_only, f)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            try:
+                rc = lv.main(["lvs-verdict", expected_path,
+                              f"01:{os.path.join(tmp, 'envelope-01.json')}",
+                              f"02:{os.path.join(tmp, 'envelope-02.json')}"])
+            except SystemExit as e:
+                rc = e.code
+        check("pinned tag without envelope exits 2", rc == 2, f"rc={rc}")
+
+        # The committed expected file must itself satisfy the contract the
+        # tool enforces: an 'expected' object and an upstream.issue to name.
+        committed_path = os.path.join(HERE, "..", "evidence", "warmup-klt-lvs-expected.json")
+        with open(committed_path, encoding="utf-8") as f:
+            committed = json.load(f)
+        check(
+            "committed expected file has both pins and an upstream issue",
+            isinstance(committed.get("expected"), dict)
+            and set(committed["expected"]) == {"01", "02"}
+            and committed["expected"]["01"].get("status") == "match"
+            and committed["expected"]["02"].get("status") == "mismatch"
+            and "mismatch_count" in committed["expected"]["02"]
+            and "error_count" in committed["expected"]["02"]
+            and isinstance(committed.get("upstream"), dict)
+            and committed["upstream"].get("issue"),
+            str(sorted(committed)),
+        )
+
+    print("=" * 60)
+    return summarize(results)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

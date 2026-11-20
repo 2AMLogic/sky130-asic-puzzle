@@ -710,3 +710,15 @@ dropping `VNB` from abstracted cells (klayout-tools#3749), and `klt lvs` could
 not select the sky130 PDK without `PDK=sky130A` (klayout-tools#3748). So a
 third-party layout compares cleanly through `klt lvs` once its std cells are
 abstracted, but the PG-pin Verilog form is not yet usable.
+
+Since 2026-11-20 (#158) the run is also *gated*, not just recorded:
+`evidence/warmup-klt-lvs-expected.json` pins the verdicts (`01` `match`; `02`
+the tool-side `mismatch` at 243/242, klayout-tools#5632, re-confirmed unchanged
+on `klt 0.9.3.dev2572`), and after both references run, `tools/lvs-verdict`
+compares the envelopes against the pin — no PDK needed, only JSON — and
+`scripts/warmup-klt-lvs.sh` exits nonzero if anything moved, naming the value
+and its direction. A pinned mismatch turning into a match is reported as a
+stale pin to promote (the upstream fix landing), never as a pass.
+`tools/test-lvs-verdict` self-tests the comparator on canned envelopes (the
+four cases of #158: as pinned, `01` regressed, `02` count moved, `02` now
+`match`) and runs as a named CI step.

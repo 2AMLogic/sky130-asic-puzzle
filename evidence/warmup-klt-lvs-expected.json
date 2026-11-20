@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "expected": {
+    "01": {
+      "status": "match"
+    },
+    "02": {
+      "status": "mismatch",
+      "mismatch_count": 243,
+      "error_count": 242
+    }
+  },
+  "recorded_on": {
+    "date": "2026-11-14",
+    "klt": "0.9.2.dev1022+g2a9c52b27ce7",
+    "klayout": "0.30.13",
+    "run": "Run 2, evidence/warmup-klt-lvs.md"
+  },
+  "confirmed_on": {
+    "date": "2026-11-20",
+    "klt": "0.9.3.dev2572+g75c6350d487d",
+    "klayout": "0.30.12",
+    "note": "identical verdicts and category counts; see the pinned-expectation section of evidence/warmup-klt-lvs.md"
+  },
+  "upstream": {
+    "issue": "2AMLogic/klayout-tools#5632",
+    "url": "https://github.com/2AMLogic/klayout-tools/issues/5632",
+    "note": "The pinned 02 mismatch is tool-side: --abstract-cell-lef merges the substrate pin but leaves it bound to the deck's synthesized vsubs global, which no abstracted cell ties to the ground rail, so a PG-pin gate-level reference cannot match while this is open. A run that instead reports match means the upstream fix has landed: promote the expectation (re-record the run and bump this file), never loosen the gate."
+  }
+}

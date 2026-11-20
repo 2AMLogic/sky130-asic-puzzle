@@ -375,3 +375,31 @@ documented selector, and upstream's #3748 fix was to say so in the error text.
   `klayout.db`.
 
 Neither references this repository, the puzzle, or any file under `puzzle/`.
+
+## Pinned expectation — 2026-11-20 (#158)
+
+`evidence/warmup-klt-lvs-expected.json` now pins Run 2's verdicts — `01`
+`match`; `02` `mismatch`, 243 mismatches (242 errors) — and
+`scripts/warmup-klt-lvs.sh` exits nonzero when either moves: after both
+references have run, `tools/lvs-verdict` (PDK-free, self-tested on canned
+envelopes by `tools/test-lvs-verdict`, in CI) compares the two envelopes
+against the pin, so one run reports both verdicts and names any moved value
+with its direction. `02` turning into `match` is reported as a **stale pin**,
+not a pass: the fix is to promote the expectation once klayout-tools#5632
+lands, never to loosen the gate. This replaces the old "exit 0 means the runs
+completed" contract; Run 1 and Run 2 above are unchanged.
+
+Before pinning, the run was repeated on `klt 0.9.3.dev2572+g75c6350d487d`
+(engine klayout **0.30.12** — the version this klt was tested against, so the
+Run 2 version-mismatch warning is gone, `klayout_version_mismatch: false`):
+the verdicts are identical — `01` `match` (2 warnings, 0 errors), `02`
+`mismatch` with the same category counts (`topology` 205, `net.unmatched` 35,
+`hints.rejected` 2). The committed envelopes are from this confirming run.
+Beside the version fields, the only differences from Run 2's envelopes are
+additive schema detail (`net.layout_id`/`net.reference_id` on mismatch
+entries) and `reference.path`, which records `puzzle/warmup/…` again — and
+with it, cheap `klt lvs --check` exits 0 on both committed envelopes from the
+repo root (verified 2026-11-20, both `[OK]`), so the klayout-tools#5631
+nested-clone path anchoring no longer reproduces on this build. That is #159's
+concern, recorded here because the refreshed envelopes are where it shows.
+
