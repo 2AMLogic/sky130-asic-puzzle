@@ -11,11 +11,12 @@
 # with reference-side net/instance names elided). The pinned verdicts those
 # envelopes are compared against live in evidence/warmup-klt-lvs-expected.json;
 # the envelopes are rewritten on every run, so they cannot be their own
-# expectation. `klt lvs --check` re-verifies the committed envelopes from the
-# repo root again (exit 0 on both, 2026-11-20, klt 0.9.3.dev2572): Run 2's
-# nested-clone path anchoring (klayout-tools#5631, since fixed upstream) no
-# longer reproduces -- see evidence/warmup-klt-lvs.md, Run 2 and the
-# pinned-expectation section. The extracted netlist stays in build/
+# expectation. `--check-only` instead re-extracts and runs the cheap
+# `klt lvs --check` on the COMMITTED envelopes without rewriting them (CI, #159).
+# Re-recording needs a klt carrying the klayout-tools#5631 fix (post-0.9.2):
+# puzzle/ is a git clone, and klt 0.9.2 records the reference path relative to it
+# (`warmup/01_netlist.v`), which --check then cannot resolve from this repo's
+# root -- see evidence/warmup-klt-lvs.md, Run 3. The extracted netlist stays in build/
 # (gitignored): it is derived from a file that carries no license (CLAUDE.md §3).
 # Never reads puzzle/puzzle.gds.
 #
@@ -66,6 +67,15 @@ klt extract "$WARMUP/04_final.gds" --deck sky130 --pdk "$PDK" --top "$TOP" \
   --abstract-cells 'sky130_fd_sc_hd__*' --abstract-cell-lef "$CELL_LEF" \
   --def-pins "$WARMUP/03_post_place_and_route.def" \
   -o "$LAYOUT_NETLIST" --format json > "$BUILD/warmup-klt-lvs-extract.json"
+
+if [ "${1:-}" = "--check-only" ]; then
+  # `klt lvs --check` exits 0 only on a reproduced report (layout and reference
+  # hashes match); any drift is nonzero, which fails the job under set -e.
+  for tag in 01 02; do
+    klt lvs --check "evidence/warmup-klt-lvs-$tag.json"
+  done
+  exit 0
+fi
 
 for ref in 01:01_netlist 02:02_netlist_with_power_rails; do
   tag="${ref%%:*}"; name="${ref#*:}"

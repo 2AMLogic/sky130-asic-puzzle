@@ -29,8 +29,8 @@ finding.
 > applies. But cheap `--check` no longer exits 0 either: `puzzle/` is a git
 > clone, and the klt that writes the envelope records a reference path relative
 > to *that* nested repo while `--check` resolves it against this one
-> (klayout-tools#5631). Both are detailed in Run 2 below; Run 1's text above is
-> left as recorded.
+> (klayout-tools#5631, closed upstream 2026-11-16; see Run 3). Both are
+> detailed in Run 2 below; Run 1's text above is left as recorded.
 
 ## Run 1 — 2026-10-17
 
@@ -332,8 +332,7 @@ envelopes carry the `reference_conversion` block Run 1's lack —
 `{"form": "gate-level-verilog", "library": "sky130_fd_sc_hd", "pdk":
 "sky130A", "pdk_root": null, "pin_order_files": null}` — so the reference form
 is no longer lost on reconstruction, and the #2250 limitation Run 1 recorded
-is genuinely gone. Once #5631 is fixed, full-mode re-verification of these
-envelopes should work.
+is genuinely gone. (#5631 has since been fixed upstream; see Run 3.)
 
 ### Does `klt lvs --check` need a PDK?
 
@@ -349,8 +348,8 @@ Two separate halves, both worth stating:
   upstream GDS, `CLAUDE.md` §3) and `puzzle/warmup/*.v` (gitignored, fetched).
   So a fresh clone cannot verify them at all: it needs
   `./scripts/fetch-puzzle.sh` **and** a fresh extraction, and the extraction
-  is the step that needs the PDK. A CI step built on `--check` would have to
-  provision both, and today would additionally hit #5631.
+  is the step that needs the PDK. A CI step built on `--check` has to
+  provision both (Run 3 below does).
 
 ### PDK selector
 
@@ -403,3 +402,43 @@ repo root (verified 2026-11-20, both `[OK]`), so the klayout-tools#5631
 nested-clone path anchoring no longer reproduces on this build. That is #159's
 concern, recorded here because the refreshed envelopes are where it shows.
 
+## Run 3 — 2026-11-21 (#159): `--check` under CI, and which klt carries the #5631 fix
+
+Executed in a throwaway venv (`python3 -m venv build/venv092`, then
+`pip install "klayout==0.30.13" "klayout-tools==0.9.2"` — the CI pin, #157), with
+`puzzle/` freshly fetched and a PDK root provisioned the way CI does it
+(`ciel enable --pdk sky130 f6eeac7dad085ffcc829ccfd721f7b4ce39edcf7 -l
+sky130_fd_sc_hd`, `PDK_ROOT=build/pdk-root`). `klt --version` = `klt 0.9.2`,
+klayout 0.30.13. The host `klt` was not modified.
+
+1. **0.9.2 does not carry the #5631 fix.** `scripts/warmup-klt-lvs.sh` on 0.9.2
+   re-records the envelopes with `reference.path` = `warmup/01_netlist.v` (no
+   `puzzle/` segment, i.e. Run 2's anchoring); `klt lvs --check` on those fresh
+   envelopes exits **3**, `status: drifted`, `reference_sha256 actual: None (input
+   not found …/warmup/01_netlist.v)`, for both `01` and `02`. Verdicts are
+   unaffected (`01` match, `02` mismatch/243, as pinned). The fix (klayout-tools
+   #5896) merged after the v0.9.2 tag, as the 0.9.2 result confirms; the first
+   release carrying it is the next one after 0.9.2 (none published as of this run).
+   Re-recording must wait for that pin bump; the committed envelopes were not
+   re-recorded here.
+2. **The committed envelopes (recorded on `0.9.3.dev2572`, which has the fix, with
+   `reference.path` = `puzzle/warmup/…`) pass on 0.9.2.** `klt lvs --check
+   evidence/warmup-klt-lvs-01.json` and `-02.json` from the repo root: exit **0**,
+   `layout_sha256` `[OK]`, `reference_sha256` `[OK]`; the only output besides is
+   informational `DRIFT` for `provenance.klt_version` and `klayout_version`.
+3. **The extracted netlist reproduces.** Two independent extractions on 0.9.2 /
+   klayout 0.30.13 gave `build/warmup-klt-lvs.spice` sha256
+   `9e7223ccfa2a3b1c116a3a0eafcd45e73a5cf9a57e188cbf3a3d0341a46c1b2b` both times,
+   and that is the `layout_sha256` recorded by the committed envelopes on a
+   different klt build and klayout (0.30.12). Same-host and cross-build
+   reproducible; the CI runner itself is shown only by the CI step below.
+4. **CI step.** `scripts/warmup-klt-lvs.sh --check-only` (new) fetches nothing
+   itself, re-extracts, and runs `klt lvs --check` on both committed envelopes
+   without rewriting them; CI runs it after the warm-up regression
+   (`.github/workflows/ci.yml`, step "Warm-up LVS envelopes reproduce"). It fails
+   on drift: replacing the recorded `layout_sha256` prefix in `01` with zeros makes
+   the script exit 3. It is deliberately not the full script, because the full
+   script would re-record under 0.9.2's broken anchoring.
+
+Not shown here: that the job is green on a GitHub runner (CI result pending at PR
+time) and a non-fix-carrying release recording usable envelopes (point 1).
