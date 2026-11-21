@@ -109,11 +109,14 @@ upstream, [#3748](https://github.com/2AMLogic/klayout-tools/issues/3748) and
 [#3749](https://github.com/2AMLogic/klayout-tools/issues/3749) were re-verified from this
 side on 2026-11-14 under closed #74 — the result is recorded in
 [`evidence/warmup-klt-lvs.md`](evidence/warmup-klt-lvs.md) Run 2 and the rows for both are
-corrected in [`evidence/upstream.md`](evidence/upstream.md) — while
+corrected in [`evidence/upstream.md`](evidence/upstream.md) — and
 [#673](https://github.com/2AMLogic/klayout-tools/issues/673),
 [#674](https://github.com/2AMLogic/klayout-tools/issues/674) and
-[#675](https://github.com/2AMLogic/klayout-tools/issues/675) are closed upstream but not
-yet re-checked here (no tracking issue exists for that yet). One finding filed from this
+[#675](https://github.com/2AMLogic/klayout-tools/issues/675) were re-verified from this
+side on 2026-11-21 under closed #160 (`klt 0.9.3.dev2575+g6bd18bbc8637`): the layer-
+selective render crop, the full-layout components report and the flattened shape-and-text
+census each agree with the local evidence scripts, recorded as dated rows in
+[`evidence/upstream.md`](evidence/upstream.md). One finding filed from this
 side is still **open** upstream:
 [klayout-tools#5632](https://github.com/2AMLogic/klayout-tools/issues/5632): with
 `--abstract-cell-lef`, the merged substrate pin binds to the deck's synthesized `vsubs`

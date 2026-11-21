@@ -74,10 +74,11 @@ Street's 15 featured writeups against our record one by one: the dated amendment
 **#5631, #5632 and #5693 are open** — the two `klt lvs` findings from #74 and the
 port-name reader defect the puzzle-scale run filed for #76 — so the `02` comparison, the
 cheap `--check` re-verification and a clean re-run of the puzzle compare are blocked
-upstream rather than here. Four have been re-verified against a `klt` that contains the
-fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by Run 2 above. The
-remaining three — #673, #674 and #675 — are closed upstream but unconfirmed from this
-side, which is the main thing left to do (scoped under "Next").
+upstream rather than here. All seven closed ones have been re-verified against a `klt`
+that contains the fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by
+Run 2 above, and #673, #674 and #675 by the dated verification rows in
+`evidence/upstream.md`, run 2026-11-21 under #160
+(`klt 0.9.3.dev2575+g6bd18bbc8637`) — each agrees with its local evidence script.
 
 **Tracker.** Nine issues are open. Two curated items are in flight behind their pull
 requests — #106 (celltable's fourth local supply-pin set, PR #115) and #112 (GDS-open
@@ -117,11 +118,6 @@ then listed here.
   `tools/test-lvs-verdict`, #158); what remains is CI reproducing the runs or their
   envelopes. Done when CI runs a `klt lvs` check, or `evidence/warmup-klt-lvs.md` records
   which option was taken and why.
-- **Confirm klayout-tools #673, #674 and #675 from this side.** Each was found during the
-  physical-layout inspection and worked around with a local script under `evidence/`.
-  Done when `evidence/upstream.md` has a row per issue recording the `klt` command that now
-  does the job on `puzzle.gds`, the version used, and whether its result agrees with the
-  local script's. Sized as one PR per issue once the first shows the pattern.
 
 ## Later
 
