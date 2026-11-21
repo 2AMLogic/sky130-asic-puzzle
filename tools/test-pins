@@ -3,7 +3,7 @@
 
 Run with no arguments:  `tools/test-pins`
 
-Five families of check:
+Six families of check:
 
 * **Synthetic, well-formed** -- a tiny in-memory cell built with KLayout's
   own API (no file on disk) carrying one pin on each of the four label
@@ -15,10 +15,25 @@ Five families of check:
   pin name that does *not* land inside any `.pin` shape (observed for real
   on `sky130_fd_sc_hd__and2b_2`). Must still resolve from the occurrence
   that does, not raise and not silently drop the shape it did find.
+* **Synthetic, coincident two-layer pin** -- a copy of A's pin box and
+  label on met1, at the same coordinates as the li1 originals. Both views
+  must agree the pin resolves to one polygon while each keeps its own
+  layer report: the JSON view reports the last matching layer (68/16),
+  the native view keeps the first occurrence of that geometry (layer 67).
+  Feeding either deduplicated view into the other would lose information,
+  so both views must consume the shared match list *before* either
+  deduplicates (issue #164).
 * **Synthetic, deliberately corrupted** -- a label with *no* containing
   `.pin` shape at all on any occurrence. Must raise `PinResolutionError`
   naming both the cell and the specific pin -- this is what proves the
   total-or-loud contract (issue #1) is enforced, not just documented.
+
+The synthetic families exercise both public resolvers on the same cells:
+`resolve_cell_pins` (the JSON view) and `resolve_cell_pin_shapes` (the
+native view `tools/gds_extract.py` uses) share one label-to-shape search
+(issue #164), so each synthetic check that pins behavior on one view has a
+twin on the other.
+
 * **Real-file smoke test** -- `tools/pins` against every `sky130_fd_sc_hd`
   cell used by `puzzle/warmup/04_final.gds` and `puzzle/puzzle.gds`, asserting
   zero unresolved pins (issue #1's acceptance criterion). SKIPPED, loudly,
@@ -112,6 +127,26 @@ def test_well_formed() -> None:
         str(a_poly),
     )
 
+    shapes = gds_pins.resolve_cell_pin_shapes(layout, cell)
+    check(
+        "well-formed: native view resolves the same five pins",
+        set(shapes) == set(result.pins),
+        str(sorted(shapes)),
+    )
+    check(
+        "well-formed: VNB native shapes live on layer 122 (not its label's 64)",
+        bool(shapes.get("VNB")) and {layer for layer, _ in shapes["VNB"]} == {122},
+        str(shapes.get("VNB")),
+    )
+    check(
+        "well-formed: A's native shape is the drawn box in dbu units on layer 67",
+        len(shapes.get("A", ())) == 1
+        and shapes["A"][0][0] == 67
+        and {(p.x, p.y) for p in shapes["A"][0][1].each_point_hull()}
+        == {(0, 0), (0, 100), (100, 100), (100, 0)},
+        str(shapes.get("A")),
+    )
+
 
 def test_redundant_label_occurrence() -> None:
     """A second label for the same pin, off in empty space (no containing
@@ -128,35 +163,91 @@ def test_redundant_label_occurrence() -> None:
         "A" in result.pins and len(result.pins["A"].polygons) == 1,
         str(result.pins.get("A")),
     )
+    shapes = gds_pins.resolve_cell_pin_shapes(layout, cell)
+    check(
+        "redundant label: native view still resolves A to exactly one shape",
+        len(shapes.get("A", ())) == 1,
+        str(shapes.get("A")),
+    )
+
+
+def test_coincident_two_layer_pin() -> None:
+    """A's pin box and label drawn twice -- on li1 (67) and on met1 (68),
+    at the same coordinates (issue #164's example). The two views must
+    agree that the pin resolves to one polygon, while each keeps its own
+    layer report: the JSON view reports the last matching layer, the
+    native view the first occurrence of that geometry. Feeding either
+    deduplicated view into the other would lose information, so both must
+    consume the match list before either deduplicates."""
+    import gds_pins
+
+    layout, cell = _well_formed_cell()
+    # A copy of A's pin box and label on met1, same coordinates as the
+    # li1 originals.
+    _box(cell, layout, 68, 16, 0, 0, 100, 100)
+    _label(cell, layout, 68, 5, "A", 50, 50)
+
+    result = gds_pins.resolve_cell_pins(layout, cell)
+    check(
+        "coincident: JSON view resolves A to exactly one polygon",
+        len(result.pins["A"].polygons) == 1,
+        str(result.pins.get("A")),
+    )
+    check(
+        "coincident: JSON view reports the last matching layer (68/16)",
+        result.pins["A"].layer == (68, 16),
+        str(result.pins.get("A")),
+    )
+    shapes = gds_pins.resolve_cell_pin_shapes(layout, cell)
+    check(
+        "coincident: native view resolves A to exactly one shape",
+        len(shapes.get("A", ())) == 1,
+        str(shapes.get("A")),
+    )
+    check(
+        "coincident: native view keeps the first occurrence's layer (67)",
+        shapes["A"][0][0] == 67,
+        str(shapes.get("A")),
+    )
 
 
 def test_total_or_loud() -> None:
     """A label with *no* containing .pin shape anywhere must be a hard,
-    localised error -- never a silently empty/skipped pin."""
+    localised error -- never a silently empty/skipped pin. Both views raise
+    it (one resolution rule), naming the cell, the pin, and how many label
+    occurrences were tried."""
     import gds_pins
 
     layout = db.Layout()
     layout.dbu = 0.001
     cell = layout.create_cell("sky130_fd_sc_hd__broken_2")
-    # Label "A" exists, but no li1.pin (67/16) shape anywhere in the cell.
+    # Label "A" exists twice, but no li1.pin (67/16) shape anywhere in the
+    # cell.
     _label(cell, layout, 67, 5, "A", 50, 50)
+    _label(cell, layout, 67, 5, "A", 5000, 5000)
 
-    try:
-        gds_pins.resolve_cell_pins(layout, cell)
-    except gds_pins.PinResolutionError as exc:
-        message = str(exc)
-        check(
-            "total-or-loud: unresolved pin raises PinResolutionError",
-            True,
-        )
-        check(
-            "total-or-loud: error names the cell",
-            "sky130_fd_sc_hd__broken_2" in message,
-            message,
-        )
-        check("total-or-loud: error names the pin", "'A'" in message, message)
-    else:
-        check("total-or-loud: unresolved pin raises PinResolutionError", False, "no exception raised")
+    for view, resolver in (
+        ("json", gds_pins.resolve_cell_pins),
+        ("native", gds_pins.resolve_cell_pin_shapes),
+    ):
+        try:
+            resolver(layout, cell)
+        except gds_pins.PinResolutionError as exc:
+            message = str(exc)
+            check(f"total-or-loud: {view} view raises PinResolutionError", True)
+            check(
+                f"total-or-loud: {view} error names the cell",
+                "sky130_fd_sc_hd__broken_2" in message,
+                message,
+            )
+            check(f"total-or-loud: {view} error names the pin", "'A'" in message, message)
+            check(
+                f"total-or-loud: {view} error reports the occurrence count",
+                "2 label occurrence(s)" in message,
+                message,
+            )
+        else:
+            check(f"total-or-loud: {view} view raises PinResolutionError", False, "no exception raised")
 
 
 # ---------------------------------------------------------------------------
@@ -212,22 +303,25 @@ def main() -> int:
     if not KLAYOUT_OK:
         return skip_all_no_klayout(KLAYOUT_SKIP_REASON)
 
-    print("\n1. Synthetic, well-formed cell (all four label sources)")
+    print("\n1. Synthetic, well-formed cell (all four label sources, both views)")
     test_well_formed()
 
-    print("\n2. Synthetic, redundant label occurrence")
+    print("\n2. Synthetic, redundant label occurrence (both views)")
     test_redundant_label_occurrence()
 
-    print("\n3. Synthetic, deliberately corrupted (total-or-loud contract)")
+    print("\n3. Synthetic, coincident two-layer pin (both views)")
+    test_coincident_two_layer_pin()
+
+    print("\n4. Synthetic, deliberately corrupted (total-or-loud contract, both views)")
     test_total_or_loud()
 
-    print("\n4. Real-file smoke test (warm-up, 18 cells)")
+    print("\n5. Real-file smoke test (warm-up, 18 cells)")
     _smoke_test("warmup", WARMUP_GDS, 18)
 
-    print("\n5. Real-file smoke test (puzzle, 69 cells)")
+    print("\n6. Real-file smoke test (puzzle, 69 cells)")
     _smoke_test("puzzle", PUZZLE_GDS, 69)
 
-    print("\n6. CLI GDS-open failure paths (no such file / could not read)")
+    print("\n7. CLI GDS-open failure paths (no such file / could not read)")
     test_cli_open_failures()
 
     print("=" * 60)
