@@ -7,7 +7,7 @@ overwritten wholesale on each update — do not hand-edit it. See
 maintained.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-20T23:54:29Z (snapshot; compare against live labels)_
+_Generated: 2026-11-21T18:53:56Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -30,21 +30,22 @@ _None._
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
-- **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
-- **#164**: Share GDS label-to-polygon matching between the pin reporter and extractor
+_None._
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
+- **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
+- **#164**: Share GDS label-to-polygon matching between the pin reporter and extractor
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#167**: ci: gate warm-up LVS envelopes with klt lvs --check and record Run 3
+- **#168**: refactor: share GDS label-to-polygon matching between pin resolvers
 
 ## Approved (Awaiting Merge)
 
@@ -74,9 +75,9 @@ _None._
 | Operator merge-risk holds | 0 |
 | Very important | 1 |
 | Important | 1 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 3 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
+| In Progress (`loom:building`) | 3 |
+| PRs awaiting review | 2 |
 | Approved PRs awaiting merge | 0 |
 | Curated | 2 |
 | Architect / Hermit proposals | 1 |
