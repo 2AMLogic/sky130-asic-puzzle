@@ -23,7 +23,6 @@ is a proof that the first answer is the only one within the bound.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -34,10 +33,12 @@ from tools.sim.celltable import CellTable, derive_cell_tables, load_tables, save
 from tools.sim.icarus import IcarusNotFoundError, SimResult, compile_and_run
 from tools.sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
 from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model, simulate
-from tools.sim.testbench import SequenceExpectation, build_sequence_testbench
+from tools.sim.testbench import (
+    SequenceExpectation,
+    build_sequence_testbench,
+    parse_sequence_samples,
+)
 from tools.verilog_netlist import Netlist, base_cell, is_fill, load
-
-CYCLE_RE = re.compile(r"^CYCLE (\d+) (.*)$")
 
 
 @dataclass
@@ -379,16 +380,7 @@ def verify_by_simulation(
     sources = [tb_path, design.source, *design.pdk.model_files()]
     sim = compile_and_run(sources, top="tb", work_dir=work_dir, timeout_s=timeout_s)
 
-    samples: list[dict[str, str]] = []
-    for line in sim.run_stdout.splitlines():
-        m = CYCLE_RE.match(line)
-        if not m:
-            continue
-        row = {"cycle": m.group(1)}
-        for token in m.group(2).split():
-            key, _, value = token.partition("=")
-            row[key] = value
-        samples.append(row)
+    samples = parse_sequence_samples(sim.run_stdout)
     ok = sim.compiled and sim.ran and "RESULT PASS" in sim.run_stdout
     return VerifyResult(
         ok=ok,
