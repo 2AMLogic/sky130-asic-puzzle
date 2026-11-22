@@ -432,13 +432,14 @@ klayout 0.30.13. The host `klt` was not modified.
    and that is the `layout_sha256` recorded by the committed envelopes on a
    different klt build and klayout (0.30.12). Same-host and cross-build
    reproducible; the CI runner itself is shown only by the CI step below.
-4. **CI step.** `scripts/warmup-klt-lvs.sh --check-only` (new) fetches nothing
-   itself, re-extracts, and runs `klt lvs --check` on both committed envelopes
-   without rewriting them; CI runs it after the warm-up regression
-   (`.github/workflows/ci.yml`, step "Warm-up LVS envelopes reproduce"). It fails
-   on drift: replacing the recorded `layout_sha256` prefix in `01` with zeros makes
-   the script exit 3. It is deliberately not the full script, because the full
-   script would re-record under 0.9.2's broken anchoring.
+4. **CI step.** `scripts/warmup-klt-lvs.sh --check-only` calls
+   `scripts/fetch-puzzle.sh` if `puzzle/warmup/04_final.gds` is missing.
+   CI fetches the puzzle files before the warm-up regression, so the later
+   "Warm-up LVS envelopes reproduce" step reuses them. It re-extracts the
+   layout and runs `klt lvs --check` on both committed envelopes without
+   rewriting them. Replacing the recorded `layout_sha256` prefix in `01`
+   with zeros made the script exit 3. Running it with no arguments would
+   re-record the envelopes with 0.9.2's broken reference paths.
 
 Not shown here: that the job is green on a GitHub runner (CI result pending at PR
 time) and a non-fix-carrying release recording usable envelopes (point 1).
