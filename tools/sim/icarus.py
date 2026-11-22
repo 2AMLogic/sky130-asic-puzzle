@@ -36,8 +36,14 @@ class IcarusNotFoundError(RuntimeError):
 
 @dataclass(frozen=True)
 class SimResult:
-    compiled: bool
-    ran: bool
+    """One compile-and-run outcome, stored as the two processes' own status.
+
+    The exit codes are the sole stored process status — compile and run
+    success are derived from them (`compiled` / `ran` below), never recorded
+    independently, so a nonzero `vvp` exit can never read as a successful
+    run the way a set-true `ran` flag once did (issue #178).
+    """
+
     compile_stdout: str
     compile_stderr: str
     run_stdout: str
@@ -45,24 +51,48 @@ class SimResult:
     compile_returncode: int
     run_returncode: int | None
 
+    @property
+    def compiled(self) -> bool:
+        """Compile success: iverilog exited zero."""
+        return self.compile_returncode == 0
+
+    @property
+    def ran(self) -> bool:
+        """Simulation success: vvp ran *and* exited zero.
+
+        `run_returncode is None` means the simulator never ran (a failed
+        compile skips it); a nonzero code is a runtime failure. Either way
+        nothing the run printed or dumped counts as evidence.
+        """
+        return self.run_returncode == 0
+
 
 def report_sim_failure(sim: SimResult) -> int | None:
-    """Print the CLI sim-failure report for `sim`, or return None if it ran.
+    """Print the CLI sim-failure report for `sim`, or return None on success.
 
     The shared tail of the CLI `main()` preambles: `COMPILE FAILED` /
-    `SIMULATION DID NOT RUN` on stderr with the underlying compiler output
-    underneath, and the design-failure exit code (1) — the same text and
-    stream each CLI printed before this helper existed. Returns the code the
-    caller should return from main(), or None when the simulation compiled
-    and ran.
+    `SIMULATION DID NOT RUN` / `SIMULATION FAILED (exit N)` on stderr with
+    the underlying process output underneath, and the design-failure exit
+    code (1) — the first two are the same text and stream each CLI printed
+    before this helper existed; the third makes a nonzero `vvp` exit a
+    reported failure instead of a run whose output is trusted anyway. For a
+    nonzero exit the report carries the exit code and the captured
+    diagnostic even when stderr is empty — Icarus writes `$fatal` output to
+    stdout, so the diagnostic falls back to `run_stdout`. Returns the code
+    the caller should return from main(), or None when the simulation
+    compiled and ran to a zero exit.
     """
     if not sim.compiled:
         print("COMPILE FAILED", file=sys.stderr)
         print(sim.compile_stderr, file=sys.stderr)
         return 1
-    if not sim.ran:
+    if sim.run_returncode is None:
         print("SIMULATION DID NOT RUN", file=sys.stderr)
         print(sim.run_stderr, file=sys.stderr)
+        return 1
+    if sim.run_returncode != 0:
+        print(f"SIMULATION FAILED (exit {sim.run_returncode})", file=sys.stderr)
+        print(sim.run_stderr or sim.run_stdout, file=sys.stderr)
         return 1
     return None
 
@@ -118,8 +148,6 @@ def compile_and_run(
         )
         if compile_proc.returncode != 0:
             return SimResult(
-                compiled=False,
-                ran=False,
                 compile_stdout=compile_proc.stdout,
                 compile_stderr=compile_proc.stderr,
                 run_stdout="",
@@ -137,8 +165,6 @@ def compile_and_run(
             check=False,
         )
         return SimResult(
-            compiled=True,
-            ran=True,
             compile_stdout=compile_proc.stdout,
             compile_stderr=compile_proc.stderr,
             run_stdout=run_proc.stdout,
