@@ -7,7 +7,7 @@ overwritten wholesale on each update — do not hand-edit it. See
 maintained.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-21T18:53:56Z (snapshot; compare against live labels)_
+_Generated: 2026-11-22T07:15:00Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -39,6 +39,9 @@ Issues currently being built (`loom:building`).
 - **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
 - **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
 - **#164**: Share GDS label-to-polygon matching between the pin reporter and extractor
+- **#171**: Remove tools/klt-extract --version and klt_version(): dead, undocumented, and broken by required -o
+- **#172**: Share the sequence-testbench CYCLE stdout parser: CYCLE_RE and sample loop are duplicated in solve.py and selftest_answer.py
+- **#174**: Remove the obsolete extraction blocker from VCD replay help and docstrings
 
 ## PRs Awaiting Review
 
@@ -46,12 +49,14 @@ PRs waiting on Judge (`loom:review-requested`).
 
 - **#167**: ci: gate warm-up LVS envelopes with klt lvs --check and record Run 3
 - **#168**: refactor: share GDS label-to-polygon matching between pin resolvers
+- **#173**: refactor: remove version forwarding from klt-extract
+- **#176**: refactor(sim): share the CYCLE stdout parser in testbench.parse_sequence_samples
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#175**: docs: retire the stale #2 blocker from the VCD replay docstrings
 
 ## Proposed
 
@@ -76,9 +81,9 @@ _None._
 | Very important | 1 |
 | Important | 1 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 0 |
+| In Progress (`loom:building`) | 6 |
+| PRs awaiting review | 4 |
+| Approved PRs awaiting merge | 1 |
 | Curated | 2 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 0 |
