@@ -42,6 +42,7 @@ Issues currently being built (`loom:building`).
 - **#171**: Remove tools/klt-extract --version and klt_version(): dead, undocumented, and broken by required -o
 - **#172**: Share the sequence-testbench CYCLE stdout parser: CYCLE_RE and sample loop are duplicated in solve.py and selftest_answer.py
 - **#174**: Remove the obsolete extraction blocker from VCD replay help and docstrings
+- **#178**: Derive Icarus simulation success from the vvp exit code
 
 ## PRs Awaiting Review
 
@@ -51,6 +52,7 @@ PRs waiting on Judge (`loom:review-requested`).
 - **#168**: refactor: share GDS label-to-polygon matching between pin resolvers
 - **#173**: refactor: remove version forwarding from klt-extract
 - **#176**: refactor(sim): share the CYCLE stdout parser in testbench.parse_sequence_samples
+- **#179**: fix: derive Icarus sim success from vvp exit code
 
 ## Approved (Awaiting Merge)
 
@@ -81,8 +83,8 @@ _None._
 | Very important | 1 |
 | Important | 1 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
-| In Progress (`loom:building`) | 6 |
-| PRs awaiting review | 4 |
+| In Progress (`loom:building`) | 7 |
+| PRs awaiting review | 5 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 2 |
 | Architect / Hermit proposals | 1 |
