@@ -9,6 +9,11 @@ updated.
 
 - [2026-08](work_log/WORK_LOG_2026-08.md)
 
+### 2026-11-22
+
+- **PR #181**: refactor: remove dead _UnionFind.groups and duplicate label pass in gds_extract
+- **Issue #180** (closed): Simplify tools/gds_extract.py: remove dead _UnionFind.groups()/pre-registration and duplicate top-label pass
+
 ### 2026-11-20
 
 - **PR #163**: fix: fail warmup-klt-lvs.sh when a pinned LVS verdict moves
