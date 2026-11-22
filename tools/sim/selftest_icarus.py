@@ -9,7 +9,7 @@ from the stored exit codes: `compiled` is `compile_returncode == 0`, `ran`
 is `run_returncode == 0`, and `run_returncode is None` means the simulator
 never ran.
 
-Four checks against tiny PDK-free testbenches (iverilog only — no sky130
+Checks against tiny PDK-free testbenches (iverilog only — no sky130
 models, no fetched netlist, no solver):
 
   1. [control] A clean testbench that prints `RESULT PASS` and finishes
@@ -25,16 +25,22 @@ models, no fetched netlist, no solver):
      `verify_by_simulation` gate (a synthetic DUT that prints the pass
      text and then fatals): the verification must fail. A well-behaved
      DUT through the same gate must still pass — the gate tightened, it
-     did not stop accepting clean runs.
+     did not stop accepting clean runs. The fatal DUT also writes to stderr,
+     so the report must retain the fatal line from stdout alongside it.
+  5. A reference DUT that fails after the recorder opens its VCD produces
+     a recording error with the simulator exit and the fatal diagnostic.
 """
 
 from __future__ import annotations
 
 import contextlib
 import io
+import tempfile
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
+from tools.sim import run_warmup_cross_check
 from tools.sim.icarus import compile_and_run, report_sim_failure
 from tools.sim.solve import verify_by_simulation
 from tools.testutil import report_checks
@@ -75,6 +81,7 @@ module fataldut (clk, rst_n, en, s);
  end
  initial begin
    #1 $display("RESULT PASS");
+   $fdisplay(32'h80000002, "loading simulation");
    #2 $fatal(1, "runtime failure");
  end
 endmodule
@@ -89,6 +96,13 @@ module cleandut (clk, rst_n, en, s);
    if (!rst_n) s <= 1'b0;
    else s <= en;
  end
+endmodule
+"""
+
+FATAL_REFERENCE = """\
+`timescale 1ns/1ps
+module adder_demo(input clk, rst_n, en, A, B, output S);
+  initial #1 $fatal(1, "reference failed");
 endmodule
 """
 
@@ -199,11 +213,42 @@ def main() -> int:
           f"pass_text={'RESULT PASS' in fatal_result.sim.run_stdout} ok={fatal_result.ok}")
     checks.append(("verify_by_simulation fails a fatal-after-pass run", ok_fatal_gate))
 
+    rc_mixed, report_mixed = _failure_report(fatal_result.sim)
+    ok_mixed = (
+        rc_mixed == 1
+        and "loading simulation" in fatal_result.sim.run_stderr
+        and "runtime failure" in fatal_result.sim.run_stdout
+        and "loading simulation" in report_mixed
+        and "runtime failure" in report_mixed
+        and "exit 1" in report_mixed
+    )
+    checks.append(("runtime report retains diagnostics from both streams", ok_mixed))
+
     print("\n== [control] clean DUT through the same gate still verifies ==")
     clean_result = _verify_dut(CLEAN_DUT, "cleandut", work_root / "verify-clean")
     ok_clean_gate = clean_result.ok and clean_result.sim.run_returncode == 0
     print(f"  sim_exit={clean_result.sim.run_returncode} ok={clean_result.ok}")
     checks.append(("[control] verify_by_simulation still passes a clean run", ok_clean_gate))
+
+    print("\n== failed reference recording reports the simulator diagnostic ==")
+    with tempfile.TemporaryDirectory(dir=work_root) as tmp:
+        record_dir = Path(tmp)
+        reference = record_dir / "reference.v"
+        reference.write_text(FATAL_REFERENCE, encoding="utf-8")
+        with (
+            mock.patch("tools.sim.warmup_recorder.resolve_sky130_models",
+                       return_value=SimpleNamespace(model_files=list)),
+            contextlib.redirect_stderr(io.StringIO()) as err,
+        ):
+            rc = run_warmup_cross_check.main([
+                "--reference", str(reference), "--candidate", str(reference),
+                "--cases", "0", "--work-dir", str(record_dir),
+            ])
+        message = err.getvalue()
+        checks.append(("failed reference recording rejects VCD and reports exit and fatal output",
+                       rc == 1 and (record_dir / "recorded.vcd").is_file()
+                       and "error recording reference stimulus" in message
+                       and "exit 1" in message and "reference failed" in message))
 
     return report_checks(checks)
 

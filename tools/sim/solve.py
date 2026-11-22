@@ -151,18 +151,17 @@ def add_design_args(
 
 
 def report_solver_sim_failure(sim: SimResult) -> int | None:
-    """The solver CLIs' own compile-failure report, distinct from report_sim_failure.
+    """Keep the solver compile report on stdout and report vvp failures on stderr.
 
-    run_solve/run_answer print a lowercase `compile FAILED` to stdout with
-    the compiler stderr after it, and fold a did-not-run into their
-    VerifyResult.ok check rather than a separate branch — both deliberate,
-    and both quoted in committed evidence records, so this must not be
-    "upgraded" to icarus.report_sim_failure's stderr form. Returns
-    EXIT_ERROR, or None when the simulation compiled.
+    Both failures use the solver CLI exit code. A skipped run after a successful
+    compile still falls through to the verification-result check.
     """
     if not sim.compiled:
         print("compile FAILED")
         print(sim.compile_stderr)
+        return EXIT_ERROR
+    if sim.run_returncode not in (None, 0):
+        print(sim.failure_message(), file=sys.stderr)
         return EXIT_ERROR
     return None
 

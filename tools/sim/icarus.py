@@ -66,35 +66,28 @@ class SimResult:
         """
         return self.run_returncode == 0
 
+    def failure_message(self) -> str | None:
+        """Describe a failed compile or run, including the captured diagnostics."""
+        if not self.compiled:
+            return f"COMPILE FAILED\n{self.compile_stderr}"
+        if self.run_returncode is None:
+            return f"SIMULATION DID NOT RUN\n{self.run_stderr}"
+        if self.ran:
+            return None
+
+        # Icarus writes $fatal to stdout even when the design also writes to stderr.
+        lines = [f"SIMULATION FAILED (exit {self.run_returncode})"]
+        lines.extend(stream.rstrip("\n") for stream in (self.run_stderr, self.run_stdout) if stream)
+        return "\n".join(lines)
+
 
 def report_sim_failure(sim: SimResult) -> int | None:
-    """Print the CLI sim-failure report for `sim`, or return None on success.
-
-    The shared tail of the CLI `main()` preambles: `COMPILE FAILED` /
-    `SIMULATION DID NOT RUN` / `SIMULATION FAILED (exit N)` on stderr with
-    the underlying process output underneath, and the design-failure exit
-    code (1) — the first two are the same text and stream each CLI printed
-    before this helper existed; the third makes a nonzero `vvp` exit a
-    reported failure instead of a run whose output is trusted anyway. For a
-    nonzero exit the report carries the exit code and the captured
-    diagnostic even when stderr is empty — Icarus writes `$fatal` output to
-    stdout, so the diagnostic falls back to `run_stdout`. Returns the code
-    the caller should return from main(), or None when the simulation
-    compiled and ran to a zero exit.
-    """
-    if not sim.compiled:
-        print("COMPILE FAILED", file=sys.stderr)
-        print(sim.compile_stderr, file=sys.stderr)
-        return 1
-    if sim.run_returncode is None:
-        print("SIMULATION DID NOT RUN", file=sys.stderr)
-        print(sim.run_stderr, file=sys.stderr)
-        return 1
-    if sim.run_returncode != 0:
-        print(f"SIMULATION FAILED (exit {sim.run_returncode})", file=sys.stderr)
-        print(sim.run_stderr or sim.run_stdout, file=sys.stderr)
-        return 1
-    return None
+    """Report process failure on stderr and return CLI exit 1, or None on success."""
+    message = sim.failure_message()
+    if message is None:
+        return None
+    print(message, file=sys.stderr)
+    return 1
 
 
 def require_icarus() -> tuple[str, str]:

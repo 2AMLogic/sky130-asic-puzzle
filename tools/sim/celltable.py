@@ -212,13 +212,9 @@ def derive_cell_tables(
     )
     if not result.compiled:
         raise CellTableError(f"cell probe failed to compile:\n{result.compile_stderr}")
-    if result.run_returncode != 0:
-        # A nonzero vvp exit invalidates every ROW line the run printed —
-        # the exit code, not the probe text, decides what counts (issue #178).
-        raise CellTableError(
-            f"cell probe exited {result.run_returncode}:\n"
-            f"{result.run_stderr or result.run_stdout}"
-        )
+    failure = result.failure_message()
+    if failure is not None:
+        raise CellTableError(f"cell probe failed:\n{failure}")
     if "PROBE DONE" not in result.run_stdout:
         raise CellTableError(f"cell probe did not finish:\n{result.run_stdout}\n{result.run_stderr}")
 
