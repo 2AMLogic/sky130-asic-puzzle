@@ -1,16 +1,18 @@
 """VCD replay: drive a recorded VCD's inputs into a netlist, diff the outputs.
 
 This is the engine stage 6 of `spec/puzzle.md` needs: replay
-`puzzle/example_inputs.vcd` against the extracted puzzle netlist once it
-exists (blocked on #2 at the time this module was written — see
-`evidence/puzzle-replay.md`). It is deliberately netlist-agnostic: nothing
+`puzzle/example_inputs.vcd` against the extracted puzzle netlist
+(`evidence/puzzle-extracted.v`). It is deliberately netlist-agnostic: nothing
 here encodes the warm-up's shift-register/comparator shape, only "some named
 input signals drive some named output signals of some top module."
+
+For puzzle-specific history — the recorded run and its result — see
+`evidence/puzzle-replay.md`.
 
 It is self-tested against the warm-up in `tools/sim/selftest_replay.py`,
 which needs no recorded VCD of its own — it records one from a directed
 warm-up simulation and replays it back, so the reader/testbench/diff path is
-exercised end-to-end before it is ever pointed at the puzzle.
+exercised end-to-end.
 """
 
 from __future__ import annotations
