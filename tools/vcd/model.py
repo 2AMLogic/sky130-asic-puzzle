@@ -49,9 +49,6 @@ class VcdDocument:
     vars: list[VcdVar]
     changes: list[ValueChange]
 
-    def vars_by_id(self) -> dict[str, VcdVar]:
-        return {v.identifier: v for v in self.vars}
-
     def var_by_name(self, name: str) -> VcdVar:
         for v in self.vars:
             if v.name == name or v.path == name:
