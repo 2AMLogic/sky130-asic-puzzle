@@ -123,11 +123,6 @@ def run_klt(klt: str, gds: str, abstract: str, lef: str | None, spice_out: str) 
         return fh.read()
 
 
-def klt_version(klt: str) -> str:
-    proc = subprocess.run([klt, "--version"], capture_output=True, text=True)
-    return proc.stdout.strip() or "unknown"
-
-
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="tools/klt-extract", description=__doc__.split("\n\n")[0])
     ap.add_argument("gds", nargs="?", help="layout to extract")
@@ -137,16 +132,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--abstract-cell-lef")
     ap.add_argument("--spice-out", help="keep klt's raw SPICE here (default: next to -o)")
     ap.add_argument("--klt", default=None, help="klt executable (default: first on PATH)")
-    ap.add_argument("--version", action="store_true", help="print the klt version and exit")
     args = ap.parse_args(argv)
-
-    klt = args.klt or shutil.which("klt")
-    if args.version:
-        if not klt:
-            print("klt not found", file=sys.stderr)
-            return EXIT_ERROR
-        print(klt_version(klt))
-        return EXIT_OK
 
     try:
         if args.from_spice:
@@ -155,6 +141,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             if not args.gds:
                 ap.error("a layout path or --from-spice is required")
+            klt = args.klt or shutil.which("klt")
             if not klt:
                 print("tools/klt-extract: klt not found on PATH", file=sys.stderr)
                 return EXIT_ERROR

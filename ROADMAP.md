@@ -27,7 +27,7 @@ results post of 2026-10-02; the reconciliation is the 2026-10-02 addendum in
 | No upstream puzzle file tracked (`CLAUDE.md` §3) | `scripts/check-embargo.sh` | in CI |
 | `klt lvs` of the warm-up against `01_netlist.v` (signal-only) | `evidence/warmup-klt-lvs.md` Run 1 and Run 2, `evidence/warmup-klt-lvs-01.json` | **match** in both, run by hand on 2026-10-17 and 2026-11-14 (re-confirmed 2026-11-20 on `klt 0.9.3.dev2572`), not in CI; pinned as the expected verdict (#158) |
 | `klt lvs` of the warm-up against `02_netlist_with_power_rails.v` | same file, `evidence/warmup-klt-lvs-02.json` | **mismatch** in both runs, tool-side; 243 mismatches (242 errors) on `klt 0.9.2.dev1022` against Run 1's 159 — open upstream as klayout-tools#5632; pinned as the expected verdict in `evidence/warmup-klt-lvs-expected.json`, and `scripts/warmup-klt-lvs.sh` exits nonzero if it moves (#158) |
-| `klt lvs` of `puzzle.gds` against this repo's own `evidence/puzzle-extracted.v` | `evidence/puzzle-klt-lvs.md` Run 1 | recorded 2026-11-14, not in CI; the compare refused the reference's port spelling (klayout-tools#5693, open) — the isolating probe, differing in spelling alone, **match** |
+| `klt lvs` of `puzzle.gds` against this repo's own `evidence/puzzle-extracted.v` | `evidence/puzzle-klt-lvs.md` Run 1 and Run 2, `evidence/puzzle-klt-lvs-01.json` | recorded 2026-11-14 and 2026-11-23, not in CI; the klayout-tools#5693 reader fix (PR #7452, `6ca7e00` — no release carries it yet, so the Run 2 baseline used a throwaway build of that commit) let the compare run for the first time and it **mismatches**, tool-side: #7561's pad-route join shorts four driven nets into `VGND` (31 mismatches). Pinned as the expected verdict in `evidence/puzzle-klt-lvs-expected.json`, and `scripts/puzzle-klt-lvs.sh` exits nonzero if it moves (#165) |
 
 **The warm-up `klt lvs` re-run on the fixed build (done, #74, PR #81).** Run 2 of
 `evidence/warmup-klt-lvs.md` (2026-11-14, `klt 0.9.2.dev1022+g2a9c52b27ce7`, klayout
@@ -36,7 +36,7 @@ results post of 2026-10-02; the reconciliation is the 2026-10-02 addendum in
 1's 159), because `--abstract-cell-lef` restores the `VNB` pin but leaves it bound to the
 deck's synthesized `vsubs` global, which no abstracted cell ties to the ground rail. The
 two fixes are in practice mutually exclusive — filed as klayout-tools#5632 — and the
-nested-clone `--check` failure found in the same run is klayout-tools#5631. Run 2 also
+nested-clone `--check` failure found in the same run is klayout-tools#5631 (since fixed upstream; Run 3). Run 2 also
 retracts two Run 1 attributions (`evidence/upstream.md:15-16`): the #3748 fix was
 message-only, since `reference.pdk` already existed and no `export PDK=sky130A` workaround
 is involved, and the `02` mismatch is not the dropped `VNB` pin.
@@ -52,8 +52,13 @@ as a stale pin to promote rather than a pass. Its own self-test
 CI step. The pin was re-confirmed unchanged on `klt 0.9.3.dev2572` / klayout
 0.30.12 before landing, and that confirming run also showed cheap
 `klt lvs --check` exiting 0 on the refreshed envelopes — the #5631 path
-anchoring no longer reproduces (`evidence/warmup-klt-lvs.md`, pinned-expectation
+anchoring no longer reproduces on a post-0.9.2 build (`evidence/warmup-klt-lvs.md`, pinned-expectation
 section).
+
+**The warm-up envelopes are under CI (#159).** `scripts/warmup-klt-lvs.sh --check-only` re-extracts
+the layout netlist and runs `klt lvs --check` on the committed envelopes in CI; it passes on the
+pinned 0.9.2 and fails on hash drift (`evidence/warmup-klt-lvs.md`, Run 3). Re-recording the
+envelopes still needs a klt past 0.9.2: 0.9.2 itself drops the `puzzle/` segment (#5631).
 
 **The 2026-11-13 "Now" list is done.** #75 (PR #103) updated the README's capability-gap
 section: it now states the gap as closed upstream and keeps the original wording as
@@ -68,18 +73,22 @@ for landed, one reference spelling short of a clean run. #77 (PR #99) checked Ja
 Street's 15 featured writeups against our record one by one: the dated amendment is in
 `evidence/easter-eggs.md` and the README sentence now points to it.
 
-**Upstream findings.** Ten toolkit gaps have been filed from this repo
+**Upstream findings.** Eleven toolkit gaps have been filed from this repo
 (`evidence/upstream.md:10-19`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
-#5631, #5632 and #5693. Eight read as closed on the upstream tracker today (the first
-seven, plus #5631, closed 2026-11-16); **#5632 and #5693 are open** — the `klt lvs`
-finding from #74 and the port-name reader defect the puzzle-scale run filed for #76 — so
-the `02` comparison and a clean re-run of the puzzle compare are blocked upstream rather
-than here. Seven of the eight closed ones have been re-verified against a `klt` that
-contains the fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by Run 2
-above, and #673, #674 and #675 by the dated verification rows in `evidence/upstream.md`,
-run 2026-11-21 under #160 (`klt 0.9.3.dev2575+g6bd18bbc8637`) — each agrees with its
-local evidence script. #5631's closed-loop re-verification is still open work, tracked
-by #159.
+#5631, #5632, #5693 and #7561. Ten read as closed on the upstream tracker today
+(#5693 closed 2026-11-23 by PR #7452, #5632 closed the same day); **#7561 is open** —
+the pad-route join that shorts anonymous nets into a named rail, found by the puzzle
+verdict's first baseline run (#165) — so a matching puzzle compare is blocked upstream
+rather than here. Nine of the ten have been
+re-verified against a `klt` that contains the fix: #619 and #620 by `evidence/klt-extract.md`,
+#3748 and #3749 by Run 2 above, #5631 by Run 3 (fixed on `0.9.3.dev2572`; **not** in the
+published 0.9.2, so re-recording the envelopes waits for the next release), #5693 by
+the puzzle Run 2 baseline on a throwaway build of the #7452 merge (`evidence/puzzle-klt-lvs.md`,
+Run 2 — the read succeeded; the mismatch it revealed is #7561), and #673, #674 and #675
+by the dated verification rows in `evidence/upstream.md`, run 2026-11-21 under #160
+(`klt 0.9.3.dev2575+g6bd18bbc8637`) — each agrees with its local evidence script.
+#5632 closed too recently to have been re-run from this side: re-checking the `02`
+comparison against a `klt` that carries its fix is the remaining open step.
 
 **Tracker.** Nine issues are open. Two curated items are in flight behind their pull
 requests — #106 (celltable's fourth local supply-pin set, PR #115) and #112 (GDS-open
@@ -109,16 +118,8 @@ then listed here.
 
 ## Next
 
-- **Put the LVS result under CI (#159).** Run 2 found cheap `klt lvs --check` could not
-  close on a runner: `puzzle/` is a nested clone, so the envelope recorded the reference
-  path relative to the inner repo while `--check` resolved it against this one
-  (klayout-tools#5631; `evidence/warmup-klt-lvs.md:17-34`). #5631 is now closed upstream,
-  and #158's confirming run on `klt 0.9.3.dev2572` showed cheap `--check` exiting 0 on
-  both refreshed envelopes, so that blocker is gone on current builds. The verdict
-  comparison itself is already PDK-free and in CI (`tools/lvs-verdict`, self-tested by
-  `tools/test-lvs-verdict`, #158); what remains is CI reproducing the runs or their
-  envelopes. Done when CI runs a `klt lvs` check, or `evidence/warmup-klt-lvs.md` records
-  which option was taken and why.
+Nothing is scoped here: the open items are the upstream waits under "Blocked and
+waiting", and the earlier #159 and #160 work has landed.
 
 ## Later
 
@@ -137,10 +138,12 @@ then listed here.
 #78 (Hermit: dead code in `tools/sim/solve.py`) is parked on an operator decision; #118
 is blocked on a triage decision (whether `sim-selftests.sh` should now gate
 `selftest_solve`, whose "blocked on #98" skip is stale); #30 is the automated
-merge-hold digest, not work. Nothing else here waits on a person. Nothing waits on an
-upstream release, but the `02` comparison and a clean re-run of the puzzle compare
-cannot be resolved from this side while
-klayout-tools#5632 and #5693 are open.
+merge-hold digest, not work. Nothing else here waits on a person. The `02`
+comparison cannot be re-checked until a released klt carries the #5632 fix, and a
+matching puzzle compare cannot be resolved while klayout-tools#7561 is open; re-recording the warm-up envelopes waits
+for the first klayout-tools release after 0.9.2 (#5631's fix), and no released klt
+yet carries the #5693 reader fix either — the puzzle Run 2 baseline had to build
+`6ca7e00` throwaway (#165).
 
 ## Not planned
 

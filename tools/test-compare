@@ -23,6 +23,7 @@ Exit status: 0 if every check that ran passed, 1 otherwise.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -108,14 +109,29 @@ CROSSED_B = module(
     f" {BUF} s (.A(m1), .X(o0));\n"
 )
 
-# a genuine automorphism: two identical inverters on the same input, feeding the
-# two inputs of a symmetric-looking pair of gates.  Deterministic propagation
-# cannot decide this; the backtracking search must.
+# a genuine automorphism: two identical inverters driven by the same input,
+# each with its own internal output wire.  Nothing distinguishes them -- no
+# named port reveals which is which -- so deterministic propagation cannot
+# decide the correspondence; the backtracking search must.  (The earlier
+# version of this fixture fed the inverters into NANDs driving separately
+# named top-level ports, which named the NANDs and thereby the inverters;
+# propagation alone solved it and `--branch-budget 0` still passed.)
 SYMMETRIC_A = module(
     f" {INV} a1 (.A(i0), .Y(x1));\n"
+    f" {INV} a2 (.A(i0), .Y(x2));\n",
+    decls=" input i0;\n wire x1;\n wire x2;\n",
+    ports="i0",
+)
+
+# Three identical inverters, same shape: the first guess is forced at the root,
+# but deciding the second needs another guess, so a budget of 1 runs out one
+# level below the root (issue #199's recursive-exhaustion case).
+SYMMETRIC3_A = module(
+    f" {INV} a1 (.A(i0), .Y(x1));\n"
     f" {INV} a2 (.A(i0), .Y(x2));\n"
-    f" {NAND} g1 (.A(x1), .B(x2), .Y(o0));\n"
-    f" {NAND} g2 (.A(x2), .B(x1), .Y(o1));\n"
+    f" {INV} a3 (.A(i0), .Y(x3));\n",
+    decls=" input i0;\n wire x1;\n wire x2;\n wire x3;\n",
+    ports="i0",
 )
 
 COMMUTATIVE_A = module(
@@ -159,6 +175,22 @@ FILL_EXTRA = module(
     f" {DECAP} filler_1 ();\n"
 )
 
+# A: every buffer's .A and .X sit on two private wires.  B: both pins are tied
+# to one private wire.  Each A-side wire touches one pin and each B-side wire
+# two, so no A buffer has a signature-compatible partner in B: the
+# empty-candidate path must decide the case without any backtracking guesses
+# (issue #182's 32-buffer repro, shrunk to 3 instances).
+SPLITWIRE_A = module(
+    f" {BUF} b1 (.A(w1), .X(w2));\n"
+    f" {BUF} b2 (.A(w3), .X(w4));\n"
+    f" {BUF} b3 (.A(w5), .X(w6));\n"
+)
+TIEDWIRE_B = module(
+    f" {BUF} b1 (.A(w1), .X(w1));\n"
+    f" {BUF} b2 (.A(w2), .X(w2));\n"
+    f" {BUF} b3 (.A(w3), .X(w3));\n"
+)
+
 
 def write(tmp: str, name: str, text: str) -> str:
     path = os.path.join(tmp, name)
@@ -182,6 +214,8 @@ def synthetic_checks(tmp: str) -> None:
     swb = write(tmp, "cellswap_b.v", CELLSWAP_B)
     alias = write(tmp, "alias.v", ASSIGN_ALIAS)
     fill = write(tmp, "fill_extra.v", FILL_EXTRA)
+    split = write(tmp, "splitwire_a.v", SPLITWIRE_A)
+    tied = write(tmp, "tiedwire_b.v", TIEDWIRE_B)
 
     code, out = compare(ca, ca)
     expect("synthetic: a netlist is equivalent to itself", code == 0, out)
@@ -201,9 +235,61 @@ def synthetic_checks(tmp: str) -> None:
 
     sym_ren = os.path.join(tmp, "sym_renamed.v")
     run([sys.executable, RENAME, sa, "--seed", "5", "-o", sym_ren])
+
+    # Issue #199: running out of branch budget is INCONCLUSIVE (exit 3) with a
+    # distinct reason token, never a false "no correspondence exists" (exit 1).
+    code, out = compare(sa, sym_ren, "--branch-budget", "0")
+    expect(
+        "synthetic: budget exhaustion is INCONCLUSIVE (exit 3), not a false verdict",
+        code == 3 and "INCONCLUSIVE" in out and "branch-budget-exhausted" in out,
+        out,
+    )
+    expect(
+        "synthetic: budget exhaustion never presents untried candidates as "
+        "rejected or unavailable",
+        "rejected candidates" not in out and "none available" not in out,
+        out,
+    )
+    code, out = compare(sa, sym_ren, "--branch-budget", "0", "--format", "json")
+    try:
+        report = json.loads(out)
+        json_ok = (
+            report["equivalent"] is None
+            and report["failure"]["kind"] == "branch-budget-exhausted"
+            and report["verification"]["checked"] is False
+        )
+    except (json.JSONDecodeError, KeyError):
+        json_ok = False
+        report = {}
+    expect(
+        "synthetic: budget exhaustion JSON has equivalent null, kind "
+        "branch-budget-exhausted, verification unchecked",
+        code == 3 and json_ok,
+        out,
+    )
+    code, out = compare(sa, sym_ren, "--branch-budget", "1")
+    expect(
+        "synthetic: a match on the final permitted guess verifies and exits 0",
+        code == 0,
+        out,
+    )
     code, out = compare(sa, sym_ren)
     expect(
         "synthetic: automorphic circuit is decided by the backtracking search", code == 0, out
+    )
+
+    s3 = write(tmp, "sym3_a.v", SYMMETRIC3_A)
+    s3_ren = os.path.join(tmp, "sym3_renamed.v")
+    run([sys.executable, RENAME, s3, "--seed", "5", "-o", s3_ren])
+    code, out = compare(s3, s3_ren, "--branch-budget", "1")
+    expect(
+        "synthetic: exhaustion below the root is still INCONCLUSIVE (exit 3)",
+        code == 3 and "branch-budget-exhausted" in out and "INCONCLUSIVE" in out,
+        out,
+    )
+    code, out = compare(s3, s3_ren, "--branch-budget", "2")
+    expect(
+        "synthetic: three-way automorphism is decided at the exact budget", code == 0, out
     )
 
     code, out = compare(comm, comm_sw)
@@ -218,6 +304,34 @@ def synthetic_checks(tmp: str) -> None:
     expect(
         "synthetic: cell-type swap failure names a cell type",
         NAND in out and NOR in out,
+        out,
+    )
+
+    code, out = compare(split, tied)
+    expect(
+        "synthetic: no signature-compatible partner is a no-candidate failure "
+        "naming cell and pins",
+        code == 1 and "no-candidate" in out and BUF in out and ".A(" in out and ".X(" in out,
+        out,
+    )
+    expect(
+        "synthetic: no-candidate reports no backtracking guesses",
+        "rejected candidates" not in out,
+        out,
+    )
+    code, out = compare(split, tied, "--branch-budget", "0")
+    expect(
+        "synthetic: the no-candidate diagnosis is reached without spending branch budget",
+        code == 1 and "no-candidate" in out,
+        out,
+    )
+    code, out = compare(split, tied, "--format", "json")
+    expect(
+        "synthetic: JSON failure object names kind no-candidate, cell and pins",
+        code == 1
+        and '"kind": "no-candidate"' in out
+        and f'"cell": "{BUF}"' in out
+        and '"pins":' in out,
         out,
     )
 

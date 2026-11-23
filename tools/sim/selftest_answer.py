@@ -27,17 +27,15 @@ Three checks, mirroring the positive/negative-control discipline the other
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from tools.sim.answer import decode_output_cycles, select_order
 from tools.sim.icarus import compile_and_run
-from tools.sim.testbench import build_sequence_testbench
+from tools.sim.testbench import build_sequence_testbench, parse_sequence_samples
 from tools.testutil import report_checks
 
 MESSAGE = "STAGE8 OK"
 WIDTH = 8
-CYCLE_RE = re.compile(r"^CYCLE (\d+) (.*)$")
 
 
 def _build_dut(*, bit_of: list[int] | range) -> str:
@@ -93,17 +91,7 @@ def _run(dut_src: str, work_dir: Path) -> list[dict[str, str]]:
     if not sim.compiled or not sim.ran:
         raise RuntimeError(f"simulation failed:\ncompile:\n{sim.compile_stderr}\nrun:\n{sim.run_stderr}")
 
-    samples: list[dict[str, str]] = []
-    for line in sim.run_stdout.splitlines():
-        m = CYCLE_RE.match(line)
-        if not m:
-            continue
-        row = {"cycle": m.group(1)}
-        for token in m.group(2).split():
-            k, _, v = token.partition("=")
-            row[k] = v
-        samples.append(row)
-    return samples
+    return parse_sequence_samples(sim.run_stdout)
 
 
 def main() -> int:

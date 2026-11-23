@@ -9,6 +9,39 @@ updated.
 
 - [2026-08](work_log/WORK_LOG_2026-08.md)
 
+### 2026-11-23
+
+- **PR #200**: fix: report branch-budget exhaustion in tools/compare as INCONCLUSIVE, exit 3
+- **PR #198**: test: make the automorphism fixture actually require a backtracking guess
+- **PR #176**: refactor(sim): share the CYCLE stdout parser in testbench.parse_sequence_samples
+- **Issue #199** (closed): tools/compare: budget exhaustion is reported as 'no correspondence exists', indistinguishable from a proof of non-equivalence
+- **Issue #196** (closed): Simplify the backtracking fixture so it actually requires a guess
+- **Issue #172** (closed): Share the sequence-testbench CYCLE stdout parser: CYCLE_RE and sample loop are duplicated in solve.py and selftest_answer.py
+- **PR #195**: fix: require comparator exit 1 in shared extraction mutation check
+- **PR #193**: refactor: remove five never-called helpers from tools/
+- **PR #189**: fix: drop tools/compare fallback to signature-incompatible backtracking guesses
+- **Issue #194** (closed): Share the extraction mutation check and require comparator exit 1
+- **Issue #182** (closed): Remove redundant backtracking guesses after a netlist signature mismatch
+- **Issue #78** (closed): Remove dead code in tools/sim/solve.py: unreferenced concrete_trace() and the unused free_lits accumulation
+- **PR #173**: refactor: remove version forwarding from klt-extract
+- **PR #168**: refactor: share GDS label-to-polygon matching between pin resolvers
+- **PR #167**: ci: gate warm-up LVS envelopes with klt lvs --check and record Run 3
+- **Issue #171** (closed): Remove tools/klt-extract --version and klt_version(): dead, undocumented, and broken by required -o
+- **Issue #164** (closed): Share GDS label-to-polygon matching between the pin reporter and extractor
+- **Issue #159** (closed): Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
+
+### 2026-11-22
+
+- **PR #181**: refactor: remove dead _UnionFind.groups and duplicate label pass in gds_extract
+- **Issue #180** (closed): Simplify tools/gds_extract.py: remove dead _UnionFind.groups()/pre-registration and duplicate top-label pass
+
+### 2026-11-20
+
+- **PR #163**: fix: fail warmup-klt-lvs.sh when a pinned LVS verdict moves
+- **PR #162**: Bump CI klayout-tools pin to 0.9.2 and record Run 4
+- **Issue #158** (closed): warmup-klt-lvs.sh: fail when the 01 match regresses or the 02 mismatch counts move, instead of exiting 0 whenever the runs complete
+- **Issue #157** (closed): Bump the CI klt pin from 0.9.1 to 0.9.2 and record the run in evidence/klt-extract.md
+
 ### 2026-11-19
 
 - **PR #155**: chore: refresh Squad block and skill so unattended roles do not stop

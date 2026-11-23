@@ -20,6 +20,7 @@ explicit that shape is only a prior for the real puzzle):
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from tools.vcd.model import VcdDocument
@@ -376,3 +377,26 @@ def build_sequence_testbench(
     lines.append("  end")
     lines.append("endmodule")
     return "\n".join(lines) + "\n"
+
+
+_CYCLE_RE = re.compile(r"^CYCLE (\d+) (.*)$")
+
+
+def parse_sequence_samples(stdout: str) -> list[dict[str, str]]:
+    """Parse the `CYCLE <t> <sig>=<bit> ...` lines `build_sequence_testbench` emits.
+
+    Returns one `{"cycle": <t>, <sig>: <bit>, ...}` row per `CYCLE` line, in
+    emission order; every other line (the `RESULT` summary, simulator
+    banners) is ignored.
+    """
+    samples: list[dict[str, str]] = []
+    for line in stdout.splitlines():
+        m = _CYCLE_RE.match(line)
+        if not m:
+            continue
+        row = {"cycle": m.group(1)}
+        for token in m.group(2).split():
+            key, _, value = token.partition("=")
+            row[key] = value
+        samples.append(row)
+    return samples

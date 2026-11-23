@@ -69,9 +69,6 @@ class CellTable:
     outputs: tuple[str, ...]
     rows: tuple[str, ...]
 
-    def output_value(self, out_pin: str, pattern: int) -> int:
-        return int(self.rows[pattern][self.outputs.index(out_pin)])
-
     def to_json(self) -> dict:
         return {
             "cell": self.cell,

@@ -23,7 +23,6 @@ is a proof that the first answer is the only one within the bound.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -33,11 +32,13 @@ from tools.sim import bmc
 from tools.sim.celltable import CellTable, derive_cell_tables, load_tables, save_tables
 from tools.sim.icarus import IcarusNotFoundError, SimResult, compile_and_run
 from tools.sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
-from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model, simulate
-from tools.sim.testbench import SequenceExpectation, build_sequence_testbench
+from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model
+from tools.sim.testbench import (
+    SequenceExpectation,
+    build_sequence_testbench,
+    parse_sequence_samples,
+)
 from tools.verilog_netlist import Netlist, base_cell, is_fill, load
-
-CYCLE_RE = re.compile(r"^CYCLE (\d+) (.*)$")
 
 
 @dataclass
@@ -282,11 +283,6 @@ def enumerate_solutions(
     goal_lit = unrolling.output_lits[scenario.goal_cycle][scenario.goal_output]
     assumption = goal_lit if scenario.goal_value else -goal_lit
 
-    free_lits: list[int] = []
-    for port in free_ports:
-        for t in scenario.free_cycles(port):
-            free_lits.append(unrolling.input_lits[t][port])
-
     report = SolveReport(stats=dict(unrolling.stats), solver=solver_name, bound=scenario.cycles)
     blocking: list[list[int]] = []
     for _ in range(max_solutions):
@@ -324,19 +320,7 @@ def enumerate_solutions(
         )
         report.seconds_total += outcome.seconds
         report.exhausted = not outcome.sat
-    _ = free_lits
     return report
-
-
-def concrete_trace(
-    model: SeqModel, scenario: Scenario, solution: Solution, *, undriven_value: int = 0
-):
-    """Replay a solution through the fast cycle model (a pre-Icarus sanity check)."""
-    seq = [
-        {port: solution.inputs[t].get(port, 0) for port in model.inputs}
-        for t in range(scenario.cycles)
-    ]
-    return simulate(model, seq, undriven_value=undriven_value)
 
 
 # --------------------------------------------------------------------------
@@ -379,16 +363,7 @@ def verify_by_simulation(
     sources = [tb_path, design.source, *design.pdk.model_files()]
     sim = compile_and_run(sources, top="tb", work_dir=work_dir, timeout_s=timeout_s)
 
-    samples: list[dict[str, str]] = []
-    for line in sim.run_stdout.splitlines():
-        m = CYCLE_RE.match(line)
-        if not m:
-            continue
-        row = {"cycle": m.group(1)}
-        for token in m.group(2).split():
-            key, _, value = token.partition("=")
-            row[key] = value
-        samples.append(row)
+    samples = parse_sequence_samples(sim.run_stdout)
     ok = sim.compiled and sim.ran and "RESULT PASS" in sim.run_stdout
     return VerifyResult(
         ok=ok,

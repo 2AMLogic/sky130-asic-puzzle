@@ -26,6 +26,12 @@ Resolution is total-or-loud: a pin name with *zero* occurrences landing in a
 silently empty or skipped pin (issue #1's contract; this is what lets stage 4
 treat the abstract as ground truth rather than a best-effort guess).
 
+Both public views of this abstract -- `resolve_cell_pins` (JSON-ready
+micron polygons) and `resolve_cell_pin_shapes` (native `db.Polygon` shapes
+for `tools/gds_extract.py`) -- consume the same ordered match list from one
+shared search, `_match_pin_shapes` (issue #164); each view then applies
+only its own representation and deduplication rule.
+
 Callers must have already made `klayout.db` importable (`klayout_env.py`)
 before importing this module.
 """
@@ -79,20 +85,23 @@ def _round_digits(dbu: float) -> int:
     return max(0, -round(math.log10(dbu)))
 
 
-def _polygon_points(dbu: float, shape) -> Polygon:
-    poly = shape.polygon
-    if poly is None:
-        return ()
+def _polygon_points(dbu: float, poly) -> Polygon:
     dpoly = poly.to_dtype(dbu)
     ndigits = _round_digits(dbu)
     return tuple((round(pt.x, ndigits), round(pt.y, ndigits)) for pt in dpoly.each_point_hull())
 
 
-def resolve_cell_pins(layout, cell) -> CellPins:
-    """Build the pin abstract for one cell definition.
+def _match_pin_shapes(layout, cell) -> dict[str, list[tuple[int, db.Polygon]]]:
+    """The one label-to-shape search both public resolvers share (issue #164).
 
-    Raises `PinResolutionError` naming the cell and pin on the first pin
-    that cannot be fully resolved.
+    Returns pin name -> every matching `(target_layer_number, db.Polygon)`
+    pair in label-occurrence then shape order, with *no* deduplication:
+    each resolver applies its own representation and dedup rule to the same
+    match list, so the two can never disagree about which pins resolve.
+
+    Raises `PinResolutionError` naming the cell, the pin and its occurrence
+    count for the first name whose occurrences all miss -- the
+    total-or-loud contract (issue #1), enforced once here instead of twice.
     """
     dbu = layout.dbu
     # name -> list of (target_layer_number, occurrence point, in dbu units)
@@ -106,14 +115,12 @@ def resolve_cell_pins(layout, cell) -> CellPins:
             name = shape.text.string
             occurrences.setdefault(name, []).append((target_layer, shape.text_pos))
 
-    result = CellPins(cell=cell.name)
+    matches: dict[str, list[tuple[int, db.Polygon]]] = {}
     for name, occs in sorted(occurrences.items()):
-        seen_polys: set[Polygon] = set()
-        polys: list[Polygon] = []
-        resolved_layer: tuple[int, int] | None = None
+        found: list[tuple[int, db.Polygon]] = []
         for target_layer, pos in occs:
             # `text_pos` is a Point in dbu (integer) units; the shape
-            # geometry below is converted to microns via `to_dtype(dbu)`,
+            # geometry is converted to microns via `to_dtype(dbu)`,
             # so the containment test needs the point in the same units.
             pt = db.DPoint(pos.x * dbu, pos.y * dbu)
             pin_li = layout.layer(target_layer, PIN_DATATYPE)
@@ -125,17 +132,38 @@ def resolve_cell_pins(layout, cell) -> CellPins:
                     continue
                 if not poly.to_dtype(dbu).inside(pt):
                     continue
-                points = _polygon_points(dbu, pshape)
-                if points not in seen_polys:
-                    seen_polys.add(points)
-                    polys.append(points)
-                resolved_layer = (target_layer, PIN_DATATYPE)
-        if not polys:
+                found.append((target_layer, poly))
+        if not found:
             raise PinResolutionError(
                 f"{cell.name}: pin {name!r} has {len(occs)} label occurrence(s) but none "
                 f"land inside a .pin (datatype {PIN_DATATYPE}) shape on the expected "
                 f"layer -- cannot resolve this pin's geometry from the stream"
             )
+        matches[name] = found
+    return matches
+
+
+def resolve_cell_pins(layout, cell) -> CellPins:
+    """Build the pin abstract for one cell definition.
+
+    Raises `PinResolutionError` naming the cell and pin on the first pin
+    that cannot be fully resolved.
+    """
+    dbu = layout.dbu
+    result = CellPins(cell=cell.name)
+    for name, found in _match_pin_shapes(layout, cell).items():
+        seen_polys: set[Polygon] = set()
+        polys: list[Polygon] = []
+        resolved_layer: tuple[int, int] | None = None
+        for target_layer, poly in found:
+            points = _polygon_points(dbu, poly)
+            if points not in seen_polys:
+                seen_polys.add(points)
+                polys.append(points)
+            # Every matching occurrence re-affirms the layer, so a pin whose
+            # geometry appears on more than one target layer reports the
+            # last one -- where the native view below keeps the first.
+            resolved_layer = (target_layer, PIN_DATATYPE)
         assert resolved_layer is not None
         result.pins[name] = PinGeometry(layer=resolved_layer, polygons=tuple(polys))
     return result
@@ -149,52 +177,28 @@ def resolve_cell_pin_shapes(layout, cell) -> dict[str, list[tuple[int, db.Polygo
     top-level geometry, where re-parsing rounded micron floats back out of
     `resolve_cell_pins`' output would be lossy and redundant.
 
-    Same total-or-loud contract as `resolve_cell_pins` (raises
-    `PinResolutionError` naming the cell and pin), and the same "at least one
-    occurrence must land inside a `.pin` shape" rule -- this is a second view
-    of the same resolution, not a different algorithm, so the two must never
-    disagree about which pins resolve.
+    Same total-or-loud contract as `resolve_cell_pins` and the same
+    "at least one occurrence must land inside a `.pin` shape" rule -- both
+    views consume the same ordered match list from `_match_pin_shapes`
+    (issue #164), so they can never disagree about which pins resolve. Only
+    the representation differs: this view deduplicates by native geometry
+    and keeps the first layer a given geometry was found on, where
+    `resolve_cell_pins` keeps micron rounding and reports the last matching
+    layer.
 
     Returns: pin name -> list of `(target_layer_number, db.Polygon)`, one
     entry per distinct resolved shape (a pin's geometry may be more than one
     polygon, same as `resolve_cell_pins`).
     """
-    dbu = layout.dbu
-    occurrences: dict[str, list[tuple[int, object]]] = {}
-    for layer_num, datatype in LABEL_SOURCES:
-        target_layer = PIN_TARGET_LAYER[(layer_num, datatype)]
-        li = layout.layer(layer_num, datatype)
-        for shape in cell.each_shape(li):
-            if not shape.is_text():
-                continue
-            name = shape.text.string
-            occurrences.setdefault(name, []).append((target_layer, shape.text_pos))
-
-    result: dict[str, list[tuple[int, object]]] = {}
-    for name, occs in sorted(occurrences.items()):
+    result: dict[str, list[tuple[int, db.Polygon]]] = {}
+    for name, found in _match_pin_shapes(layout, cell).items():
         seen: set[str] = set()
-        shapes: list[tuple[int, object]] = []
-        for target_layer, pos in occs:
-            pt = db.DPoint(pos.x * dbu, pos.y * dbu)
-            pin_li = layout.layer(target_layer, PIN_DATATYPE)
-            for pshape in cell.each_shape(pin_li):
-                if pshape.is_text():
-                    continue
-                poly = pshape.polygon
-                if poly is None:
-                    continue
-                if not poly.to_dtype(dbu).inside(pt):
-                    continue
-                key = poly.to_s()
-                if key not in seen:
-                    seen.add(key)
-                    shapes.append((target_layer, poly))
-        if not shapes:
-            raise PinResolutionError(
-                f"{cell.name}: pin {name!r} has {len(occs)} label occurrence(s) but none "
-                f"land inside a .pin (datatype {PIN_DATATYPE}) shape on the expected "
-                f"layer -- cannot resolve this pin's geometry from the stream"
-            )
+        shapes: list[tuple[int, db.Polygon]] = []
+        for target_layer, poly in found:
+            key = poly.to_s()
+            if key not in seen:
+                seen.add(key)
+                shapes.append((target_layer, poly))
         result[name] = shapes
     return result
 

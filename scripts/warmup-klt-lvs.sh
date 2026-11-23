@@ -7,15 +7,15 @@
 #   build/warmup-klt-lvs.spice --klt lvs--> puzzle/warmup/01_netlist.v                 (signal-only)
 #   build/warmup-klt-lvs.spice --klt lvs--> puzzle/warmup/02_netlist_with_power_rails.v (PG pins)
 #
-# Writes the klt lvs envelopes to evidence/warmup-klt-lvs-{01,02}.json (committed,
-# with reference-side net/instance names elided). The pinned verdicts those
-# envelopes are compared against live in evidence/warmup-klt-lvs-expected.json;
-# the envelopes are rewritten on every run, so they cannot be their own
-# expectation. `klt lvs --check` re-verifies the committed envelopes from the
-# repo root again (exit 0 on both, 2026-11-20, klt 0.9.3.dev2572): Run 2's
-# nested-clone path anchoring (klayout-tools#5631, since fixed upstream) no
-# longer reproduces -- see evidence/warmup-klt-lvs.md, Run 2 and the
-# pinned-expectation section. The extracted netlist stays in build/
+# With no arguments, rewrites evidence/warmup-klt-lvs-{01,02}.json with the
+# klt lvs envelopes (reference-side net/instance names elided). The pinned
+# verdicts live separately in evidence/warmup-klt-lvs-expected.json.
+# `--check-only` re-extracts and runs the cheap
+# `klt lvs --check` on the COMMITTED envelopes without rewriting them (CI, #159).
+# Re-recording needs a klt carrying the klayout-tools#5631 fix (post-0.9.2):
+# puzzle/ is a git clone, and klt 0.9.2 records the reference path relative to it
+# (`warmup/01_netlist.v`), which --check then cannot resolve from this repo's
+# root -- see evidence/warmup-klt-lvs.md, Run 3. The extracted netlist stays in build/
 # (gitignored): it is derived from a file that carries no license (CLAUDE.md §3).
 # Never reads puzzle/puzzle.gds.
 #
@@ -31,8 +31,8 @@
 # the fix for klayout-tools#3749 (which merges the LEF's pins into a labelled
 # cell's pin list) never engages. See evidence/warmup-klt-lvs.md, Run 2.
 #
-# Exit 0 means the runs completed AND both verdicts equal the pins in
-# evidence/warmup-klt-lvs-expected.json (#158): 01 match, 02 the recorded
+# In recording mode, exit 0 means the runs completed AND both verdicts equal
+# the pins in evidence/warmup-klt-lvs-expected.json (#158): 01 match, 02 the recorded
 # tool-side mismatch of klayout-tools#5632. tools/lvs-verdict -- PDK-free,
 # self-tested by tools/test-lvs-verdict -- compares both envelopes after both
 # references have run, so one run reports both verdicts, and names any moved
@@ -40,6 +40,11 @@
 # that is a stale pin to promote after the upstream fix, not a pass. A klt
 # crash (rc > 3) stays a hard error, above.
 set -euo pipefail
+
+if (( $# > 0 )) && [[ $# != 1 || $1 != --check-only ]]; then
+  printf 'Usage: %s [--check-only]\n' "${0##*/}" >&2
+  exit 2
+fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -66,6 +71,15 @@ klt extract "$WARMUP/04_final.gds" --deck sky130 --pdk "$PDK" --top "$TOP" \
   --abstract-cells 'sky130_fd_sc_hd__*' --abstract-cell-lef "$CELL_LEF" \
   --def-pins "$WARMUP/03_post_place_and_route.def" \
   -o "$LAYOUT_NETLIST" --format json > "$BUILD/warmup-klt-lvs-extract.json"
+
+if (( $# == 1 )); then
+  # `klt lvs --check` exits 0 only on a reproduced report (layout and reference
+  # hashes match); any drift is nonzero, which fails the job under set -e.
+  for tag in 01 02; do
+    klt lvs --check "evidence/warmup-klt-lvs-$tag.json"
+  done
+  exit 0
+fi
 
 for ref in 01:01_netlist 02:02_netlist_with_power_rails; do
   tag="${ref%%:*}"; name="${ref#*:}"
