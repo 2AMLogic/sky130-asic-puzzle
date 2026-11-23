@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 """CLI: replay a recorded VCD's inputs against a netlist and diff the outputs.
 
-This is stage 6 of `spec/puzzle.md` — the gate on stages 7 and 8. It needs an
-extracted netlist to be pointed at `puzzle/example_inputs.vcd`, which does
-not exist yet (blocked on #2; see `evidence/puzzle-replay.md`). It has been
-self-tested against the warm-up in the meantime (`tools/sim/selftest_replay.py`).
-
-Once an extracted puzzle netlist exists, the intended invocation is:
+This is stage 6 of `spec/puzzle.md` — the gate on stages 7 and 8. The
+extracted netlist is committed at `evidence/puzzle-extracted.v`; the
+recorded run against it, including its strict timestamp mismatch, is in
+`evidence/puzzle-replay.md`. Usage:
 
     python3 -m tools.sim.run_vcd_replay \\
         --netlist evidence/puzzle-extracted.v \\

@@ -1,19 +1,15 @@
-"""Self-test the VCD replay engine against the warm-up, before it is ever
-pointed at the puzzle.
+"""Self-test the VCD replay engine against the warm-up.
 
-`puzzle/example_inputs.vcd` is the only recorded trace this repo has, and
-it's for `puzzle.gds` — which has no extracted netlist yet (blocked on #2).
-So `tools/sim/replay.py`'s reader -> testbench -> simulate -> diff pipeline
-would otherwise go completely unexercised until it's pointed at embargoed
-content for the first time. Instead:
+The engine's reader -> testbench -> simulate -> diff pipeline needs a
+recorded trace to replay, and this self-test records its own rather than
+requiring one by hand. It runs three checks:
 
   1. Record a VCD of a *directed* warm-up simulation (several shift-load
      cases against `warmup/01_netlist.v`, dumped via `$dumpvars`) — this
-     becomes the "recorded" trace, playing the same role
-     `example_inputs.vcd` will play for the puzzle.
+     becomes the "recorded" trace.
   2. Replay it back through `run_vcd_replay` against the *same* netlist and
      confirm zero divergence — this exercises the exact reader -> testbench
-     -> simulate -> diff path stage 6 needs.
+     -> simulate -> diff path.
   3. Corrupt one bit of the recording at one timestamp and replay again,
      confirming the engine reports that exact (time, signal) as the first
      divergence — a passing self-test that can't actually detect a mismatch
