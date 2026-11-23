@@ -90,11 +90,13 @@ by the dated verification rows in `evidence/upstream.md`, run 2026-11-21 under #
 #5632 closed too recently to have been re-run from this side: re-checking the `02`
 comparison against a `klt` that carries its fix is the remaining open step.
 
-**Tracker.** Four issues are open as of 2026-11-23 (re-read from the API at 17:51Z).
-#203 (this refresh) is in flight behind PR #204. #205 (the `## Now` section's inventory is stale) is approved
-(`loom:issue`); #192 (concurrent Guide passes open duplicate docs PRs, and the Judge's
-docs fast-path reads a `gh` field 2.102.0 lacks) is parked on `loom:operator` for an
-operator ruling; #30 is the automated merge-hold digest, not work. #178 (derive Icarus
+**Tracker.** Three issues are open as of 2026-11-23 (re-read from the API at 21:32Z):
+#205 (the `## Now` section's inventory is stale), #211 (this paragraph's stale status
+clauses, being fixed here) and #30, the automated merge-hold digest, which is not work.
+Labels move quickly and are not restated here; read them from the API. #203 (the
+earlier refresh, PR #204) and #192 (concurrent Guide passes open duplicate docs PRs, and
+the Judge's docs fast-path reads a `gh` field 2.102.0 lacks) have both closed as
+completed. #178 (derive Icarus
 simulation success from the vvp exit code) has closed with its pull request, PR #179,
 merged. Everything the earlier inventory carried has closed too: the curated pair #106
 (PR #115) and #112 (PR #120), the approval hold #100, the triage hold #118, the fresh
