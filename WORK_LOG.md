@@ -11,6 +11,12 @@ updated.
 
 ### 2026-11-23
 
+- **PR #195**: fix: require comparator exit 1 in shared extraction mutation check
+- **PR #193**: refactor: remove five never-called helpers from tools/
+- **PR #189**: fix: drop tools/compare fallback to signature-incompatible backtracking guesses
+- **Issue #194** (closed): Share the extraction mutation check and require comparator exit 1
+- **Issue #182** (closed): Remove redundant backtracking guesses after a netlist signature mismatch
+- **Issue #78** (closed): Remove dead code in tools/sim/solve.py: unreferenced concrete_trace() and the unused free_lits accumulation
 - **PR #173**: refactor: remove version forwarding from klt-extract
 - **PR #168**: refactor: share GDS label-to-polygon matching between pin resolvers
 - **PR #167**: ci: gate warm-up LVS envelopes with klt lvs --check and record Run 3
