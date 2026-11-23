@@ -7,7 +7,7 @@ overwritten wholesale on each update — do not hand-edit it. See
 maintained.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-23T20:27:25Z (snapshot; compare against live labels)_
+_Generated: 2026-11-23T21:40:03Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -36,7 +36,7 @@ Human-approved issues (`loom:issue`) ready for implementation — excluding held
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#211**: ROADMAP Tracker paragraph asserts stale present-tense status for closed #203 and #192
 
 ## PRs Awaiting Review
 
@@ -48,14 +48,14 @@ _None._
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#212**: docs: re-derive ROADMAP tracker open-issue list and drop stale status clauses
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
-- **#208**: ROADMAP Tracker asserts a self-counting open-PR total that self-invalidates (ROADMAP.md:102) *(curated)*
 - **#205**: ROADMAP "## Now" section inventory is stale (says no issue carries loom:issue; names closed #106/#112/#100/#118/#119/#121/#122/#78) *(curated)*
+- **#211**: ROADMAP Tracker paragraph asserts stale present-tense status for closed #203 and #192 *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -73,9 +73,9 @@ _None._
 | Very important | 0 |
 | Important | 0 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
-| In Progress (`loom:building`) | 0 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 0 |
+| Approved PRs awaiting merge | 1 |
 | Curated | 2 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 0 |
