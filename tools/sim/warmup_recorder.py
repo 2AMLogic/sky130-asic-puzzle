@@ -98,5 +98,9 @@ def record_shift_load_vcd(
     tb_path = work_dir / "tb_record.v"
     tb_path.write_text(tb_source)
     sim = compile_and_run([tb_path, netlist, *models.model_files()], work_dir=work_dir)
-    if not sim.compiled or not sim.ran or not out_vcd.exists():
-        raise RuntimeError(f"failed to record warm-up VCD:\n{sim.compile_stderr}\n{sim.run_stderr}")
+    failure = sim.failure_message()
+    if failure is not None:
+        raise RuntimeError(f"failed to record warm-up VCD:\n{failure}")
+    if not out_vcd.exists():
+        raise RuntimeError(f"failed to record warm-up VCD: {out_vcd} was not created\n"
+                           f"{sim.compile_stderr}\n{sim.run_stderr}")

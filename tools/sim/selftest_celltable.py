@@ -89,6 +89,7 @@ from tools.sim.celltable import (
     derive_cell_tables,
     parse_port_directions,
 )
+from tools.sim.icarus import SimResult
 from tools.sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
 from tools.testutil import report_checks
 
@@ -222,6 +223,16 @@ class DeriveCellTablesErrorDiscriminationTest(unittest.TestCase):
             {"sky130_fd_sc_hd__not_a_cell": {"A1"}}, TYPED_BODY
         )
         self.assertIn("sky130_fd_sc_hd__not_a_cell is not defined in", message)
+
+    def test_failed_probe_reports_both_streams_even_after_completion_marker(self):
+        sim = SimResult("", "", "ROW 0 0 1\nPROBE DONE\nFATAL: probe failed\n", "loading probe\n", 0, 7)
+        with mock.patch("tools.sim.celltable.compile_and_run", return_value=sim):
+            message = self._assert_raises_with_message(
+                {"sky130_fd_sc_hd__a2111oi_2": {"A1", "Y"}}, TYPED_BODY
+            )
+        self.assertIn("SIMULATION FAILED (exit 7)", message)
+        self.assertIn("FATAL: probe failed", message)
+        self.assertIn("loading probe", message)
 
     def test_the_two_messages_differ(self):
         unparseable = self._assert_raises_with_message(

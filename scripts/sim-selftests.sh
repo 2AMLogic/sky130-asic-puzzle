@@ -11,6 +11,11 @@
 # What runs, and what each needs:
 #
 #   tools.sim.selftest_pdk      — always (no external dependency at all)
+#   tools.sim.selftest_icarus   — iverilog (issue #178: the wrapper's
+#                               compiled/ran semantics, exercised with tiny
+#                               PDK-free testbenches — clean, compile-error,
+#                               fatal-after-pass — plus the fatal shape
+#                               through the real verify_by_simulation gate)
 #   tools.sim.selftest_answer   — iverilog
 #   tools.sim.selftest_portmap  — iverilog + resolvable sky130 models
 #   tools.sim.selftest_celltable — resolvable sky130 models (the golden
@@ -103,14 +108,23 @@ echo "prerequisites: iverilog=$HAVE_IV sky130_models=$HAVE_MODELS warmup_netlist
 # 1. PDK resolver self-test — mocks every source, so it always runs.
 run_py "tools.sim.selftest_pdk" tools.sim.selftest_pdk
 
-# 2. Known-answer decode self-test — synthetic DUT, needs iverilog only.
+# 2. Icarus wrapper semantics self-test — clean / compile-error /
+#    fatal-after-pass against tiny hand-written testbenches, and the same
+#    fatal shape through verify_by_simulation. Needs iverilog only.
+if [ "$HAVE_IV" -eq 1 ]; then
+  run_py "tools.sim.selftest_icarus" tools.sim.selftest_icarus
+else
+  note "skip" "tools.sim.selftest_icarus — iverilog not found"
+fi
+
+# 3. Known-answer decode self-test — synthetic DUT, needs iverilog only.
 if [ "$HAVE_IV" -eq 1 ]; then
   run_py "tools.sim.selftest_answer" tools.sim.selftest_answer
 else
   note "skip" "tools.sim.selftest_answer — iverilog not found"
 fi
 
-# 3. Multi-bit port-map self-test — needs iverilog + models (run_vcd_replay
+# 4. Multi-bit port-map self-test — needs iverilog + models (run_vcd_replay
 #    links the model files unconditionally, even for the synthetic DUT).
 if [ "$HAVE_IV" -eq 1 ] && [ "$HAVE_MODELS" -eq 1 ]; then
   run_py "tools.sim.selftest_portmap" tools.sim.selftest_portmap
@@ -118,7 +132,7 @@ else
   note "skip" "tools.sim.selftest_portmap — needs iverilog + resolvable sky130 models"
 fi
 
-# 4. Celltable port-direction self-test — the golden 69-cell check resolves
+# 5. Celltable port-direction self-test — the golden 69-cell check resolves
 #    the sky130 models with resolve_sky130_models() (issue #122), so it runs
 #    wherever a PDK is installed, not only on the baseline's recording host.
 #    Needs models only — no iverilog, no fetched netlist.
@@ -128,7 +142,7 @@ else
   note "skip" "tools.sim.selftest_celltable — needs resolvable sky130 models (the golden 69-cell check)"
 fi
 
-# 5. Replay self-test + the directed run — both read the warm-up netlist.
+# 6. Replay self-test + the directed run — both read the warm-up netlist.
 #    The directed run is the protocol's semantic gate: its cases carry
 #    expected_s derived from A + B == 496, which a recorder mutation cannot
 #    move (see the header comment for why selftest_replay alone cannot).
@@ -141,7 +155,7 @@ else
   note "skip" "tools.sim.run_warmup_directed — needs iverilog + models + $NETLIST (run ./scripts/fetch-puzzle.sh)"
 fi
 
-# 6. Solver self-test — the solver stack's known-answer check against the
+# 7. Solver self-test — the solver stack's known-answer check against the
 #    warm-up, gated in by issue #118. It needs everything the replay pair
 #    needs plus python-sat. The probe is load-bearing, not cosmetic:
 #    selftest_solve guards pysat itself and exits 1 when it is missing,
