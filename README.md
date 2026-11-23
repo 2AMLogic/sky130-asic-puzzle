@@ -104,7 +104,7 @@ regression gate on the warm-up and on `puzzle.gds` (`scripts/warmup-regression.s
 --require-klt`, `scripts/puzzle-regression.sh`). Both upstream gaps behind the premise are
 closed — [#619](https://github.com/2AMLogic/klayout-tools/issues/619) and
 [#620](https://github.com/2AMLogic/klayout-tools/issues/620), checked
-`closed/completed` via the GitHub API 2026-11-14. Of five further findings closed
+`closed/completed` via the GitHub API 2026-11-14. Among the further findings closed
 upstream, [#3748](https://github.com/2AMLogic/klayout-tools/issues/3748) and
 [#3749](https://github.com/2AMLogic/klayout-tools/issues/3749) were re-verified from this
 side on 2026-11-14 under closed #74 — the result is recorded in

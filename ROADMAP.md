@@ -74,7 +74,7 @@ Street's 15 featured writeups against our record one by one: the dated amendment
 `evidence/easter-eggs.md` and the README sentence now points to it.
 
 **Upstream findings.** Eleven toolkit gaps have been filed from this repo
-(`evidence/upstream.md:10-19`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
+(`evidence/upstream.md:10-20`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
 #5631, #5632, #5693 and #7561. Ten read as closed on the upstream tracker today
 (#5693 closed 2026-11-23 by PR #7452, #5632 closed the same day); **#7561 is open** —
 the pad-route join that shorts anonymous nets into a named rail, found by the puzzle
@@ -90,19 +90,16 @@ by the dated verification rows in `evidence/upstream.md`, run 2026-11-21 under #
 #5632 closed too recently to have been re-run from this side: re-checking the `02`
 comparison against a `klt` that carries its fix is the remaining open step.
 
-**Tracker.** Nine issues are open. Two curated items are in flight behind their pull
-requests — #106 (celltable's fourth local supply-pin set, PR #115) and #112 (GDS-open
-failure-path tests on fixed `/tmp` paths, PR #120). #100 (`run_solve`/`run_answer` still
-escaping `PdkResolutionError`, points:2) is curated and awaiting approval; #118 needs a
-triage decision now that #98 has landed (gate `selftest_solve` or drop its "blocked on
-#98" skip); #119, #121 and #122 are fresh filings awaiting curation; #78 is parked on an
-operator decision and #30 is the automated merge-hold digest, not work. Everything the
-previous inventory carried has closed: this roadmap's own curations (#75, #76 and #77,
-plus the Hermit refactors #83 and #85), the Hermit-derived sharing refactors (#89, #91,
-#92, #94 and #96 — PRs #107, #101, #109, #111 and #104), the `tools/sim` fixes #98
-(PR #114) and #108 (PR #116), and the docs update PR #110. Three pull requests are open
-as this is written (this one; #115 for #106; #120 for #112), all in normal review flow.
-`WORK_PLAN.md` is machine-generated and lags these filings.
+**Tracker.** Four issues are open as of 2026-11-23, this one among them. #178 (derive
+Icarus simulation success from the vvp exit code) is approved and in flight behind its
+pull request (PR #179); #192 (concurrent Guide passes open duplicate docs PRs, and the
+Judge's docs fast-path reads a `gh` field 2.102.0 lacks) is open and carries no label
+yet; #30 is the automated merge-hold digest, parked on an operator decision, not work.
+Everything the previous inventory carried has closed: the curated pair #106 (PR #115)
+and #112 (PR #120), the approval hold #100, the triage hold #118, the fresh filings
+#119, #121 and #122, and the operator-parked #78 — all eight checked closed via the
+GitHub API 2026-11-23. One pull request is open as this is written (PR #179, for #178),
+in normal review flow. `WORK_PLAN.md` is machine-generated and lags these filings.
 
 ## Now
 
