@@ -2,11 +2,12 @@
 # Self-test for the shared extraction mutation check
 # (scripts/lib/extraction-mutation-check.sh, issue #194).
 #
-# Exercises all three comparator outcomes against both committed extracted
+# Exercises all four comparator outcomes against both committed extracted
 # Verilog references (no PDK, no klt, no puzzle/ files required):
 #   - copy of reference                     -> comparator exit 0 -> FAIL
 #   - one instance dropped by tools/rename  -> comparator exit 1 -> PASS
 #   - missing mutated-side file             -> comparator exit 2 -> FAIL + diagnostic
+#   - branch budget exhausted (stub, #199)  -> comparator exit 3 -> FAIL + diagnostic
 # plus mutation-generation failure (even when a stale mutated file exists on
 # disk) and argument validation.
 set -euo pipefail
@@ -147,7 +148,37 @@ echo "------------------------------------------------------------"
 check_reference "warmup" "$ROOT/evidence/warmup-extracted.v"
 check_reference "puzzle" "$ROOT/evidence/puzzle-extracted.v"
 
-# 4. Mutation generation failure must fail even if a stale damaged file exists.
+# 4. Comparator exit 3 (branch budget exhausted, issue #199) is a failure with
+# diagnostics, never a mutation-detection pass. Stubs the comparator through
+# the helper's MUTATION_COMPARE_TOOL override.
+stub_compare_inconclusive="$scratch/stub-compare-inconclusive.sh"
+cat >"$stub_compare_inconclusive" <<'EOF'
+#!/usr/bin/env bash
+echo "INCONCLUSIVE"
+echo "  reason: branch-budget-exhausted" >&2
+exit 3
+EOF
+chmod +x "$stub_compare_inconclusive"
+
+run_with_compare_tool() {
+  local MUTATION_COMPARE_TOOL="$1"
+  shift
+  check_mutated_netlist_rejected "$@"
+}
+
+run_case "comparator exit 3 (inconclusive) propagates as failure with diagnostic" \
+  run_with_compare_tool "$stub_compare_inconclusive" \
+  "$scratch/warmup/mutated.v" "$ROOT/evidence/warmup-extracted.v"
+if [ "$CASE_RC" -eq 3 ] \
+    && grep -q 'exited 3' <<<"$CASE_ERR" \
+    && grep -q 'branch-budget-exhausted' <<<"$CASE_ERR" \
+    && ! grep -q '(ok)' <<<"$CASE_OUT"; then
+  pass "$CASE_LABEL"
+else
+  err "$CASE_LABEL (rc=$CASE_RC, stdout=$CASE_OUT, stderr=$CASE_ERR)"
+fi
+
+# 5. Mutation generation failure must fail even if a stale damaged file exists.
 cp "$scratch/warmup/mutated.v" "$scratch/stale-mutated.v"
 run_case "mutation failure fails even with stale damaged output on disk" \
   check_extraction_mutation "$scratch/no-such-input.v" "$scratch/stale-mutated.v" "$ROOT/evidence/warmup-extracted.v"
@@ -179,7 +210,7 @@ else
   err "$CASE_LABEL (rc=$CASE_RC, stdout=$CASE_OUT, stderr=$CASE_ERR)"
 fi
 
-# 5. Argument validation.
+# 6. Argument validation.
 run_case "check_extraction_mutation rejects wrong argument count" \
   check_extraction_mutation "$ROOT/evidence/warmup-extracted.v" "$scratch/only-two.v"
 if [ "$CASE_RC" -eq 2 ] && grep -q 'Usage:' <<<"$CASE_ERR"; then

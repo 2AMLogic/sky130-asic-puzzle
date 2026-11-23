@@ -10,14 +10,17 @@
 # not demand the +x bit a sourced file deliberately does not carry (same
 # convention as scripts/lib/klt-lvs-preamble.sh, issue #131).
 #
-# tools/compare defines three exit codes (tools/compare:55-57):
+# tools/compare defines four exit codes (tools/compare:60-63):
 #   0  equivalent
 #   1  not equivalent (the ONLY outcome that establishes mutation detection)
 #   2  usage, I/O, or parse error
+#   3  inconclusive — the branch budget ran out before the search could
+#      decide (issue #199)
 # Treating any nonzero exit as "rejected" turns an unreadable input or tool
-# error (exit 2) into a false pass. These helpers require successful mutation
-# generation, accept only comparator exit 1, and surface unexpected exits with
-# their diagnostics.
+# error (exit 2), or an undecided search (exit 3), into a false pass. These
+# helpers require successful mutation generation, accept only comparator exit
+# 1, and surface unexpected exits (exit 3 propagates through the catch-all
+# below) with their diagnostics.
 
 # Verify that tools/compare rejects <mutated> against <reference> with exit 1.
 # Exits/returns 0 on comparator exit 1, 1 on comparator exit 0 (false accept),

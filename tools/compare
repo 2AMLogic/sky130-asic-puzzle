@@ -23,6 +23,9 @@ Algorithm
    second pass separates them by their full pin/neighbour signature.  Genuinely
    symmetric structures that survive both are resolved by a bounded backtracking
    search, so a symmetric circuit is decided rather than reported as a failure.
+   When the bound itself stops the search before it decides, the verdict is
+   INCONCLUSIVE, never a false finding of non-equivalence (the two are kept
+   apart all the way to the exit status).
 4. **Verify independently.**  Whatever produced the mapping, the final answer is
    only ever "equivalent" after a separate full re-check of the witness: every
    instance's cell type and pin set, every pin's net under the mapping, every
@@ -37,7 +40,9 @@ Fill cells (`tapvpwrvgnd_*`, `decap_*`, …) carry no signal connectivity, so th
 are reported as a separate matched-by-count class rather than being required to
 correspond 1:1.
 
-Exit status: 0 equivalent, 1 not equivalent, 2 usage/parse error.
+Exit status: 0 equivalent, 1 not equivalent, 2 usage/parse error, 3 inconclusive
+(the branch budget ran out before the search could decide; `equivalent` is null
+in the JSON report).
 """
 
 from __future__ import annotations
@@ -55,8 +60,11 @@ import verilog_netlist as vn  # noqa: E402
 EXIT_EQUIVALENT = 0
 EXIT_NOT_EQUIVALENT = 1
 EXIT_ERROR = 2
+EXIT_INCONCLUSIVE = 3
 
 DEFAULT_BRANCH_BUDGET = 20000
+
+BUDGET_EXHAUSTED = "branch-budget-exhausted"
 
 
 # --------------------------------------------------------------------------
@@ -115,7 +123,12 @@ class Side:
 
 
 class Mismatch(Exception):
-    """A definite, localised structural difference."""
+    """A definite, localised structural difference.
+
+    The one non-difference passenger is the `BUDGET_EXHAUSTED` kind: a record
+    of the search giving up, built by `Matcher.run` from a `BudgetExhausted`
+    signal and reported as INCONCLUSIVE rather than not-equivalent.
+    """
 
     def __init__(self, kind: str, summary: str, detail: dict):
         super().__init__(summary)
@@ -135,6 +148,21 @@ class Mismatch(Exception):
             else:
                 lines.append(f"    {key}: {value}")
         return lines
+
+
+class BudgetExhausted(Exception):
+    """A pending backtracking guess would exceed the branch budget.
+
+    Deliberately not a `Mismatch`: it is a fact about the search, not about the
+    netlists, so it unwinds straight out of `Matcher.solve`'s recursion without
+    being recorded as a rejected candidate and without replacing
+    `first_failure`; `Matcher.run` converts it into the inconclusive report.
+    """
+
+    def __init__(self, pending_a: str, depth: int):
+        super().__init__(f"branch budget exhausted before deciding instance {pending_a!r} in A")
+        self.pending_a = pending_a
+        self.depth = depth
 
 
 # --------------------------------------------------------------------------
@@ -169,6 +197,7 @@ class Matcher:
         self.a = a
         self.b = b
         self.branch_budget = branch_budget
+        self.branch_budget_total = branch_budget
         self.deferred: set[str] = set()
         self.first_failure: Mismatch | None = None
 
@@ -449,7 +478,7 @@ class Matcher:
         rejected: list[str] = []
         for ib in cands:
             if self.branch_budget <= 0:
-                break
+                raise BudgetExhausted(ia, depth)
             self.branch_budget -= 1
             trial = st.copy()
             try:
@@ -497,7 +526,23 @@ class Matcher:
                     self.match_net(st, const, const, "constant net")
         except Mismatch as mm:
             return None, mm
-        solved = self.solve(st)
+        try:
+            solved = self.solve(st)
+        except BudgetExhausted as exhausted:
+            pending = self.a.inst[exhausted.pending_a]
+            return None, Mismatch(
+                BUDGET_EXHAUSTED,
+                "the branch budget ran out before the correspondence search could "
+                "decide — this is inconclusive, not a finding of non-equivalence",
+                {
+                    "branch budget": self.branch_budget_total,
+                    "pending guess": (
+                        f"instance {exhausted.pending_a!r} in A ({pending.cell}) — "
+                        "signal-compatible candidates were left untried"
+                    ),
+                    "recursion depth": exhausted.depth,
+                },
+            )
         if solved is None:
             return None, self.first_failure or Mismatch(
                 "unresolved", "no correspondence could be established", {}
@@ -602,7 +647,15 @@ def build_report(a: Side, b: Side, st: State | None, mismatch: Mismatch | None, 
     }
 
     fill_fatal = bool(fill_diff) and args.strict_fill
-    if st is not None and mismatch is None:
+    if mismatch is not None and mismatch.kind == BUDGET_EXHAUSTED:
+        # Neither equivalent (True) nor not-equivalent (False): the search gave
+        # up, so the JSON verdict is null and nothing was verified.
+        report["equivalent"] = None
+        report["verification"] = {"checked": False, "problems": []}
+        report["instances_matched"] = 0
+        report["nets_matched"] = 0
+        report["failure"] = mismatch.to_json()
+    elif st is not None and mismatch is None:
         problems = verify(a, b, st)
         report["verification"] = {"checked": True, "problems": problems}
         report["instances_matched"] = len(st.inst_ab)
@@ -649,7 +702,9 @@ def build_report(a: Side, b: Side, st: State | None, mismatch: Mismatch | None, 
 
 def render_text(report: dict, mismatch: Mismatch | None) -> str:
     lines: list[str] = []
-    if not report["equivalent"]:
+    if report["equivalent"] is None:
+        verdict = "INCONCLUSIVE"
+    elif not report["equivalent"]:
         verdict = "NOT EQUIVALENT"
     elif report["fill"]["matched_by_count"]:
         verdict = "EQUIVALENT"
@@ -678,8 +733,10 @@ def render_text(report: dict, mismatch: Mismatch | None) -> str:
             f"(A has {a['nets']}, B has {b['nets']})"
         )
     else:
+        undecided = report["equivalent"] is None
+        cells_note = "search stopped before deciding" if undecided else "no complete correspondence"
         lines.append(
-            f"  signal cells       no complete correspondence "
+            f"  signal cells       {cells_note} "
             f"(A has {a['signal_instances']}, B has {b['signal_instances']})"
         )
         lines.append(f"  nets               A has {a['nets']}, B has {b['nets']}")
@@ -702,7 +759,16 @@ def render_text(report: dict, mismatch: Mismatch | None) -> str:
             + ("passed" if not problems else f"FAILED ({len(problems)} problems)")
         )
     lines.append("")
-    if not report["equivalent"]:
+    if report["equivalent"] is None:
+        lines.append("Search stopped:")
+        if mismatch is not None:
+            lines.extend(mismatch.render())
+        else:
+            failure = report.get("failure", {})
+            lines.append(f"  reason: {failure.get('kind')}")
+            lines.append(f"  {failure.get('summary', '')}")
+        lines.append("")
+    elif not report["equivalent"]:
         lines.append("First difference:")
         if mismatch is not None:
             lines.extend(mismatch.render())
@@ -753,7 +819,8 @@ def main(argv: list[str] | None = None) -> int:
         "--branch-budget",
         type=int,
         default=DEFAULT_BRANCH_BUDGET,
-        help="maximum backtracking guesses before giving up (default: %(default)s)",
+        help="maximum backtracking guesses before the search gives up as "
+        "INCONCLUSIVE, exit 3 (default: %(default)s)",
     )
     args = parser.parse_args(argv)
 
@@ -781,6 +848,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(render_text(report, mismatch), end="")
 
+    if report["equivalent"] is None:
+        return EXIT_INCONCLUSIVE
     return EXIT_EQUIVALENT if report["equivalent"] else EXIT_NOT_EQUIVALENT
 
 

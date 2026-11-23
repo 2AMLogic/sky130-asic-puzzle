@@ -128,8 +128,9 @@ jobs:
       - name: Extraction mutation check selftest (no PDK, no puzzle files)
         # issue #194: exercises the shared drop-instance mutation helper
         # (scripts/lib/extraction-mutation-check.sh) against committed extracted
-        # Verilog references for all three tools/compare outcomes (0 accept ->
-        # fail, 1 mismatch -> pass, 2 error/missing -> fail with diagnostic)
+        # Verilog references for all four tools/compare outcomes (0 accept ->
+        # fail, 1 mismatch -> pass, 2 error/missing -> fail with diagnostic,
+        # 3 inconclusive/branch-budget-exhausted -> fail with diagnostic, #199)
         # plus mutation-generation failure.
         run: ./scripts/test-extraction-mutation-check.sh
 
