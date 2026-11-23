@@ -21,6 +21,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=scripts/lib/extraction-mutation-check.sh
+source "$ROOT/scripts/lib/extraction-mutation-check.sh"
+
 FETCH=1
 REQUIRE_KLT=0
 for arg in "$@"; do
@@ -82,13 +85,7 @@ if command -v klt >/dev/null 2>&1; then
   KLT_RESULT="PASSED (equivalent to puzzle-extracted.v)"
 
   echo; echo "4. Mutation check: a dropped instance must be rejected"; hr
-  "$ROOT/tools/rename" --no-rename --mutate drop-instance \
-      "$BUILD/puzzle-klt.v" -o "$BUILD/puzzle-klt-mutated.v"
-  if "$ROOT/tools/compare" "$BUILD/puzzle-klt-mutated.v" "$GOLDEN" >/dev/null 2>&1; then
-    echo "FAILED — comparator accepted a netlist with an instance removed." >&2
-    exit 1
-  fi
-  echo "mutation check: comparator rejects a damaged netlist (ok)"
+  check_extraction_mutation "$BUILD/puzzle-klt.v" "$BUILD/puzzle-klt-mutated.v" "$GOLDEN"
 fi
 
 echo; hr

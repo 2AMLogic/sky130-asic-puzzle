@@ -86,15 +86,6 @@ SUPPLY_NET_NAMES = frozenset(SUPPLY_PIN_NET.values())
 # `gds_pins`, which needs `klayout.db` at import time). Used at the port
 # direction guess in `extract()` below.
 
-# The (layer, datatype) pairs that carry a top-level net's name as GDS text
-# (`gds_layers.TOP_PORT_LABEL_SOURCES`): met3 for signal port names, met4 and
-# met5 for supply rail names -- both of the latter carry *both* "VPWR" and
-# "VGND" text (the rail mesh is routed on both layers), so which of the two
-# a label counts as is decided by the string itself, not by which of these
-# layers it sits on.
-_ALL_LABEL_SOURCES = tuple(TOP_PORT_LABEL_SOURCES)
-
-
 class ExtractionError(RuntimeError):
     """A pin could not be resolved to exactly one net, or the geometric
     connectivity trace found a real defect (a signal net shorted to a supply
@@ -130,12 +121,6 @@ class _UnionFind:
         if rb < ra:
             ra, rb = rb, ra
         self.parent[rb] = ra
-
-    def groups(self) -> dict[tuple[int, int], set[tuple[int, int]]]:
-        out: dict[tuple[int, int], set[tuple[int, int]]] = {}
-        for node in self.parent:
-            out.setdefault(self.find(node), set()).add(node)
-        return out
 
 
 # ---------------------------------------------------------------------------
@@ -390,9 +375,6 @@ def extract(layout, source: str, top_name: str | None = None) -> ExtractionResul
     islands = {L: _LayerIslands.build(L, conductor_raw[L]) for L in CONDUCTOR_LAYERS}
 
     uf = _UnionFind()
-    for L in CONDUCTOR_LAYERS:
-        for i in range(len(islands[L].polygons)):
-            uf.find((L, i))  # register every island, even one nothing bridges to
 
     for L in VIA_LAYERS:
         below, above = islands[L], islands[L + 1]
@@ -413,14 +395,26 @@ def extract(layout, source: str, top_name: str | None = None) -> ExtractionResul
         stats.via_bridge_counts[VIA_NAME[L]] = {"bridged": bridged, "unmatched": unmatched}
 
     # -- 5/6. name nets from top-level GDS text labels ----------------------
+    # The (layer, datatype) pairs that carry a top-level net's name as GDS text
+    # (`gds_layers.TOP_PORT_LABEL_SOURCES`): met3 for signal port names, met4 and
+    # met5 for supply rail names -- both of the latter carry *both* "VPWR" and
+    # "VGND" text (the rail mesh is routed on both layers), so which of the two
+    # a label counts as is decided by the string itself, not by which of these
+    # layers it sits on.
     root_labels: dict[tuple[int, int], set[str]] = {}
-    for layer_num, datatype in _ALL_LABEL_SOURCES:
+    port_order: list[str] = []
+    seen_ports: set[str] = set()
+    for layer_num, datatype in TOP_PORT_LABEL_SOURCES:
         li = layout.layer(layer_num, datatype)
         layer_islands = islands[layer_num]
         for shape in top.each_shape(li):
             if not shape.is_text():
                 continue
             name = shape.text.string
+            if layer_num == 70 and name not in seen_ports:
+                # only the signal label layer (met3, 70/5) defines module ports
+                seen_ports.add(name)
+                port_order.append(name)
             hits = layer_islands.query(_tiny_box(shape.text_pos))
             if not hits:
                 raise ExtractionError(
@@ -574,19 +568,6 @@ def extract(layout, source: str, top_name: str | None = None) -> ExtractionResul
     stats.supply_pin_connections = supply_pin_connections
 
     # -- ports + direction ---------------------------------------------------
-    port_order: list[str] = []
-    seen_ports: set[str] = set()
-    for layer_num, datatype in _ALL_LABEL_SOURCES:
-        if layer_num != 70:  # only the signal label layer defines module ports
-            continue
-        li = layout.layer(layer_num, datatype)
-        for shape in top.each_shape(li):
-            if not shape.is_text():
-                continue
-            nm = shape.text.string
-            if nm not in seen_ports:
-                seen_ports.add(nm)
-                port_order.append(nm)
 
     # Guess each port's direction from the pin names on its net: driven by a
     # cell output -> `output`, otherwise `input`. `tools/compare` does not use

@@ -32,7 +32,7 @@ from tools.sim import bmc
 from tools.sim.celltable import CellTable, derive_cell_tables, load_tables, save_tables
 from tools.sim.icarus import IcarusNotFoundError, SimResult, compile_and_run
 from tools.sim.pdk import PdkResolutionError, ResolvedModels, resolve_sky130_models
-from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model, simulate
+from tools.sim.seqmodel import FF_CELLS, SeqModel, build_model
 from tools.sim.testbench import (
     SequenceExpectation,
     build_sequence_testbench,
@@ -283,11 +283,6 @@ def enumerate_solutions(
     goal_lit = unrolling.output_lits[scenario.goal_cycle][scenario.goal_output]
     assumption = goal_lit if scenario.goal_value else -goal_lit
 
-    free_lits: list[int] = []
-    for port in free_ports:
-        for t in scenario.free_cycles(port):
-            free_lits.append(unrolling.input_lits[t][port])
-
     report = SolveReport(stats=dict(unrolling.stats), solver=solver_name, bound=scenario.cycles)
     blocking: list[list[int]] = []
     for _ in range(max_solutions):
@@ -325,19 +320,7 @@ def enumerate_solutions(
         )
         report.seconds_total += outcome.seconds
         report.exhausted = not outcome.sat
-    _ = free_lits
     return report
-
-
-def concrete_trace(
-    model: SeqModel, scenario: Scenario, solution: Solution, *, undriven_value: int = 0
-):
-    """Replay a solution through the fast cycle model (a pre-Icarus sanity check)."""
-    seq = [
-        {port: solution.inputs[t].get(port, 0) for port in model.inputs}
-        for t in range(scenario.cycles)
-    ]
-    return simulate(model, seq, undriven_value=undriven_value)
 
 
 # --------------------------------------------------------------------------

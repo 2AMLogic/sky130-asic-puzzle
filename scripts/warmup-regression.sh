@@ -37,6 +37,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck source=scripts/lib/extraction-mutation-check.sh
+source "$ROOT/scripts/lib/extraction-mutation-check.sh"
+
 FETCH=1
 REQUIRE_KLT=0
 for arg in "$@"; do
@@ -120,14 +123,8 @@ else
   "$ROOT/tools/compare" "$KLT_NETLIST" "$GOLDEN"
   KLT_RESULT="PASSED (equivalent to 01_netlist.v)"
   # Mutation check: the step must be able to fail. Drop one signal instance from
-  # the converted netlist and require the comparator to reject it.
-  "$ROOT/tools/rename" --no-rename --mutate drop-instance \
-      "$KLT_NETLIST" -o "$BUILD/warmup-klt-mutated.v"
-  if "$ROOT/tools/compare" "$BUILD/warmup-klt-mutated.v" "$GOLDEN" >/dev/null 2>&1; then
-    echo "FAILED — comparator accepted a netlist with an instance removed." >&2
-    exit 1
-  fi
-  echo "mutation check: comparator rejects a damaged klt netlist (ok)"
+  # the converted netlist and require the comparator to reject it (exit 1).
+  check_extraction_mutation "$KLT_NETLIST" "$BUILD/warmup-klt-mutated.v" "$GOLDEN"
 fi
 echo "klt cross-check: $KLT_RESULT"
 

@@ -7,7 +7,7 @@ overwritten wholesale on each update — do not hand-edit it. See
 maintained.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-21T18:53:56Z (snapshot; compare against live labels)_
+_Generated: 2026-11-23T03:58:00Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -18,7 +18,7 @@ _None._
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
+_None._
 
 ## Important
 
@@ -36,29 +36,35 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
 - **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
-- **#164**: Share GDS label-to-polygon matching between the pin reporter and extractor
+- **#172**: Share the sequence-testbench CYCLE stdout parser: CYCLE_RE and sample loop are duplicated in solve.py and selftest_answer.py
+- **#174**: Remove the obsolete extraction blocker from VCD replay help and docstrings
+- **#178**: Derive Icarus simulation success from the vvp exit code
+- **#182**: Remove redundant backtracking guesses after a netlist signature mismatch
+- **#186**: CI gates the warm-up envelopes' input hashes but not their recorded verdicts
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#167**: ci: gate warm-up LVS envelopes with klt lvs --check and record Run 3
-- **#168**: refactor: share GDS label-to-polygon matching between pin resolvers
+- **#176**: refactor(sim): share the CYCLE stdout parser in testbench.parse_sequence_samples
+- **#179**: fix: derive Icarus sim success from vvp exit code
+- **#189**: fix: drop tools/compare fallback to signature-incompatible backtracking guesses
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#175**: docs: retire the stale #2 blocker from the VCD replay docstrings
+- **#188**: ci: assert committed warm-up LVS envelope verdicts ahead of puzzle fetch
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
-- **#159**: Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it *(curated)*
 - **#160**: Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result *(curated)*
+- **#182**: Remove redundant backtracking guesses after a netlist signature mismatch *(curated)*
+- **#186**: CI gates the warm-up envelopes' input hashes but not their recorded verdicts *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -73,13 +79,13 @@ _None._
 | Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 0 |
-| Very important | 1 |
+| Very important | 0 |
 | Important | 1 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 2 |
+| In Progress (`loom:building`) | 6 |
+| PRs awaiting review | 3 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 3 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
