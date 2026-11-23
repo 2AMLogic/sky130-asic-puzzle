@@ -108,14 +108,18 @@ CROSSED_B = module(
     f" {BUF} s (.A(m1), .X(o0));\n"
 )
 
-# a genuine automorphism: two identical inverters on the same input, feeding the
-# two inputs of a symmetric-looking pair of gates.  Deterministic propagation
-# cannot decide this; the backtracking search must.
+# a genuine automorphism: two identical inverters driven by the same input,
+# each with its own internal output wire.  Nothing distinguishes them -- no
+# named port reveals which is which -- so deterministic propagation cannot
+# decide the correspondence; the backtracking search must.  (The earlier
+# version of this fixture fed the inverters into NANDs driving separately
+# named top-level ports, which named the NANDs and thereby the inverters;
+# propagation alone solved it and `--branch-budget 0` still passed.)
 SYMMETRIC_A = module(
     f" {INV} a1 (.A(i0), .Y(x1));\n"
-    f" {INV} a2 (.A(i0), .Y(x2));\n"
-    f" {NAND} g1 (.A(x1), .B(x2), .Y(o0));\n"
-    f" {NAND} g2 (.A(x2), .B(x1), .Y(o1));\n"
+    f" {INV} a2 (.A(i0), .Y(x2));\n",
+    decls=" input i0;\n wire x1;\n wire x2;\n",
+    ports="i0",
 )
 
 COMMUTATIVE_A = module(
@@ -219,6 +223,12 @@ def synthetic_checks(tmp: str) -> None:
 
     sym_ren = os.path.join(tmp, "sym_renamed.v")
     run([sys.executable, RENAME, sa, "--seed", "5", "-o", sym_ren])
+    code, out = compare(sa, sym_ren, "--branch-budget", "0")
+    expect(
+        "synthetic: automorphic circuit cannot be decided without a guess",
+        code == 1 and "no-consistent-correspondence" in out,
+        out,
+    )
     code, out = compare(sa, sym_ren)
     expect(
         "synthetic: automorphic circuit is decided by the backtracking search", code == 0, out
