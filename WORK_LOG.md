@@ -11,6 +11,12 @@ updated.
 
 ### 2026-11-23
 
+- **PR #200**: fix: report branch-budget exhaustion in tools/compare as INCONCLUSIVE, exit 3
+- **PR #198**: test: make the automorphism fixture actually require a backtracking guess
+- **PR #176**: refactor(sim): share the CYCLE stdout parser in testbench.parse_sequence_samples
+- **Issue #199** (closed): tools/compare: budget exhaustion is reported as 'no correspondence exists', indistinguishable from a proof of non-equivalence
+- **Issue #196** (closed): Simplify the backtracking fixture so it actually requires a guess
+- **Issue #172** (closed): Share the sequence-testbench CYCLE stdout parser: CYCLE_RE and sample loop are duplicated in solve.py and selftest_answer.py
 - **PR #195**: fix: require comparator exit 1 in shared extraction mutation check
 - **PR #193**: refactor: remove five never-called helpers from tools/
 - **PR #189**: fix: drop tools/compare fallback to signature-incompatible backtracking guesses
