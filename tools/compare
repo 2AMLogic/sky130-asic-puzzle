@@ -408,8 +408,6 @@ class Matcher:
                 for j in by_cell_b[self.a.inst[i].cell]
                 if self._signature(self.b, st, j, False) == sig
             ]
-            if not cands:
-                cands = by_cell_b[self.a.inst[i].cell]
             if best is None or len(cands) < best[0]:
                 best = (len(cands), i, cands)
             if best[0] <= 1:
@@ -435,8 +433,9 @@ class Matcher:
         if not cands:
             mm = Mismatch(
                 "no-candidate",
-                f"instance {ia!r} in A has no unmatched instance of cell "
-                f"{self.a.inst[ia].cell!r} left in B to correspond to",
+                f"instance {ia!r} in A has no signature-compatible partner left in B "
+                f"to correspond to (unmatched {self.a.inst[ia].cell!r} instances may "
+                f"still exist in B)",
                 {
                     "cell": self.a.inst[ia].cell,
                     "pins": ", ".join(
