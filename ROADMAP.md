@@ -70,15 +70,16 @@ Street's 15 featured writeups against our record one by one: the dated amendment
 
 **Upstream findings.** Ten toolkit gaps have been filed from this repo
 (`evidence/upstream.md:10-19`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
-#5631, #5632 and #5693. The first seven read as closed on the upstream tracker today;
-**#5631, #5632 and #5693 are open** — the two `klt lvs` findings from #74 and the
-port-name reader defect the puzzle-scale run filed for #76 — so the `02` comparison, the
-cheap `--check` re-verification and a clean re-run of the puzzle compare are blocked
-upstream rather than here. All seven closed ones have been re-verified against a `klt`
-that contains the fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by
-Run 2 above, and #673, #674 and #675 by the dated verification rows in
-`evidence/upstream.md`, run 2026-11-21 under #160
-(`klt 0.9.3.dev2575+g6bd18bbc8637`) — each agrees with its local evidence script.
+#5631, #5632 and #5693. Eight read as closed on the upstream tracker today (the first
+seven, plus #5631, closed 2026-11-16); **#5632 and #5693 are open** — the `klt lvs`
+finding from #74 and the port-name reader defect the puzzle-scale run filed for #76 — so
+the `02` comparison and a clean re-run of the puzzle compare are blocked upstream rather
+than here. Seven of the eight closed ones have been re-verified against a `klt` that
+contains the fix: #619 and #620 by `evidence/klt-extract.md`, #3748 and #3749 by Run 2
+above, and #673, #674 and #675 by the dated verification rows in `evidence/upstream.md`,
+run 2026-11-21 under #160 (`klt 0.9.3.dev2575+g6bd18bbc8637`) — each agrees with its
+local evidence script. #5631's closed-loop re-verification is still open work, tracked
+by #159.
 
 **Tracker.** Nine issues are open. Two curated items are in flight behind their pull
 requests — #106 (celltable's fourth local supply-pin set, PR #115) and #112 (GDS-open
@@ -137,9 +138,9 @@ then listed here.
 is blocked on a triage decision (whether `sim-selftests.sh` should now gate
 `selftest_solve`, whose "blocked on #98" skip is stale); #30 is the automated
 merge-hold digest, not work. Nothing else here waits on a person. Nothing waits on an
-upstream release, but the `02` comparison, the cheap `--check` re-verification and a
-clean re-run of the puzzle compare cannot be resolved from this side while
-klayout-tools#5632, #5631 and #5693 are open.
+upstream release, but the `02` comparison and a clean re-run of the puzzle compare
+cannot be resolved from this side while
+klayout-tools#5632 and #5693 are open.
 
 ## Not planned
 

@@ -116,8 +116,9 @@ corrected in [`evidence/upstream.md`](evidence/upstream.md) — and
 side on 2026-11-21 under closed #160 (`klt 0.9.3.dev2575+g6bd18bbc8637`): the layer-
 selective render crop, the full-layout components report and the flattened shape-and-text
 census each agree with the local evidence scripts, recorded as dated rows in
-[`evidence/upstream.md`](evidence/upstream.md). One finding filed from this
-side is still **open** upstream:
+[`evidence/upstream.md`](evidence/upstream.md). Two findings filed from this
+side are still **open** upstream, [klayout-tools#5693](https://github.com/2AMLogic/klayout-tools/issues/5693)
+(a port-name reader defect) and
 [klayout-tools#5632](https://github.com/2AMLogic/klayout-tools/issues/5632): with
 `--abstract-cell-lef`, the merged substrate pin binds to the deck's synthesized `vsubs`
 global, which no abstracted cell ties to the ground rail, so a PG-pin gate-level reference
