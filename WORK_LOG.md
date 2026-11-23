@@ -11,6 +11,16 @@ updated.
 
 ### 2026-11-23
 
+- **PR #202**: fix: fail puzzle-klt-lvs.sh when a pinned LVS verdict moves
+- **PR #188**: ci: assert committed warm-up LVS envelope verdicts ahead of puzzle fetch
+- **PR #179**: fix: derive Icarus sim success from vvp exit code
+- **PR #175**: docs: retire the stale #2 blocker from the VCD replay docstrings
+- **PR #169**: docs: confirm upstream klt fixes #673/#674/#675 from this side
+- **Issue #186** (closed): CI gates the warm-up envelopes' input hashes but not their recorded verdicts
+- **Issue #178** (closed): Derive Icarus simulation success from the vvp exit code
+- **Issue #174** (closed): Remove the obsolete extraction blocker from VCD replay help and docstrings
+- **Issue #165** (closed): scripts/puzzle-klt-lvs.sh still exits 0 on a moved compare verdict
+- **Issue #160** (closed): Confirm klayout-tools #673, #674 and #675 from this side: run the klt command that replaces each local evidence script on puzzle.gds and record the result
 - **PR #200**: fix: report branch-budget exhaustion in tools/compare as INCONCLUSIVE, exit 3
 - **PR #198**: test: make the automorphism fixture actually require a backtracking guess
 - **PR #176**: refactor(sim): share the CYCLE stdout parser in testbench.parse_sequence_samples
