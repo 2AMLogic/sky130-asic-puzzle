@@ -11,6 +11,8 @@ updated.
 
 ### 2026-11-23
 
+- **PR #210**: docs: drop standing open-PR total from ROADMAP tracker paragraph
+- **Issue #208** (closed): ROADMAP Tracker asserts a self-counting open-PR total that self-invalidates (ROADMAP.md:102)
 - **PR #204**: docs: refresh stale README/ROADMAP status counts and tracker inventory
 - **Issue #203** (closed): Stale status counts in README.md and ROADMAP.md: "five further findings closed", upstream.md:10-19 line span, "Nine issues are open"
 - **Issue #192** (closed): Loom: concurrent Guide passes open duplicate docs PRs, and Judge's docs fast-path Step 4 reads a gh field 2.102.0 lacks
