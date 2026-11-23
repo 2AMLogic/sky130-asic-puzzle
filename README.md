@@ -109,17 +109,22 @@ upstream, [#3748](https://github.com/2AMLogic/klayout-tools/issues/3748) and
 [#3749](https://github.com/2AMLogic/klayout-tools/issues/3749) were re-verified from this
 side on 2026-11-14 under closed #74 — the result is recorded in
 [`evidence/warmup-klt-lvs.md`](evidence/warmup-klt-lvs.md) Run 2 and the rows for both are
-corrected in [`evidence/upstream.md`](evidence/upstream.md) — while
+corrected in [`evidence/upstream.md`](evidence/upstream.md) — and
 [#673](https://github.com/2AMLogic/klayout-tools/issues/673),
 [#674](https://github.com/2AMLogic/klayout-tools/issues/674) and
-[#675](https://github.com/2AMLogic/klayout-tools/issues/675) are closed upstream but not
-yet re-checked here (no tracking issue exists for that yet). One finding filed from this
+[#675](https://github.com/2AMLogic/klayout-tools/issues/675) were re-verified from this
+side on 2026-11-21 under closed #160 (`klt 0.9.3.dev2575+g6bd18bbc8637`): the layer-
+selective render crop, the full-layout components report and the flattened shape-and-text
+census each agree with the local evidence scripts, recorded as dated rows in
+[`evidence/upstream.md`](evidence/upstream.md). One finding filed from this
 side is still **open** upstream:
-[klayout-tools#5632](https://github.com/2AMLogic/klayout-tools/issues/5632): with
-`--abstract-cell-lef`, the merged substrate pin binds to the deck's synthesized `vsubs`
-global, which no abstracted cell ties to the ground rail, so a PG-pin gate-level reference
-still cannot match — Run 2 leaves `02_netlist_with_power_rails.v` at mismatch (243
-mismatches). [`WORK_PLAN.md`](WORK_PLAN.md) holds what remains (the prioritized roadmap
+[klayout-tools#7561](https://github.com/2AMLogic/klayout-tools/issues/7561), a pad-route
+join that shorts anonymous nets into a named rail, found by the puzzle LVS baseline run.
+[klayout-tools#5632](https://github.com/2AMLogic/klayout-tools/issues/5632) (the
+`--abstract-cell-lef` merged substrate pin binding to the deck's synthesized `vsubs`
+global, so a PG-pin gate-level reference could not match; Run 2 left
+`02_netlist_with_power_rails.v` at mismatch, 243 mismatches) closed upstream on
+2026-11-23 and has not been re-run from this side yet. [`WORK_PLAN.md`](WORK_PLAN.md) holds what remains (the prioritized roadmap
 lands in #73). The gate-level-LVS seam this puzzle also exercised was
 flagged in [`2AMLogic/sky130-modexp#8`](https://github.com/2AMLogic/sky130-modexp/issues/8);
 that issue closed completed on 2026-08-15, with the deck's coverage gaps stated in its

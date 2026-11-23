@@ -75,19 +75,20 @@ Street's 15 featured writeups against our record one by one: the dated amendment
 
 **Upstream findings.** Eleven toolkit gaps have been filed from this repo
 (`evidence/upstream.md:10-19`): klayout-tools #619, #620, #673, #674, #675, #3748, #3749,
-#5631, #5632, #5693 and #7561. Nine read as closed on the upstream tracker today
-(#5693 closed 2026-11-23 by PR #7452); **#5632 and #7561 are open** — the `02`
-power-rail finding from #74, and the pad-route join that shorts anonymous nets
-into a named rail, found by the puzzle verdict's first baseline run (#165) — so
-a matching `02` comparison and a matching puzzle compare are blocked upstream
-rather than here. Six have been
+#5631, #5632, #5693 and #7561. Ten read as closed on the upstream tracker today
+(#5693 closed 2026-11-23 by PR #7452, #5632 closed the same day); **#7561 is open** —
+the pad-route join that shorts anonymous nets into a named rail, found by the puzzle
+verdict's first baseline run (#165) — so a matching puzzle compare is blocked upstream
+rather than here. Nine of the ten have been
 re-verified against a `klt` that contains the fix: #619 and #620 by `evidence/klt-extract.md`,
 #3748 and #3749 by Run 2 above, #5631 by Run 3 (fixed on `0.9.3.dev2572`; **not** in the
-published 0.9.2, so re-recording the envelopes waits for the next release), and #5693 by
+published 0.9.2, so re-recording the envelopes waits for the next release), #5693 by
 the puzzle Run 2 baseline on a throwaway build of the #7452 merge (`evidence/puzzle-klt-lvs.md`,
-Run 2 — the read succeeded; the mismatch it revealed is #7561). The
-remaining three — #673, #674 and #675 — are closed upstream but unconfirmed from this
-side, which is the main thing left to do (scoped under "Next").
+Run 2 — the read succeeded; the mismatch it revealed is #7561), and #673, #674 and #675
+by the dated verification rows in `evidence/upstream.md`, run 2026-11-21 under #160
+(`klt 0.9.3.dev2575+g6bd18bbc8637`) — each agrees with its local evidence script.
+#5632 closed too recently to have been re-run from this side: re-checking the `02`
+comparison against a `klt` that carries its fix is the remaining open step.
 
 **Tracker.** Nine issues are open. Two curated items are in flight behind their pull
 requests — #106 (celltable's fourth local supply-pin set, PR #115) and #112 (GDS-open
@@ -117,11 +118,8 @@ then listed here.
 
 ## Next
 
-- **Confirm klayout-tools #673, #674 and #675 from this side.** Each was found during the
-  physical-layout inspection and worked around with a local script under `evidence/`.
-  Done when `evidence/upstream.md` has a row per issue recording the `klt` command that now
-  does the job on `puzzle.gds`, the version used, and whether its result agrees with the
-  local script's. Sized as one PR per issue once the first shows the pattern.
+Nothing is scoped here: the open items are the upstream waits under "Blocked and
+waiting", and the earlier #159 and #160 work has landed.
 
 ## Later
 
@@ -141,8 +139,8 @@ then listed here.
 is blocked on a triage decision (whether `sim-selftests.sh` should now gate
 `selftest_solve`, whose "blocked on #98" skip is stale); #30 is the automated
 merge-hold digest, not work. Nothing else here waits on a person. The `02`
-comparison and a matching puzzle compare cannot be resolved from this side while
-klayout-tools#5632 and #7561 are open; re-recording the warm-up envelopes waits
+comparison cannot be re-checked until a released klt carries the #5632 fix, and a
+matching puzzle compare cannot be resolved while klayout-tools#7561 is open; re-recording the warm-up envelopes waits
 for the first klayout-tools release after 0.9.2 (#5631's fix), and no released klt
 yet carries the #5693 reader fix either — the puzzle Run 2 baseline had to build
 `6ca7e00` throwaway (#165).
