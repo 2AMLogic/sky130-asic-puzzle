@@ -209,6 +209,9 @@ def derive_cell_tables(
     )
     if not result.compiled:
         raise CellTableError(f"cell probe failed to compile:\n{result.compile_stderr}")
+    failure = result.failure_message()
+    if failure is not None:
+        raise CellTableError(f"cell probe failed:\n{failure}")
     if "PROBE DONE" not in result.run_stdout:
         raise CellTableError(f"cell probe did not finish:\n{result.run_stdout}\n{result.run_stderr}")
 

@@ -9,7 +9,7 @@ reused the name `rc` for an `int | None` helper result, clobbering
 (`raise SystemExit(None)`). Only a test that inspects main()'s *return
 value* can catch that class of regression.
 
-Four contracts asserted here:
+Contracts asserted here:
 
 1. `main([])` — missing required args — RAISES SystemExit with code exactly
    int 2 in all five CLIs. An exception, not a return value; asserted with
@@ -38,6 +38,9 @@ Four contracts asserted here:
    host, no HOME/PATH scrubbing. The pysat stub keeps the preamble's import
    gate satisfied so the run reaches the injected failure.
 
+5. Both solver CLIs keep their compile-failure format and send runtime
+   failures to stderr before printing any simulation results.
+
 Needs no PDK, no iverilog, no python-sat and no puzzle/ file: every input is
 synthetic (CLAUDE.md §3 — nothing from puzzle/ is ever read) and every
 scratch path lives under tempfile.mkdtemp(), so the run leaves the working
@@ -63,6 +66,7 @@ from tools.sim import (
     run_warmup_cross_check,
     run_warmup_directed,
 )
+from tools.sim.icarus import SimResult
 from tools.sim.pdk import INSTALL_HINT, PdkResolutionError
 
 # The five CLI entry points under test, in module order.
@@ -99,7 +103,7 @@ def _missing_argv(name: str, missing: Path) -> list[str]:
     return [str(missing) if arg == "{missing}" else arg for arg in BAD_INPUT_ARGS[name]]
 
 
-def _patched_collaborators(calls: dict, ok: bool):
+def _patched_collaborators(calls: dict, ok: bool, sim: SimResult):
     """Fakes for run_solve's four collaborators, recording each call.
 
     Shaped so the real main() walks its full solve-then-verify body:
@@ -134,7 +138,7 @@ def _patched_collaborators(calls: dict, ok: bool):
         exhausted=True,
     )
     result = SimpleNamespace(
-        sim=SimpleNamespace(compiled=True, run_stdout="RESULT PASS\n"),
+        sim=sim,
         samples=[{"cycle": scenario.goal_cycle, "success": "1"}],
         testbench="tb.v",
         command_note="fake command note",
@@ -237,7 +241,7 @@ class RunSolveReturnContractTest(unittest.TestCase):
     PR #101 reached review with).
     """
 
-    def _run_verify(self, ok: bool):
+    def _run_verify(self, ok: bool, cli=run_solve, sim: SimResult | None = None):
         calls: dict = {}
         captured = {}
         with tempfile.TemporaryDirectory(prefix="cli-selftest-") as tmp:
@@ -245,23 +249,22 @@ class RunSolveReturnContractTest(unittest.TestCase):
             work_dir = tmp_path / "solve-work"
             netlist = tmp_path / "synthetic.v"
             netlist.touch()
-            fakes = _patched_collaborators(calls, ok)
+            if sim is None:
+                sim = SimResult("", "", "RESULT PASS\n", "", 0, 0)
+            fakes = _patched_collaborators(calls, ok, sim)
             with contextlib.ExitStack() as stack:
                 stack.enter_context(
                     mock.patch.dict(sys.modules, {"pysat": ModuleType("pysat")}))
-                for target, fake in (
-                    ("tools.sim.run_solve.load_design_for_cli", fakes[0]),
-                    ("tools.sim.run_solve.windowed_scenario", fakes[1]),
-                    ("tools.sim.run_solve.enumerate_solutions", fakes[2]),
-                    ("tools.sim.run_solve.verify_by_simulation", fakes[3]),
-                ):
-                    stack.enter_context(mock.patch(target, fake))
-                stdout = io.StringIO()
-                with contextlib.redirect_stdout(stdout):
-                    rc = run_solve.main(
-                        ["--netlist", str(netlist), "--verify",
-                         "--work-dir", str(work_dir)])
+                for fake in fakes:
+                    stack.enter_context(mock.patch.object(cli, fake.__name__, fake))
+                stdout = stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                stderr = stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+                argv = ["--netlist", str(netlist), "--work-dir", str(work_dir)]
+                if cli is run_solve:
+                    argv.append("--verify")
+                rc = cli.main(argv)
                 captured["stdout"] = stdout.getvalue()
+                captured["stderr"] = stderr.getvalue()
         captured["calls"] = calls
         captured["work_dir"] = work_dir
         return rc, captured
@@ -287,6 +290,26 @@ class RunSolveReturnContractTest(unittest.TestCase):
     def test_verify_failure_returns_exact_int_2(self):
         rc, captured = self._run_verify(ok=False)
         self._assert_tail_reached(rc, captured, 2, "VERIFICATION FAILED")
+
+    def test_runtime_failure_precedes_result_output_in_both_solver_clis(self):
+        sim = SimResult("", "", "RESULT PASS\nFATAL: runtime failure\n", "loading simulation\n", 0, 1)
+        for cli in (run_solve, run_answer):
+            with self.subTest(cli=cli.__name__):
+                rc, captured = self._run_verify(False, cli, sim)
+                self.assertEqual(rc, 2)
+                self.assertNotIn("RESULT PASS", captured["stdout"])
+                self.assertIn("SIMULATION FAILED (exit 1)", captured["stderr"])
+                self.assertIn("FATAL: runtime failure", captured["stderr"])
+                self.assertIn("loading simulation", captured["stderr"])
+
+    def test_compile_failure_format_in_both_solver_clis(self):
+        sim = SimResult("", "syntax error", "", "", 1, None)
+        for cli in (run_solve, run_answer):
+            with self.subTest(cli=cli.__name__):
+                rc, captured = self._run_verify(False, cli, sim)
+                self.assertEqual(rc, 2)
+                self.assertTrue(captured["stdout"].endswith("compile FAILED\nsyntax error\n"))
+                self.assertEqual(captured["stderr"], "")
 
 
 def main() -> int:
