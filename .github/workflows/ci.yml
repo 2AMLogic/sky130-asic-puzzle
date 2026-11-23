@@ -122,6 +122,22 @@ jobs:
         # files; kept ahead of the fetch so it is embargo-trivial.
         run: tools/test-lvs-verdict
 
+      - name: Warm-up envelope verdicts as pinned (no PDK, no klt, no puzzle files)
+        # issue #186 (gap left by #158's gate): the selftest above covers the
+        # comparator on canned envelopes, and `klt lvs --check` only verifies
+        # the recorded INPUT hashes (environment.layout_sha256 /
+        # environment.reference_sha256) — nothing in CI asserted the committed
+        # envelopes' recorded VERDICTS (01 match, 02's pinned 243 mismatch)
+        # against evidence/warmup-klt-lvs-expected.json, since the comparator
+        # otherwise only runs at the tail of scripts/warmup-klt-lvs.sh in
+        # recording mode, which CI never invokes. This step runs it on the
+        # committed pair directly: a hand-edited or stale envelope whose input
+        # hashes stayed intact now fails CI with the moved value named. Needs
+        # no PDK, no klt on PATH and no puzzle/ files; kept ahead of the fetch
+        # so it is embargo-trivial and still runs if extraction cannot.
+        run: tools/lvs-verdict evidence/warmup-klt-lvs-expected.json
+          01:evidence/warmup-klt-lvs-01.json 02:evidence/warmup-klt-lvs-02.json
+
       - name: Warm-up LVS rejects invalid arguments before touching reports
         run: ./scripts/test-warmup-klt-lvs-args.sh
 
