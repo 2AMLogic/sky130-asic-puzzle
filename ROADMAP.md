@@ -99,8 +99,9 @@ simulation success from the vvp exit code) has closed with its pull request, PR 
 merged. Everything the earlier inventory carried has closed too: the curated pair #106
 (PR #115) and #112 (PR #120), the approval hold #100, the triage hold #118, the fresh
 filings #119, #121 and #122, and the operator-parked #78 — all eight checked closed via
-the GitHub API 2026-11-23. One pull request is open as this is written (PR #204, the
-one carrying this edit). `WORK_PLAN.md` is machine-generated and lags these filings.
+the GitHub API 2026-11-23. Open pull requests are not counted here, since any new PR
+would make a count wrong without a line changing. `WORK_PLAN.md` is machine-generated
+and lags these filings.
 
 ## Now
 
