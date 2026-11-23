@@ -9,6 +9,15 @@ updated.
 
 - [2026-08](work_log/WORK_LOG_2026-08.md)
 
+### 2026-11-23
+
+- **PR #173**: refactor: remove version forwarding from klt-extract
+- **PR #168**: refactor: share GDS label-to-polygon matching between pin resolvers
+- **PR #167**: ci: gate warm-up LVS envelopes with klt lvs --check and record Run 3
+- **Issue #171** (closed): Remove tools/klt-extract --version and klt_version(): dead, undocumented, and broken by required -o
+- **Issue #164** (closed): Share GDS label-to-polygon matching between the pin reporter and extractor
+- **Issue #159** (closed): Put the warm-up klt lvs result under CI now that klayout-tools#5631 is closed: re-verify --check on the nested puzzle/ clone and gate it
+
 ### 2026-11-22
 
 - **PR #181**: refactor: remove dead _UnionFind.groups and duplicate label pass in gds_extract
