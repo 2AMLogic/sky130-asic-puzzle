@@ -7,7 +7,7 @@ overwritten wholesale on each update — do not hand-edit it. See
 maintained.
 
 <!-- guide:plan-body:start -->
-_Generated: 2026-11-22T07:15:00Z (snapshot; compare against live labels)_
+_Generated: 2026-11-23T00:38:52Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
@@ -70,6 +70,7 @@ Issues carrying `loom:curated`.
 ## Proposed (Architect / Hermit)
 
 - **#78**: Remove dead code in tools/sim/solve.py: unreferenced concrete_trace() and the unused free_lits accumulation *(hermit)* *(held)*
+- **#182**: Remove redundant backtracking guesses after a netlist signature mismatch *(hermit)* *(held)*
 
 ## Epics
 
@@ -87,6 +88,6 @@ _None._
 | PRs awaiting review | 5 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 2 |
-| Architect / Hermit proposals | 1 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
