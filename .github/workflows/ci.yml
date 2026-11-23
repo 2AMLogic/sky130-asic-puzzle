@@ -125,6 +125,14 @@ jobs:
       - name: Warm-up LVS rejects invalid arguments before touching reports
         run: ./scripts/test-warmup-klt-lvs-args.sh
 
+      - name: Extraction mutation check selftest (no PDK, no puzzle files)
+        # issue #194: exercises the shared drop-instance mutation helper
+        # (scripts/lib/extraction-mutation-check.sh) against committed extracted
+        # Verilog references for all three tools/compare outcomes (0 accept ->
+        # fail, 1 mismatch -> pass, 2 error/missing -> fail with diagnostic)
+        # plus mutation-generation failure.
+        run: ./scripts/test-extraction-mutation-check.sh
+
       - name: Fetch upstream puzzle files
         # janestreet/asic-puzzle-2026 carries no license; these land in puzzle/,
         # which is gitignored, and are never committed (CLAUDE.md §3).
