@@ -20,6 +20,16 @@ own committed file and the layout-side names are already in it. The extracted
 layout netlist stays in `build/` (gitignored) — it is derived from a file that
 carries no license (`CLAUDE.md` §3).
 
+> **2026-11-23 (Run 2): three statements in Run 1 below have stopped being true
+> of this record.** klayout-tools#5693 is closed (by PR #7452, merge
+> `6ca7e00`), and on a build carrying the fix stage 2 produces its first report
+> — so an envelope **is** now committed under `evidence/`, the verdict is
+> **mismatch**, not the probe's old `match` (a new tool-side finding, filed as
+> klayout-tools#7561), and the run is now *gated*, not just recorded (#165):
+> `evidence/puzzle-klt-lvs-expected.json` pins the verdict and
+> `scripts/puzzle-klt-lvs.sh` exits nonzero if it moves. Run 1's text is left
+> as recorded.
+
 ## Run 1 — 2026-11-14
 
 Environment: Linux (AWS dispatch worker), `klt 0.9.2.dev1025+ga90545db9ea6`,
@@ -361,3 +371,157 @@ independently of anything here.
 
 Not added to CI: CI installs no PDK and does not fetch `puzzle/`, the same
 reason `evidence/warmup-klt-lvs.md` gives for the warm-up LVS.
+
+## Run 2 — 2026-11-23
+
+Why: klayout-tools#5693 closed (PR #7452, merge `6ca7e00`, 2026-11-23) — no
+released klt carries the fix yet (latest is 0.9.2), so per #165's guidance the
+baseline ran on a throwaway build of exactly that merge commit, and the CI pin
+stays at 0.9.2. This is the **first stage 2 report ever recorded**: the
+committed reference, `evidence/puzzle-extracted.v`, read as committed, escaped
+bracket ports and all.
+
+Environment: Linux (AWS dispatch worker), throwaway `uv venv` inside the
+worktree's gitignored `build/` from
+`git+https://github.com/2AMLogic/klayout-tools@6ca7e001c1879e588a3cf0e10faeee02d15c7cfe`
+— `klt 0.9.3.dev3831+g6ca7e001c187`, klayout 0.30.14 (klt warns on every
+compare that it was tested against 0.30.12 and that report *counts* may differ;
+`provenance.klayout_version_mismatch` is `true` in the envelope). PDK `sky130A`
+(open_pdks `f6eeac7dad08…`, under `~/.ciel`). Commands as scripted,
+`scripts/puzzle-klt-lvs.sh`, unchanged from Run 1 apart from the verdict gate
+this run lands (#165).
+
+**Headline: the reader fix works — and the verdict it reveals is `mismatch`,
+tool-side.** Stage 2 reads the reference and compares, exit 3 (a verdict):
+`mismatch`, 31 mismatches (29 errors). That is not what Run 1's isolating
+probe recorded (`match`, 2 warnings) on klt 0.9.2.dev1025 — and the probe
+*also* moved, to the identical `mismatch` 31, so the move is not about port
+spelling at all. Attribution below pins it to one upstream commit.
+
+### Two-build attribution (same host, same PDK, same engine)
+
+| klt | klayout | extract nets | probe | stage 2 |
+|---|---|---|---|---|
+| `0.9.2.dev1025+ga90545db9ea6` (Run 1's build, re-run here) | 0.30.14 | 869 | **match**, 2 warnings | exit 1, reader error (Run 1 verbatim) |
+| `0.9.3.dev2924+g262c5454952a` (parent of the suspect) | 0.30.14 | 869 | *(not re-run; extraction identical to the above)* | — |
+| `0.9.3.dev2925+g9edf835f5ac6` | 0.30.14 | **864** | *(not re-run)* | — |
+| `0.9.3.dev3831+g6ca7e001c187` (#7452 merge; baseline) | 0.30.14 | 864 | **mismatch 31/29** | **mismatch 31/29** |
+| `0.9.3.dev3993+g922fd6747463` (host tool) | 0.30.12 | 864 | mismatch 31/29 | mismatch 31/29 |
+
+The old build's re-run (first row) reproduces Run 1 exactly on this host —
+869 nets, probe `match`, stage 2 refused with the same reader error — and its
+run also demonstrates the error path #165 requires: the script propagated
+exit 1 and left the previously installed envelope in `evidence/` untouched.
+The flip is at **`9edf835f5ac6`** ("Join routed pads of an abstract cell pin
+without shorting named nets", #6742): its parent extracts 869 nets, it
+extracts 864. Engine-independent (0.30.12 and 0.30.14 agree).
+
+### What changed in the extraction
+
+`klt extract --abstract-cells` now emits two new warnings, verbatim:
+
+```
+--abstract-cells joined routed pads of the same pin: sky130_fd_sc_hd__a31oi_2_0.A1: $840 and $788; sky130_fd_sc_hd__diode_2_1.VNB: VGND and $663; sky130_fd_sc_hd__diode_2_2.VNB: VGND and $169; sky130_fd_sc_hd__diode_2_6.VNB: VGND and $1401; sky130_fd_sc_hd__diode_2_7.VNB: VGND and $358
+--abstract-cells pin pads have conflicting net names, kept separate: sky130_fd_sc_hd__diode_2_0.VNB: VGND, enable
+```
+
+(The first is one physical line, semicolon-joined; wrapped here. Net names are
+the extractor's own anonymous `$N` ids and globals.)
+
+Five joins. Four of them absorb an anonymous net into `VGND` through a
+**`diode_2` `VNB` pad**: `\$663` (13 instance connections), `\$169` (6),
+`\$358` (5), `\$1401` (3) — 27 connections in all. The fifth joins two
+anonymous nets — `a31oi_2_0.A1: $840 and $788` — where `\$840` is the layout
+name Run 1 documents for the known-undriven `net_00575`; the join makes
+`\$840` the survivor, so the two instance pins that were on `\$788` (e.g.
+`and2_2_13`'s last connection, `\$788` → `\$840` in the emitted SPICE) now
+read `\$840`. 869 − 864 = the five absorbed nets. The second warning is the
+guard working as designed when **both** sides are named (`enable` is a
+top-level pin): kept separate. The four `VGND`-and-anonymous joins are the
+same situation with the unnamed side, and `AbstractPinJoins.apply()`'s
+conflict check counts names, so one named + one anonymous passes and joins.
+
+The absorbed nets are real driven signals, not decoration: in
+`evidence/puzzle-extracted.v`, `net_00102` is driven by a cell `.X` and feeds
+three `diode_2` `.DIODE` pins and a `.B`; `net_00124` by `.LO`;
+`net_00283`/`net_00557` likewise carry driven output-to-input connections.
+A net that were genuinely tied to ground could not carry a functioning
+signal — and this netlist is functionally validated (it is the netlist the
+solve simulated, `evidence/puzzle-solve.md`). So the join is a mis-read, not
+a discovery. **Filed as
+[klayout-tools#7561](https://github.com/2AMLogic/klayout-tools/issues/7561)**
+with a unit-level synthetic reproducer against `AbstractPinJoins` itself.
+
+### Stage 2 — the first report, and its verdict
+
+| | |
+|---|---|
+| `status` | **mismatch** |
+| `power_connectivity.status` | `match` (0 findings over all 1,618 instances, as Run 1's probe) |
+| `body_verification.status` | `unchecked` |
+| `mismatch_count` | 31 (29 errors, 2 warnings); `error_count` 29 |
+| categories | `topology` 23, `net.merged` 4, `net.split` 2, + the same two informational warnings as Run 1 (`power_only_pruned`, `top_level_pins_anchored`) |
+| `counts.nets` | layout 864, reference 739, matched 1,291 |
+| `counts.pins` | layout 16, reference 13, matched 574 |
+| envelope | `evidence/puzzle-klt-lvs-01.json`, 234,953 bytes — **committed** (the reference is our own file; nothing is elided, Run 1's stance) |
+
+The anatomy lines up with the extraction change exactly: the 4 `net.merged`
+errors are the four absorbed nets (`net_00102`, `net_00124`, `net_00283`,
+`net_00557` — "multiple reference nets were collapsed into one layout net");
+the 2 `net.split` are `VPWR` and `VSUBS`; the 23 `topology` errors are the
+unmatched instances downstream of those (e.g. layout
+`SKY130_FD_SC_HD__AND4_2_3` vs reference `AND4_2_77090_37840`). The probe
+envelope (bus-port form, `build/`-only as ever) reports the same 31/29 —
+expected, since it differs from stage 2 in port spelling alone.
+
+### The verdict gate (#165)
+
+`evidence/puzzle-klt-lvs-expected.json` pins `01` to this run's verdict —
+`mismatch`, 31, 29 — with `upstream.issue`
+2AMLogic/klayout-tools#7561, and `scripts/puzzle-klt-lvs.sh` now ends in
+`exec tools/lvs-verdict evidence/puzzle-klt-lvs-expected.json
+01:evidence/puzzle-klt-lvs-01.json`, replacing the old "exit 0 means both
+stages completed" contract Run 1's header carried. Measured here:
+
+- the gated script re-run end to end on the baseline build: exit 0,
+  `lvs-verdict: 01 verdict as pinned`;
+- a copy of the envelope with `mismatch_count` altered to 27: exit 1,
+  `01 mismatch_count moved: pinned 31, got 27 (-4)`;
+- a `match` envelope against the pin: exit 1, reported as a stale pin naming
+  #7561 — the upstream fix landing is a promotion (re-record and bump the
+  pin), never a pass;
+- `tools/test-lvs-verdict` grew the puzzle pin's cases (as pinned, count
+  moved, now-match) plus a contract check on the committed expected file:
+  20 checks, all passing, no PDK, no `puzzle/` file.
+
+The confirming cross-check row above (host `0.9.3.dev3993`, klayout 0.30.12)
+reproduced the verdict and counts exactly before the gate landed.
+
+### `klt lvs --check` on the committed envelope
+
+From the repo root, baseline build:
+
+```
+$ klt lvs --check evidence/puzzle-klt-lvs-01.json
+report: evidence/puzzle-klt-lvs-01.json
+status: match
+  [OK] environment.layout_sha256
+  [OK] environment.reference_sha256
+                                                               # exit 0
+$ klt lvs --check evidence/puzzle-klt-lvs-01.json --rerun
+report: evidence/puzzle-klt-lvs-01.json
+status: match
+                                                               # exit 0
+```
+
+As in Run 1, both inputs live inside this repository, so klayout-tools#5631
+does not bite. A fresh clone still needs `./scripts/fetch-puzzle.sh`, a sky130
+PDK and a full re-run to re-verify (every recorded input is gitignored);
+`--check` itself needs no PDK.
+
+### Not changed
+
+`evidence/puzzle-extracted.v` is untouched (still the golden file
+`scripts/puzzle-regression.sh` gates on). The probe stays `build/`-only and
+unpinned — pinning it is Out of Scope in #165, and it is diagnostic, not a
+deliverable. Still not in CI: CI installs no PDK and does not fetch `puzzle/`.

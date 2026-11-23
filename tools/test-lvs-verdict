@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-test for `tools/lvs-verdict`, on canned envelopes (issue #158).
+"""Self-test for `tools/lvs-verdict`, on canned envelopes (issues #158, #165).
 
 `scripts/warmup-klt-lvs.sh` used to exit 0 whenever the runs completed, so
 neither a regression of the `01` match nor a move in `02`'s pinned mismatch
@@ -12,9 +12,16 @@ message: a gate that fails without naming the moved value and its direction
 would only move the silence one step down. Two config-error cases cover the
 tag checks that keep a new reference from skipping the gate.
 
+`scripts/puzzle-klt-lvs.sh` gained the same gate for its single stage 2
+envelope (#165), pinned to the tool-side mismatch of
+klayout-tools#7561, so a second block exercises the puzzle pin's shape --
+as pinned, count moved, and the mismatch turning into a match (a stale pin
+naming that upstream issue) -- and both committed expected files are checked
+against the contract the tool enforces.
+
 Every fixture is synthetic and lives under tempfile.TemporaryDirectory():
 no PDK, no simulator, no puzzle/ file (CLAUDE.md §3), clean working tree.
-The fixtures mirror the committed expected file's shape, at small numbers, so
+The fixtures mirror the committed expected files' shapes, at small numbers, so
 the test asserts behaviour, not the recorded values themselves.
 """
 
@@ -55,6 +62,20 @@ EXPECTED = {
     },
 }
 
+# The puzzle pin's shape (#165): one envelope, pinned to the tool-side
+# mismatch of klayout-tools#7561 -- status plus both counts, so even a
+# count-only move (the extraction drifting again) fails the gate.
+PUZZLE_EXPECTED = {
+    "schema": 1,
+    "expected": {
+        "01": {"status": "mismatch", "mismatch_count": 9, "error_count": 7},
+    },
+    "upstream": {
+        "issue": "2AMLogic/klayout-tools#7561",
+        "url": "https://github.com/2AMLogic/klayout-tools/issues/7561",
+    },
+}
+
 
 def envelope(status: str, mismatch_count: int, error_count: int) -> dict:
     """A canned lvs envelope: the fields lvs-verdict reads, plus one it must
@@ -67,11 +88,17 @@ def envelope(status: str, mismatch_count: int, error_count: int) -> dict:
     }
 
 
-def run_tool(tmp: str, env01: dict, env02: dict, extra_args: list[str] | None = None):
+def run_tool(
+    tmp: str,
+    env01: dict,
+    env02: dict,
+    extra_args: list[str] | None = None,
+    expected: dict | None = None,
+):
     """Write the fixtures, run lvs-verdict's main(), return (rc, stdout)."""
     expected_path = os.path.join(tmp, "expected.json")
     with open(expected_path, "w", encoding="utf-8") as f:
-        json.dump(EXPECTED, f)
+        json.dump(expected if expected is not None else EXPECTED, f)
     paths = {}
     for tag, env in (("01", env01), ("02", env02)):
         paths[tag] = os.path.join(tmp, f"envelope-{tag}.json")
@@ -84,6 +111,24 @@ def run_tool(tmp: str, env01: dict, env02: dict, extra_args: list[str] | None = 
         try:
             rc = lv.main(["lvs-verdict"] + args)
         except SystemExit as e:  # die(): usage/config errors exit directly
+            rc = e.code
+    return rc, out.getvalue()
+
+
+def run_tool_single(tmp: str, env: dict, expected: dict):
+    """run_tool for a one-envelope pin: the puzzle gate's shape (#165), where
+    a single stage 2 envelope is compared against a single pinned tag."""
+    expected_path = os.path.join(tmp, "expected.json")
+    with open(expected_path, "w", encoding="utf-8") as f:
+        json.dump(expected, f)
+    env_path = os.path.join(tmp, "envelope-01.json")
+    with open(env_path, "w", encoding="utf-8") as f:
+        json.dump(env, f)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        try:
+            rc = lv.main(["lvs-verdict", expected_path, f"01:{env_path}"])
+        except SystemExit as e:
             rc = e.code
     return rc, out.getvalue()
 
@@ -185,6 +230,44 @@ def main() -> int:
                 rc = e.code
         check("pinned tag without envelope exits 2", rc == 2, f"rc={rc}")
 
+        # Puzzle pin (#165): one envelope, status + both counts pinned to the
+        # tool-side mismatch of klayout-tools#7561. An agreeing envelope exits
+        # 0; a moved count exits 1 naming the value, both ends and the
+        # direction; the mismatch turning into a match is a stale pin naming
+        # that upstream issue, not a pass.
+        rc, out = run_tool_single(
+            tmp, envelope("mismatch", 9, 7), PUZZLE_EXPECTED
+        )
+        check("puzzle as pinned exits 0", rc == 0, f"rc={rc}")
+        check(
+            "puzzle as pinned names the verdict",
+            "01 verdict as pinned" in out,
+            out.strip(),
+        )
+
+        rc, out = run_tool_single(
+            tmp, envelope("mismatch", 4, 7), PUZZLE_EXPECTED
+        )
+        check("puzzle count moved exits 1", rc == 1, f"rc={rc}")
+        check(
+            "puzzle moved count named with values and direction",
+            "01 mismatch_count moved" in out
+            and "pinned 9" in out
+            and "got 4" in out
+            and "(-5)" in out,
+            out.strip(),
+        )
+
+        rc, out = run_tool_single(
+            tmp, envelope("match", 0, 0), PUZZLE_EXPECTED
+        )
+        check("puzzle now match still exits 1", rc == 1, f"rc={rc}")
+        check(
+            "puzzle stale pin names klayout-tools#7561",
+            "stale" in out and "2AMLogic/klayout-tools#7561" in out,
+            out.strip(),
+        )
+
         # The committed expected file must itself satisfy the contract the
         # tool enforces: an 'expected' object and an upstream.issue to name.
         committed_path = os.path.join(HERE, "..", "evidence", "warmup-klt-lvs-expected.json")
@@ -198,6 +281,25 @@ def main() -> int:
             and committed["expected"]["02"].get("status") == "mismatch"
             and "mismatch_count" in committed["expected"]["02"]
             and "error_count" in committed["expected"]["02"]
+            and isinstance(committed.get("upstream"), dict)
+            and committed["upstream"].get("issue"),
+            str(sorted(committed)),
+        )
+
+        # Same contract for the puzzle pin (#165): one tag, pinned to the
+        # tool-side mismatch with both counts, naming its upstream issue.
+        committed_path = os.path.join(
+            HERE, "..", "evidence", "puzzle-klt-lvs-expected.json"
+        )
+        with open(committed_path, encoding="utf-8") as f:
+            committed = json.load(f)
+        check(
+            "committed puzzle expected file has its pin and an upstream issue",
+            isinstance(committed.get("expected"), dict)
+            and set(committed["expected"]) == {"01"}
+            and committed["expected"]["01"].get("status") == "mismatch"
+            and "mismatch_count" in committed["expected"]["01"]
+            and "error_count" in committed["expected"]["01"]
             and isinstance(committed.get("upstream"), dict)
             and committed["upstream"].get("issue"),
             str(sorted(committed)),
