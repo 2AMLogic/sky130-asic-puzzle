@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "expected": {
+    "01": {
+      "status": "mismatch",
+      "mismatch_count": 31,
+      "error_count": 29
+    }
+  },
+  "recorded_on": {
+    "date": "2026-11-23",
+    "klt": "0.9.3.dev3831+g6ca7e001c187",
+    "klayout": "0.30.14",
+    "run": "Run 2, evidence/puzzle-klt-lvs.md"
+  },
+  "confirmed_on": {
+    "date": "2026-11-23",
+    "klt": "0.9.3.dev3993+g922fd6747463",
+    "klayout": "0.30.12",
+    "note": "identical verdict and counts (the first klt lvs build able to read the reference at all, via the klayout-tools#7452 reader fix); see evidence/puzzle-klt-lvs.md Run 2"
+  },
+  "upstream": {
+    "issue": "2AMLogic/klayout-tools#7561",
+    "url": "https://github.com/2AMLogic/klayout-tools/issues/7561",
+    "note": "The pinned 01 mismatch is tool-side: 9edf835f5's routed-pad join absorbs anonymous nets into the named VGND rail through diode VNB pads, shorting four driven nets (23 topology errors, 4 net.merged, 2 net.split on VPWR/VSUBS). A run that instead reports match means the upstream fix has landed: promote the expectation (re-record the run and bump this file), never loosen the gate. klayout-tools#5693 (the reader) is closed by #7452, which no released klt carries yet -- a 0.9.2 klt still exits 1 at stage 2 before any compare."
+  }
+}

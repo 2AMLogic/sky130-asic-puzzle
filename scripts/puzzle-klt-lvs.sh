@@ -27,20 +27,31 @@
 # the puzzle, and the 13 top-level pins come from in-GDS labels already.
 #
 # STAGE ORDER. The isolating probe runs *before* the compare against the
-# committed reference, deliberately. `klt lvs` cannot read
-# evidence/puzzle-extracted.v at all today — its eight escaped-bracket scalar
-# ports `\O[0] … \O[7] ` trip the gate-level-verilog reader's port-list check
-# (klayout-tools#5693, a follow-up to closed #1371 and #4810) and it exits 1
-# before any compare. The probe's own stage fails soft: a probe-side hard
-# error (klt's documented exit 1 or worse) is reported on stderr with its rc
-# and stage 2 is still attempted — the script's exit status is always stage
-# 2's, so the probe can never suppress the deliverable compare. The probe is
-# build/-only and nothing committed depends on it. There is no workaround for
-# the reader defect in this script: the error is left to surface verbatim
+# committed reference, deliberately. `klt lvs` could not read
+# evidence/puzzle-extracted.v until klayout-tools#5693 was fixed (closed by
+# #7452, merge `6ca7e00` — first in the dev line, no released klt carries it
+# yet): its eight escaped-bracket scalar ports `\O[0] … \O[7] ` tripped the
+# gate-level-verilog reader's port-list check and it exited 1 before any
+# compare (Run 1, and re-demonstrated on the old build in Run 2). The probe's
+# own stage fails soft: a probe-side hard error (klt's documented exit 1 or
+# worse) is reported on stderr with its rc and stage 2 is still attempted, so
+# the probe can never suppress the deliverable compare. The probe is build/-
+# only and nothing committed depends on it. There is no workaround for a
+# reader defect in this script: the error is left to surface verbatim
 # (CLAUDE.md §2).
 #
-# Exit 0 means both stages completed, NOT that the compare matched; the verdicts
-# are printed and live in the envelopes.
+# Exit 0 means both stages completed AND the stage 2 verdict equals the pins
+# in evidence/puzzle-klt-lvs-expected.json (#165): tools/lvs-verdict --
+# PDK-free, self-tested by tools/test-lvs-verdict -- compares the fresh
+# envelope after the reference has run and names any moved value with its
+# direction. The pinned mismatch is tool-side (klayout-tools#7561:
+# --abstract-cells joins routed pads of one pin even when one side is an
+# anonymous net, which on this layout shorts four driven nets into VGND);
+# a run that instead reports match means the upstream fix has landed --
+# promote the pin, never loosen the gate. A klt lvs crash (rc > 3) and a
+# stage 2 that produces no report (a reader error, pre-#7452 klt) stay hard
+# errors: the script propagates the exit code and leaves any previously
+# installed envelope in evidence/ untouched.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -140,8 +151,9 @@ run_lvs "$PROBE_REFERENCE" "$BUILD/puzzle-klt-lvs-probe.json" "probe(bus-port)" 
 
 # ---- Stage 2: the committed reference, unmodified -------------------------
 #
-# This is the deliverable compare. Today it exits 1 at reference conversion
-# (klayout-tools#5693); the error is left to surface and stops the script.
+# This is the deliverable compare. A klt without the klayout-tools#5693 fix
+# exits 1 here at reference conversion; the error is left to surface, stops
+# the script and leaves any previously installed envelope untouched.
 echo
 echo "Stage 2: evidence/puzzle-extracted.v as committed"
 # Written under build/ first so a run that produces no report leaves no
@@ -155,3 +167,9 @@ if [ "$rc" -ne 0 ]; then
 fi
 cp "$STAGED" evidence/puzzle-klt-lvs-01.json
 echo "  envelope: evidence/puzzle-klt-lvs-01.json ($(wc -c < evidence/puzzle-klt-lvs-01.json) bytes)"
+
+# Verdict gate (#165): the fresh envelope exists now, so compare it against
+# the pinned expectations before exiting -- a completed run that moved the
+# verdict fails, with the moved value and its direction named.
+exec "$ROOT/tools/lvs-verdict" evidence/puzzle-klt-lvs-expected.json \
+  01:evidence/puzzle-klt-lvs-01.json
