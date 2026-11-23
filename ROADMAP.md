@@ -90,16 +90,17 @@ by the dated verification rows in `evidence/upstream.md`, run 2026-11-21 under #
 #5632 closed too recently to have been re-run from this side: re-checking the `02`
 comparison against a `klt` that carries its fix is the remaining open step.
 
-**Tracker.** Four issues are open as of 2026-11-23, this one among them. #178 (derive
-Icarus simulation success from the vvp exit code) is approved and in flight behind its
-pull request (PR #179); #192 (concurrent Guide passes open duplicate docs PRs, and the
-Judge's docs fast-path reads a `gh` field 2.102.0 lacks) is open and carries no label
-yet; #30 is the automated merge-hold digest, parked on an operator decision, not work.
-Everything the previous inventory carried has closed: the curated pair #106 (PR #115)
-and #112 (PR #120), the approval hold #100, the triage hold #118, the fresh filings
-#119, #121 and #122, and the operator-parked #78 — all eight checked closed via the
-GitHub API 2026-11-23. One pull request is open as this is written (PR #179, for #178),
-in normal review flow. `WORK_PLAN.md` is machine-generated and lags these filings.
+**Tracker.** Four issues are open as of 2026-11-23 (re-read from the API at 17:51Z).
+#203 (this refresh) is in flight behind PR #204. #205 (the `## Now` section's inventory is stale) is approved
+(`loom:issue`); #192 (concurrent Guide passes open duplicate docs PRs, and the Judge's
+docs fast-path reads a `gh` field 2.102.0 lacks) is parked on `loom:operator` for an
+operator ruling; #30 is the automated merge-hold digest, not work. #178 (derive Icarus
+simulation success from the vvp exit code) has closed with its pull request, PR #179,
+merged. Everything the earlier inventory carried has closed too: the curated pair #106
+(PR #115) and #112 (PR #120), the approval hold #100, the triage hold #118, the fresh
+filings #119, #121 and #122, and the operator-parked #78 — all eight checked closed via
+the GitHub API 2026-11-23. One pull request is open as this is written (PR #204, the
+one carrying this edit). `WORK_PLAN.md` is machine-generated and lags these filings.
 
 ## Now
 
