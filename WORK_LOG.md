@@ -11,6 +11,8 @@ updated.
 
 ### 2026-11-23
 
+- **PR #212**: docs: re-derive ROADMAP tracker open-issue list and drop stale status clauses
+- **Issue #211** (closed): ROADMAP Tracker paragraph asserts stale present-tense status for closed #203 and #192
 - **PR #210**: docs: drop standing open-PR total from ROADMAP tracker paragraph
 - **Issue #208** (closed): ROADMAP Tracker asserts a self-counting open-PR total that self-invalidates (ROADMAP.md:102)
 - **PR #204**: docs: refresh stale README/ROADMAP status counts and tracker inventory

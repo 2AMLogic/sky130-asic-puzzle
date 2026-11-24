@@ -36,7 +36,7 @@ Human-approved issues (`loom:issue`) ready for implementation — excluding held
 
 Issues currently being built (`loom:building`).
 
-- **#211**: ROADMAP Tracker paragraph asserts stale present-tense status for closed #203 and #192
+_None._
 
 ## PRs Awaiting Review
 
@@ -48,14 +48,13 @@ _None._
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#212**: docs: re-derive ROADMAP tracker open-issue list and drop stale status clauses
+_None._
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
 - **#205**: ROADMAP "## Now" section inventory is stale (says no issue carries loom:issue; names closed #106/#112/#100/#118/#119/#121/#122/#78) *(curated)*
-- **#211**: ROADMAP Tracker paragraph asserts stale present-tense status for closed #203 and #192 *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -73,10 +72,10 @@ _None._
 | Very important | 0 |
 | Important | 0 |
 | Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
-| In Progress (`loom:building`) | 1 |
+| In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 2 |
+| Approved PRs awaiting merge | 0 |
+| Curated | 1 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->
