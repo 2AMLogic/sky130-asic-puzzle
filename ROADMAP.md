@@ -136,10 +136,12 @@ waiting", and the earlier #159 and #160 work has landed.
 
 ## Blocked and waiting
 
-#78 (Hermit: dead code in `tools/sim/solve.py`) is parked on an operator decision; #118
-is blocked on a triage decision (whether `sim-selftests.sh` should now gate
-`selftest_solve`, whose "blocked on #98" skip is stale); #30 is the automated
-merge-hold digest, not work. Nothing else here waits on a person. The `02`
+The human holds this section carried have cleared: #78 (Hermit: dead code in
+`tools/sim/solve.py`) and #118 (whether `sim-selftests.sh` should now gate
+`selftest_solve`) are both closed — states checked via the GitHub API 2026-11-24.
+#30 is the automated merge-hold digest, not work. Nothing else here waits on a
+person: of the issues open as of 2026-11-24 (re-read from the API at 03:13Z),
+#205 and #218 are builder work in flight, not human holds. The `02`
 comparison cannot be re-checked until a released klt carries the #5632 fix, and a
 matching puzzle compare cannot be resolved while klayout-tools#7561 is open; re-recording the warm-up envelopes waits
 for the first klayout-tools release after 0.9.2 (#5631's fix), and no released klt
