@@ -29,13 +29,13 @@ _None._
 
 Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues closed by an open `loom:pr` PR (listed under Approved).
 
-- **#205**: ROADMAP "## Now" section inventory is stale (says no issue carries loom:issue; names closed #106/#112/#100/#118/#119/#121/#122/#78)
+_None._
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#205**: ROADMAP "## Now" section inventory is stale (says no issue carries loom:issue; names closed #106/#112/#100/#118/#119/#121/#122/#78)
 
 ## PRs Awaiting Review
 
@@ -47,13 +47,14 @@ _None._
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#217**: docs: replace stale ROADMAP Now inventory with dated pointer
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
 - **#205**: ROADMAP "## Now" section inventory is stale (says no issue carries loom:issue; names closed #106/#112/#100/#118/#119/#121/#122/#78) *(curated)*
+- **#218**: ROADMAP "## Blocked and waiting" names closed #78 and #118 as live holds *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -70,11 +71,11 @@ _None._
 | Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 0 |
-| Ready (`loom:issue`, net of holds/building/merge-pending) | 1 |
-| In Progress (`loom:building`) | 0 |
+| Ready (`loom:issue`, net of holds/building/merge-pending) | 0 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 1 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 2 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 0 |
 <!-- guide:plan-body:end -->

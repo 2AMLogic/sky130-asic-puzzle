@@ -9,6 +9,11 @@ updated.
 
 - [2026-08](work_log/WORK_LOG_2026-08.md)
 
+### 2026-11-24
+
+- **PR #216**: docs: drop the _Generated stamp from WORK_PLAN
+- **Issue #215** (closed): WORK_PLAN regeneration sometimes leaves `_Generated:` stamp at the prior run's value
+
 ### 2026-11-23
 
 - **PR #212**: docs: re-derive ROADMAP tracker open-issue list and drop stale status clauses
