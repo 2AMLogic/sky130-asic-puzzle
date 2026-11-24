@@ -11,6 +11,10 @@ updated.
 
 ### 2026-11-24
 
+- **PR #217**: docs: replace stale ROADMAP Now inventory with dated pointer
+- **PR #220**: docs: replace stale #78/#118 holds in ROADMAP blocked-and-waiting
+- **Issue #205** (closed): ROADMAP "## Now" section inventory is stale (says no issue carries loom:issue; names closed #106/#112/#100/#118/#119/#121/#122/#78)
+- **Issue #218** (closed): ROADMAP "## Blocked and waiting" names closed #78 and #118 as live holds
 - **PR #216**: docs: drop the _Generated stamp from WORK_PLAN
 - **Issue #215** (closed): WORK_PLAN regeneration sometimes leaves `_Generated:` stamp at the prior run's value
 
