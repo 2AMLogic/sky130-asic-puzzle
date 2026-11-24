@@ -107,15 +107,12 @@ and lags these filings.
 
 ## Now
 
-The queue is not empty, but nothing in it is idle-dispatchable as this is written: no
-open issue carries `loom:issue`. #106 and #112 are curated and in flight behind PRs
-#115 and #120; #100 is curated (points:2) and awaiting approval; #119, #121 and #122
-await curation; #118 is blocked on a triage decision; #78 and #30 are parked or blocked
-as described under "Tracker" and "Blocked and waiting". The three items this section
-carried on 2026-11-13 are done and recorded under "Where it stands" (#75 as PR #103,
-#76 as PR #90, #77 as PR #99); the fourth item the list opened with was #74, merged as
-PR #81 the same day. New items are filed as issues, curated with a point estimate, and
-then listed here.
+As of `4803e1b` (2026-11-24) the queue holds no idle-dispatchable work. The live list
+is `gh issue list --state open`; it is deliberately not enumerated here, so it cannot
+drift. The one long-lived open item is #30, parked as described under "Blocked and
+waiting". The four items this section carried on 2026-11-13 are done and recorded
+under "Where it stands" (#75 as PR #103, #76 as PR #90, #77 as PR #99, #74 as PR #81).
+New items are filed as issues and curated with a point estimate.
 
 ## Next
 
